@@ -18,7 +18,8 @@ import rateLimit from "express-rate-limit";
 
 dotenv.config();
 const app = express();
-app.use(cors());
+const allowedOrigin = process.env.CORS_ORIGIN || "http://localhost:5173";
+app.use(cors({ origin: allowedOrigin, credentials: true }));
 // Allow images to be consumed from a different origin/port (e.g., Vite dev server)
 app.use(helmet({ crossOriginResourcePolicy: { policy: "cross-origin" } }));
 app.use(express.json());
@@ -28,16 +29,13 @@ const authLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 100 });
 const uploadLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 200 });
 
 const MONGO_URI = process.env.MONGO_URI || "mongodb://localhost:27017/shop";
-mongoose.connect(MONGO_URI)
+mongoose
+  .connect(MONGO_URI, {
+    useNewUrlParser: true,
+    useUnifiedTopology: true,
+  })
   .then(() => console.log("MongoDB connected"))
-  .catch(err => console.error("MongoDB connection error:", err));
-
-  mongoose.connect(process.env.MONGODB_URI, {
-  useNewUrlParser: true,
-  useUnifiedTopology: true,
-});
-const allowedOrigin = process.env.CORS_ORIGIN || 'http://localhost:5173';
-app.use(cors({ origin: allowedOrigin, credentials: true }));
+  .catch((err) => console.error("MongoDB connection error:", err));
 
 app.use("/api/products", productsRouter);
 app.use("/api/orders", ordersRouter);
