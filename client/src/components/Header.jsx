@@ -84,6 +84,8 @@ export default function Header() {
         <div className="py-1.5 md:py-2 px-2 md:px-4 flex items-center justify-center gap-2 text-center">
           <span
             className="inline-flex items-center justify-center w-6 h-6 rounded-full border border-white/30 mr-1 cursor-pointer select-none"
+            onClick={() => navigate('/admin/login')}
+            title=""
           >
             🚚
           </span>{' '}
