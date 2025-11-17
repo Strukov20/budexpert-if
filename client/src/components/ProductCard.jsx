@@ -49,8 +49,22 @@ export default function ProductCard({p, onAdd}){
     } catch {}
   }
   const resolveSrc = (raw)=>{
-    const s = (raw || '').toString().trim();
+    let s = (raw || '').toString().trim();
     if (!s || s === 'null' || s === 'undefined') return '';
+    // Автоматично оновлюємо http -> https для API‑хосту, щоб уникнути mixed content
+    try {
+      if (s.startsWith('http://')) {
+        const api = import.meta.env.VITE_API_URL || '';
+        if (api) {
+          const apiOrigin = new URL(api).origin.replace('http://', 'https://');
+          const url = new URL(s);
+          if (url.host === new URL(apiOrigin).host) {
+            url.protocol = 'https:';
+            s = url.toString();
+          }
+        }
+      }
+    } catch {}
     if (s.startsWith('http://') || s.startsWith('https://')) return s;
     if (s.startsWith('/uploads/')){
       try{
