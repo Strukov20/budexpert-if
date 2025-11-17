@@ -18,8 +18,19 @@ import rateLimit from "express-rate-limit";
 
 dotenv.config();
 const app = express();
-const allowedOrigin = process.env.CORS_ORIGIN || "http://localhost:5173";
-app.use(cors({ origin: allowedOrigin, credentials: true }));
+const allowedOriginEnv = process.env.CORS_ORIGIN || "http://localhost:5173";
+const allowedOrigins = allowedOriginEnv.split(",").map(o => o.trim()).filter(Boolean);
+
+app.use(cors({
+  origin: (origin, callback) => {
+    // allow non-browser clients or same-origin
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.length === 0) return callback(null, true);
+    if (allowedOrigins.includes(origin)) return callback(null, true);
+    return callback(new Error("Not allowed by CORS"));
+  },
+  credentials: true,
+}));
 // Allow images to be consumed from a different origin/port (e.g., Vite dev server)
 app.use(helmet({ crossOriginResourcePolicy: { policy: "cross-origin" } }));
 app.use(express.json());
