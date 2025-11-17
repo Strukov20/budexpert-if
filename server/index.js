@@ -29,6 +29,9 @@ const authLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 100 });
 const uploadLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 200 });
 
 const MONGO_URI = process.env.MONGO_URI || "mongodb://localhost:27017/shop";
+console.log("[BOOT] process.env.MONGO_URI =", process.env.MONGO_URI);
+console.log("[BOOT] Using MONGO_URI =", MONGO_URI);
+
 mongoose
   .connect(MONGO_URI, {
     useNewUrlParser: true,
