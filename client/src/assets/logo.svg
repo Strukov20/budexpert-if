@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="160" height="40" viewBox="0 0 160 40" fill="none">
+  <text x="0" y="26" font-family="Arial, Helvetica, sans-serif" font-size="22" fill="#111827">Bud</text>
+  <text x="42" y="26" font-family="Arial, Helvetica, sans-serif" font-size="22" fill="#D00000">Expert</text>
+  <path d="M120 8 L134 20" stroke="#D00000" stroke-width="2" stroke-linecap="round"/>
+  <path d="M134 8 L120 20" stroke="#D00000" stroke-width="2" stroke-linecap="round"/>
+</svg>
