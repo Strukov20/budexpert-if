@@ -1,0 +1,19 @@
+{
+  "private": true,
+  "scripts": {
+    "predev": "npm --prefix server i && npm --prefix client i",
+    "dev": "concurrently -n server,client -c green,cyan \"npm --prefix server run dev\" \"npm --prefix client run dev\"",
+    "server:dev": "npm --prefix server run dev",
+    "client:dev": "npm --prefix client run dev",
+    "server:start": "npm --prefix server start",
+    "client:build": "npm --prefix client run build",
+    "client:preview": "npm --prefix client run preview"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^5.1.0",
+    "concurrently": "^9.0.0"
+  },
+  "dependencies": {
+    "mongodb": "^7.0.0"
+  }
+}
