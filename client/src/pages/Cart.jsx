@@ -60,6 +60,9 @@ export default function CartPage(){
                     <img src={i.image || NO_IMG_80} alt={i.name} className='w-14 h-14 sm:w-16 sm:h-16 md:w-20 md:h-20 object-cover rounded' />
                     <div className='flex flex-col min-w-0'>
                       <div className='font-medium truncate'>{i.name}</div>
+                      {i.sku && (
+                        <div className='text-[11px] text-gray-500'>Артикул: {i.sku}</div>
+                      )}
                       <div
                         className='text-xs md:text-sm text-gray-600 whitespace-normal break-words pr-1'
                         style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}
@@ -120,6 +123,9 @@ export default function CartPage(){
                   <img src={live.image || NO_IMG_LARGE} className='mx-auto w-full md:w-4/5 max-h-[32vh] md:max-h-[38vh] object-contain rounded-md' alt={live.name} />
                 </div>
                 <h3 className='mt-4 text-2xl font-semibold tracking-tight text-center'>{live.name}</h3>
+                {live.sku && (
+                  <div className='mt-1 text-sm text-gray-500 text-center'>Артикул: {live.sku}</div>
+                )}
                 <div className='mt-3 text-gray-700 whitespace-pre-wrap max-h-[28vh] overflow-auto pr-1 text-center'>
                   {live.description || 'Без опису'}
                 </div>

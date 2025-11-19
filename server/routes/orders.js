@@ -8,7 +8,7 @@ const router = express.Router();
 // GET all orders (admin only)
 router.get("/", requireAdmin, async (req, res) => {
   try {
-    const orders = await Order.find().populate("items.productId", "name price");
+    const orders = await Order.find().populate("items.productId", "name price sku");
     res.json(orders);
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -18,7 +18,7 @@ router.get("/", requireAdmin, async (req, res) => {
 // GET one order (admin only)
 router.get("/:id", requireAdmin, async (req, res) => {
   try {
-    const order = await Order.findById(req.params.id).populate("items.productId", "name price");
+    const order = await Order.findById(req.params.id).populate("items.productId", "name price sku");
     if (!order) return res.status(404).json({ message: "Order not found" });
     res.json(order);
   } catch (error) {

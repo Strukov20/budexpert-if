@@ -32,8 +32,7 @@ router.post('/', upload.single('file'), (req, res) => {
   if (!req.file) return res.status(400).json({ message: 'Файл не отримано' })
   const filename = req.file.filename
   const relativeUrl = `/uploads/${filename}`
-  const origin = `${req.protocol}://${req.get('host')}`
-  const url = `${origin}${relativeUrl}`
+  const url = relativeUrl
   res.status(201).json({ url, filename })
 })
 

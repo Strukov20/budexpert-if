@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { getProducts, createProduct, updateProduct, deleteProduct, getCategories, createCategory, getOrders, deleteOrder, uploadImage, updateCategory, deleteCategory, reassignCategories, updateOrder, getLeads, updateLead, bulkCreateProducts, deleteAllProducts } from '../api'
-import { FiEdit2, FiPlus, FiX, FiCheckCircle, FiAlertTriangle, FiEye, FiTrash2, FiRefreshCcw, FiMaximize2, FiMinimize2 } from 'react-icons/fi'
+import { FiEdit2, FiPlus, FiX, FiCheckCircle, FiAlertTriangle, FiEye, FiTrash2, FiRefreshCcw, FiMaximize2, FiMinimize2, FiSearch } from 'react-icons/fi'
 
 export default function AdminPanel(){
   const navigate = useNavigate()
@@ -11,6 +11,7 @@ export default function AdminPanel(){
   const [leads, setLeads] = useState([])
   const [leadsFull, setLeadsFull] = useState(false)
   const [ordersFull, setOrdersFull] = useState(false)
+  const [prodFull, setProdFull] = useState(false)
   const [leadSearch, setLeadSearch] = useState('')
   const [leadFrom, setLeadFrom] = useState('')
   const [leadTo, setLeadTo] = useState('')
@@ -19,14 +20,18 @@ export default function AdminPanel(){
   const [selectedProdId, setSelectedProdId] = useState('')
   const [showProdEdit, setShowProdEdit] = useState(false)
   const [showProdCreate, setShowProdCreate] = useState(false)
-  const [prodForm, setProdForm] = useState({ name:'', price:0, image:'', description:'', category:'' })
+  const [prodForm, setProdForm] = useState({ name:'', price:0, image:'', description:'', category:'', sku:'', stock:0 })
   const [showProdList, setShowProdList] = useState(false)
   const [prodListSearch, setProdListSearch] = useState('')
+  const [prodSearchOpen, setProdSearchOpen] = useState(false)
   const [prodSortAsc, setProdSortAsc] = useState(true)
   const [prodSortKey, setProdSortKey] = useState('name') // name | price | date
   const [prodPage, setProdPage] = useState(1)
   const [prodPerPage, setProdPerPage] = useState(10)
   const [catName, setCatName] = useState('')
+  const [inlineCatName, setInlineCatName] = useState('')
+  const [inlineCatLoading, setInlineCatLoading] = useState(false)
+  const [showInlineCat, setShowInlineCat] = useState(false)
   const [selectedCatId, setSelectedCatId] = useState('')
   const [showCatEdit, setShowCatEdit] = useState(false)
   const [showCatCreate, setShowCatCreate] = useState(false)
@@ -34,6 +39,7 @@ export default function AdminPanel(){
   const [applyToProducts, setApplyToProducts] = useState(true)
   const [showCatList, setShowCatList] = useState(false)
   const [catListSearch, setCatListSearch] = useState('')
+  const [catSearchOpen, setCatSearchOpen] = useState(false)
   const [catSortAsc, setCatSortAsc] = useState(true)
   const [catSortKey, setCatSortKey] = useState('name') // name | date
   const [catPage, setCatPage] = useState(1)
@@ -99,15 +105,24 @@ export default function AdminPanel(){
         const parsed = JSON.parse(text)
         items = Array.isArray(parsed) ? parsed : (parsed.items||[])
       } else {
-        // CSV очікує колонки: name,price,description,image,categoryName
+        // CSV очікує колонки: name,price,description,image,categoryName,sku,stock,manufacturer
         const rows = parseCsv(text)
-        items = rows.map(r=> ({
-          name: r.name,
-          price: Number(r.price||0),
-          description: r.description||'',
-          image: r.image||'',
-          categoryName: r.categoryName||r.category||''
-        }))
+        items = rows.map(r=>{
+          const rawPrice = (r.price||'').toString().replace(',', '.').trim()
+          const price = Number(rawPrice || 0) || 0
+          const rawStock = (r.stock||r.quantity||r.kilkist||'').toString().replace(',', '.').trim()
+          const stock = Math.max(0, Math.floor(Number(rawStock || 0) || 0))
+          return {
+            name: r.name,
+            price,
+            description: r.description||'',
+            image: r.image||'',
+            categoryName: r.categoryName||r.category||'',
+            sku: r.sku||r.SKU||r.artikul||r.article||'',
+            stock,
+            manufacturer: r.manufacturer||r.brand||r.group||r.група||''
+          }
+        })
       }
       items = items.filter(x=> (x.name||'').trim())
       if(items.length===0){ showToast('Файл порожній або невірний формат','error'); return }
@@ -158,10 +173,33 @@ export default function AdminPanel(){
     if (!u) return ''
     if (u.startsWith('http://') || u.startsWith('https://')) return u
     if (u.startsWith('/uploads/')){
-      const origin = `${window.location.protocol}//${window.location.hostname}:5001`
-      return origin + u
+      try {
+        const api = import.meta.env.VITE_API_URL || ''
+        if (api) {
+          const origin = new URL(api).origin
+          return origin + u
+        }
+      } catch {}
     }
     return u
+  }
+
+  const normalizeImageForSave = (u)=>{
+    try{
+      if(!u) return ''
+      if (u.startsWith('/uploads/')) return u
+      if (u.startsWith('http://') || u.startsWith('https://')){
+        const api = import.meta.env.VITE_API_URL || ''
+        if (api){
+          const apiOrigin = new URL(api).origin
+          const url = new URL(u)
+          if (url.origin === apiOrigin && url.pathname.startsWith('/uploads/')){
+            return url.pathname
+          }
+        }
+      }
+      return u
+    } catch { return u }
   }
 
   useEffect(()=>{
@@ -190,8 +228,9 @@ export default function AdminPanel(){
 
   const handleCreateProduct = async ()=>{
     try{
-      await createProduct(prodForm);
-      setShowProdCreate(false); setProdForm({ name:'', price:0, image:'', description:'', category:'' });
+      const payload = { ...prodForm, image: normalizeImageForSave(prodForm.image) }
+      await createProduct(payload);
+      setShowProdCreate(false); setProdForm({ name:'', price:0, image:'', description:'', category:'', sku:'', stock:0 });
       loadAll();
       showToast('Товар успішно додано','success')
     }catch(err){
@@ -200,9 +239,10 @@ export default function AdminPanel(){
   }
   const handleUpdate = async ()=>{
     try{
-      await updateProduct(selectedProdId, prodForm);
+      const payload = { ...prodForm, image: normalizeImageForSave(prodForm.image) }
+      await updateProduct(selectedProdId, payload);
       setShowProdEdit(false);
-      setProdForm({ name:'', price:0, image:'', description:'', category:'' });
+      setProdForm({ name:'', price:0, image:'', description:'', category:'', sku:'', stock:0 });
       loadAll();
       showToast('Товар оновлено','success')
     }catch(err){
@@ -241,6 +281,23 @@ export default function AdminPanel(){
       showToast('Категорію створено','success')
     } catch(err){
       showToast(getErrMsg(err),'error')
+    }
+  }
+
+  const handleInlineCreateCategory = async ()=>{
+    const name = (inlineCatName||'').trim()
+    if (!name) return
+    setInlineCatLoading(true)
+    try{
+      const created = await createCategory({ name })
+      setCategories(prev=> [...prev, created])
+      setProdForm(prev=> ({ ...prev, category: created._id || prev.category }))
+      setInlineCatName('')
+      showToast('Категорію створено','success')
+    } catch(err){
+      showToast(getErrMsg(err),'error')
+    } finally {
+      setInlineCatLoading(false)
     }
   }
 
@@ -393,22 +450,55 @@ export default function AdminPanel(){
       
       
       <h3 className='order-last text-xl font-semibold mt-6 mb-3'>Управління товаром</h3>
-      <div className='order-last grid md:grid-cols-2 gap-4 mb-6'>
+      <div className={`${prodFull ? 'fixed inset-0 z-50 bg-white p-4 overflow-auto' : 'order-last mb-6'}`}>
         <div className='card p-4'>
-          <h3 className='font-semibold mb-2 text-center'>Товари</h3>
-          <div className='flex gap-2 items-center justify-center'>
-            <button type='button' onClick={()=>{ setProdForm({ name:'', price:0, image:'', description:'', category:'' }); setShowProdCreate(true) }} className='inline-flex items-center gap-2 px-3 py-2 border rounded hover:bg-black hover:text-white transition'>
-              <FiPlus size={18} /> <span>Додати</span>
+          <div className='flex items-center justify-between mb-3'>
+            <div className='flex gap-3 items-center justify-center flex-wrap flex-1'>
+              <button
+                type='button'
+                onClick={()=> setShowProdList(true)}
+                className='inline-flex items-center gap-2 px-3 py-2 border rounded hover:bg-black hover:text-white transition'
+              >
+                <FiEye size={18} />
+                <span>Всі товари</span>
+              </button>
+              <button
+                type='button'
+                onClick={handleImportClick}
+                className='inline-flex items-center gap-2 px-3 py-2 border rounded hover:bg-black hover:text-white transition'
+              >
+                <FiPlus size={18} />
+                <span>Імпорт товарів</span>
+              </button>
+              <button
+                type='button'
+                onClick={handleDeleteAllProducts}
+                className='inline-flex items-center justify-center w-10 h-10 border rounded text-red-600 hover:bg-red-600 hover:text-white transition'
+                title='Видалити всі товари'
+                aria-label='Видалити всі товари'
+              >
+                <FiTrash2 size={18} />
+              </button>
+              <span className='inline-block w-px h-6 bg-gray-200' aria-hidden='true' />
+              <button
+                type='button'
+                onClick={()=> setShowCatList(true)}
+                className='inline-flex items-center gap-2 px-3 py-2 border rounded hover:bg-black hover:text-white transition'
+              >
+                <FiEye size={18} />
+                <span>Всі категорії</span>
+              </button>
+            </div>
+            <button
+              className='w-10 h-10 inline-flex items-center justify-center border rounded hover:bg-gray-50 active:scale-95 ml-2 shrink-0'
+              onClick={()=> setProdFull(v=>!v)}
+              aria-label={prodFull ? 'Вийти з повного екрану' : 'На весь екран'}
+              title={prodFull ? 'Згорнути' : 'Розгорнути'}
+            >
+              {prodFull ? <FiMinimize2 /> : <FiMaximize2 />}
             </button>
-            <button type='button' onClick={()=> setShowProdList(true)} className='inline-flex items-center gap-2 px-3 py-2 border rounded hover:bg-black hover:text-white transition'>
-              <FiEye size={18} /> <span>Переглянути всі</span>
-            </button>
-            <button type='button' onClick={handleImportClick} className='inline-flex items-center gap-2 px-3 py-2 border rounded hover:bg-black hover:text-white transition'>
-              <span>Імпорт</span>
-            </button>
-            <button type='button' onClick={handleDeleteAllProducts} className='inline-flex items-center gap-2 px-3 py-2 border rounded text-red-600 hover:bg-red-600 hover:text-white transition' title='Видалити всі товари' aria-label='Видалити всі товари'>
-              <FiTrash2 size={18} /> <span>Очистити всі</span>
-            </button>
+          </div>
+          <div className='flex gap-2 items-center justify-center flex-wrap'>
             <input ref={importInputRef} type='file' accept='.csv,.json,text/csv,application/json' className='hidden' onChange={handleImportFile} />
           </div>
 
@@ -436,16 +526,47 @@ export default function AdminPanel(){
                       <button type='button' className='px-3 py-1 border rounded' onClick={()=>setProdForm({...prodForm, image:''})}>Очистити</button>
                     </div>
                   )}
-                  <div className='md:col-span-2 relative'>
-                    <select className='border p-2 pr-10 rounded w-full' value={prodForm.category} onChange={e=>setProdForm({...prodForm, category:e.target.value})}>
-                      <option value=''>Виберіть категорію</option>
-                      {categories.map(c=> <option key={c._id} value={c._id}>{c.name}</option>)}
-                    </select>
-                    <span className='pointer-events-none absolute inset-y-0 right-3 flex items-center text-gray-500'>
-                      <svg xmlns='http://www.w3.org/2000/svg' className='h-4 w-4' viewBox='0 0 20 20' fill='currentColor'>
-                        <path fillRule='evenodd' d='M5.23 7.21a.75.75 0 011.06.02L10 10.94l3.71-3.71a.75.75 0 111.06 1.06l-4.24 4.24a.75.75 0 01-1.06 0L5.21 8.29a.75.75 0 01.02-1.08z' clipRule='evenodd' />
-                      </svg>
-                    </span>
+                  <div className='md:col-span-2 space-y-2'>
+                    <div className='flex gap-2 items-center'>
+                      <div className='relative flex-1'>
+                        <select className='border p-2 pr-10 rounded w-full' value={prodForm.category} onChange={e=>setProdForm({...prodForm, category:e.target.value})}>
+                          <option value=''>Виберіть категорію</option>
+                          {categories.map(c=> <option key={c._id} value={c._id}>{c.name}</option>)}
+                        </select>
+                        <span className='pointer-events-none absolute inset-y-0 right-3 flex items-center text-gray-500'>
+                          <svg xmlns='http://www.w3.org/2000/svg' className='h-4 w-4' viewBox='0 0 20 20' fill='currentColor'>
+                            <path fillRule='evenodd' d='M5.23 7.21a.75.75 0 011.06.02L10 10.94l3.71-3.71a.75.75 0 111.06 1.06l-4.24 4.24a.75.75 0 01-1.06 0L5.21 8.29a.75.75 0 01.02-1.08z' clipRule='evenodd' />
+                          </svg>
+                        </span>
+                      </div>
+                      <button
+                        type='button'
+                        onClick={()=> setShowInlineCat(v=>!v)}
+                        className='w-10 h-10 inline-flex items-center justify-center border rounded bg-white hover:bg-black hover:text-white transition'
+                        aria-label='Додати нову категорію'
+                      >
+                        <FiPlus size={18} />
+                      </button>
+                    </div>
+                    {showInlineCat && (
+                      <div className='flex flex-col sm:flex-row gap-2 sm:items-center'>
+                        <input
+                          className='border p-2 rounded flex-1'
+                          placeholder='Нова категорія'
+                          value={inlineCatName}
+                          onChange={e=> setInlineCatName(e.target.value)}
+                        />
+                        <button
+                          type='button'
+                          onClick={handleInlineCreateCategory}
+                          disabled={inlineCatLoading || !inlineCatName.trim()}
+                          className='inline-flex items-center justify-center gap-2 px-3 py-2 border rounded bg-gray-50 hover:bg-black hover:text-white transition disabled:opacity-60 disabled:cursor-not-allowed'
+                        >
+                          <FiPlus size={16} />
+                          <span>{inlineCatLoading ? 'Створення…' : 'Додати категорію'}</span>
+                        </button>
+                      </div>
+                    )}
                   </div>
                   <textarea className='md:col-span-2 border p-2 rounded' placeholder='Опис' value={prodForm.description} onChange={e=>setProdForm({...prodForm, description:e.target.value})} />
                 </div>
@@ -481,16 +602,47 @@ export default function AdminPanel(){
                       <button type='button' className='px-3 py-1 border rounded' onClick={()=>setProdForm({...prodForm, image:''})}>Очистити</button>
                     </div>
                   )}
-                  <div className='md:col-span-2 relative'>
-                    <select className='border p-2 pr-10 rounded w-full' value={prodForm.category} onChange={e=>setProdForm({...prodForm, category:e.target.value})}>
-                      <option value=''>Виберіть категорію</option>
-                      {categories.map(c=> <option key={c._id} value={c._id}>{c.name}</option>)}
-                    </select>
-                    <span className='pointer-events-none absolute inset-y-0 right-3 flex items-center text-gray-500'>
-                      <svg xmlns='http://www.w3.org/2000/svg' className='h-4 w-4' viewBox='0 0 20 20' fill='currentColor'>
-                        <path fillRule='evenodd' d='M5.23 7.21a.75.75 0 011.06.02L10 10.94l3.71-3.71a.75.75 0 111.06 1.06l-4.24 4.24a.75.75 0 01-1.06 0L5.21 8.29a.75.75 0 01.02-1.08z' clipRule='evenodd' />
-                      </svg>
-                    </span>
+                  <div className='md:col-span-2 space-y-2'>
+                    <div className='flex gap-2 items-center'>
+                      <div className='relative flex-1'>
+                        <select className='border p-2 pr-10 rounded w-full' value={prodForm.category} onChange={e=>setProdForm({...prodForm, category:e.target.value})}>
+                          <option value=''>Виберіть категорію</option>
+                          {categories.map(c=> <option key={c._id} value={c._id}>{c.name}</option>)}
+                        </select>
+                        <span className='pointer-events-none absolute inset-y-0 right-3 flex items-center text-gray-500'>
+                          <svg xmlns='http://www.w3.org/2000/svg' className='h-4 w-4' viewBox='0 0 20 20' fill='currentColor'>
+                            <path fillRule='evenodd' d='M5.23 7.21a.75.75 0 011.06.02L10 10.94l3.71-3.71a.75.75 0 111.06 1.06l-4.24 4.24a.75.75 0 01-1.06 0L5.21 8.29a.75.75 0 01.02-1.08z' clipRule='evenodd' />
+                          </svg>
+                        </span>
+                      </div>
+                      <button
+                        type='button'
+                        onClick={()=> setShowInlineCat(v=>!v)}
+                        className='w-10 h-10 inline-flex items-center justify-center border rounded bg-white hover:bg-black hover:text-white transition'
+                        aria-label='Додати нову категорію'
+                      >
+                        <FiPlus size={18} />
+                      </button>
+                    </div>
+                    {showInlineCat && (
+                      <div className='flex flex-col sm:flex-row gap-2 sm:items-center'>
+                        <input
+                          className='border p-2 rounded flex-1'
+                          placeholder='Нова категорія'
+                          value={inlineCatName}
+                          onChange={e=> setInlineCatName(e.target.value)}
+                        />
+                        <button
+                          type='button'
+                          onClick={handleInlineCreateCategory}
+                          disabled={inlineCatLoading || !inlineCatName.trim()}
+                          className='inline-flex items-center justify-center gap-2 px-3 py-2 border rounded bg-gray-50 hover:bg-black hover:text-white transition disabled:opacity-60 disabled:cursor-not-allowed'
+                        >
+                          <FiPlus size={16} />
+                          <span>{inlineCatLoading ? 'Створення…' : 'Додати категорію'}</span>
+                        </button>
+                      </div>
+                    )}
                   </div>
                   <textarea className='md:col-span-2 border p-2 rounded' placeholder='Опис' value={prodForm.description} onChange={e=>setProdForm({...prodForm, description:e.target.value})} />
                 </div>
@@ -511,17 +663,44 @@ export default function AdminPanel(){
                 <h4 className='font-semibold'>Усі товари</h4>
                 <button aria-label='Закрити' onClick={()=> setShowProdList(false)} className='w-8 h-8 rounded-lg border hover:bg-gray-100'>✕</button>
               </div>
-              <div className='mb-3 grid grid-cols-1 sm:grid-cols-2 gap-2 justify-items-center'>
-                <input className='border p-2 rounded' placeholder='Пошук за назвою' value={prodListSearch} onChange={e=>{ setProdListSearch(e.target.value); setProdPage(1) }} />
-                <div className='flex items-center gap-2 justify-center'>
+              <div className='mb-1 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3'>
+                <div className='flex items-center gap-2'>
                   <span className='text-sm text-gray-600'>Сортування:</span>
-                  <select className='border p-2 rounded' value={prodSortKey} onChange={e=> setProdSortKey(e.target.value)}>
+                  <select
+                    className='border rounded px-3 py-2 pr-10 min-w-[150px]'
+                    value={prodSortKey}
+                    onChange={e=> setProdSortKey(e.target.value)}
+                  >
                     <option value='name'>Назва</option>
                     <option value='price'>Ціна</option>
                     <option value='date'>Дата</option>
                   </select>
-                  <button className='px-3 py-2 border rounded hover:bg-black hover:text-white transition' onClick={()=> setProdSortAsc(v=>!v)}>
+                  <button
+                    className='px-3 py-2 border rounded hover:bg-black hover:text-white transition'
+                    onClick={()=> setProdSortAsc(v=>!v)}
+                    title={prodSortAsc ? 'За зростанням' : 'За спаданням'}
+                  >
                     {prodSortAsc ? '↑' : '↓'}
+                  </button>
+                </div>
+                <div className='flex items-center justify-end gap-2 flex-1'>
+                  {prodSearchOpen && (
+                    <input
+                      autoFocus
+                      className='border rounded px-3 py-2 w-full max-w-xs'
+                      placeholder='Пошук за назвою'
+                      value={prodListSearch}
+                      onChange={e=>{ setProdListSearch(e.target.value); setProdPage(1) }}
+                    />
+                  )}
+                  <button
+                    type='button'
+                    onClick={()=> setProdSearchOpen(v=>!v)}
+                    className='w-9 h-9 inline-flex items-center justify-center border rounded hover:bg-black hover:text-white transition'
+                    title='Пошук'
+                    aria-label='Пошук товарів'
+                  >
+                    <FiSearch size={16} />
                   </button>
                 </div>
               </div>
@@ -600,14 +779,17 @@ export default function AdminPanel(){
           </div>
         )}
 
-        <div className='card p-4'>
-          <h3 className='font-semibold mb-3 text-center'>Категорії</h3>
+        <div className='hidden'>
+          <h3 className='font-semibold mb-1 text-center'>Категорії (розширені налаштування)</h3>
+          <p className='text-xs text-gray-500 text-center mb-3'>
+            Для швидкого додавання використовуйте поле "Нова категорія" у формі товару. Тут можна масово переглядати, перейменовувати та видаляти категорії.
+          </p>
           <div className='flex gap-2 items-center justify-center'>
-            <button type='button' onClick={()=> setShowCatCreate(true)} className='inline-flex items-center gap-2 px-3 py-2 border rounded hover:bg-black hover:text-white transition'>
-              <FiPlus size={18} /> <span>Додати</span>
-            </button>
             <button type='button' onClick={()=> setShowCatList(true)} className='inline-flex items-center gap-2 px-3 py-2 border rounded hover:bg-black hover:text-white transition'>
               <FiEye size={18} /> <span>Переглянути всі</span>
+            </button>
+            <button type='button' onClick={()=> setShowCatCreate(true)} className='inline-flex items-center gap-2 px-3 py-2 border rounded hover:bg-black hover:text-white transition'>
+              <FiPlus size={18} /> <span>Нова категорія</span>
             </button>
           </div>
 
@@ -679,16 +861,43 @@ export default function AdminPanel(){
               <h4 className='font-semibold'>Усі категорії</h4>
               <button aria-label='Закрити' onClick={()=> setShowCatList(false)} className='w-8 h-8 rounded-lg border hover:bg-gray-100'>✕</button>
             </div>
-            <div className='mb-3 grid grid-cols-1 sm:grid-cols-2 gap-2 justify-items-center'>
-              <input className='border p-2 rounded' placeholder='Пошук за назвою' value={catListSearch} onChange={e=>{ setCatListSearch(e.target.value); setCatPage(1) }} />
-              <div className='flex items-center gap-2 justify-center'>
+            <div className='mb-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3'>
+              <div className='flex items-center gap-2'>
                 <span className='text-sm text-gray-600'>Сортування:</span>
-                <select className='border p-2 rounded' value={catSortKey} onChange={e=> setCatSortKey(e.target.value)}>
+                <select
+                  className='border rounded px-3 py-2 pr-10 min-w-[150px]'
+                  value={catSortKey}
+                  onChange={e=> setCatSortKey(e.target.value)}
+                >
                   <option value='name'>Назва</option>
                   <option value='date'>Дата</option>
                 </select>
-                <button className='px-3 py-2 border rounded hover:bg-black hover:text-white transition' onClick={()=> setCatSortAsc(v=>!v)}>
+                <button
+                  className='px-3 py-2 border rounded hover:bg-black hover:text-white transition'
+                  onClick={()=> setCatSortAsc(v=>!v)}
+                  title={catSortAsc ? 'За зростанням' : 'За спаданням'}
+                >
                   {catSortAsc ? '↑' : '↓'}
+                </button>
+              </div>
+              <div className='flex items-center justify-end gap-2 flex-1'>
+                {catSearchOpen && (
+                  <input
+                    autoFocus
+                    className='border rounded px-3 py-2 w-full max-w-xs'
+                    placeholder='Пошук за назвою'
+                    value={catListSearch}
+                    onChange={e=>{ setCatListSearch(e.target.value); setCatPage(1) }}
+                  />
+                )}
+                <button
+                  type='button'
+                  onClick={()=> setCatSearchOpen(v=>!v)}
+                  className='w-9 h-9 inline-flex items-center justify-center border rounded hover:bg-black hover:text-white transition'
+                  title='Пошук'
+                  aria-label='Пошук категорій'
+                >
+                  <FiSearch size={16} />
                 </button>
               </div>
             </div>

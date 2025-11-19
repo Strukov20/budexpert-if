@@ -87,19 +87,28 @@ export default function ProductCard({p, onAdd}){
   const placeholderLg = makePlaceholder(800,480);
   const cardSrc = resolveSrc(p.image) || placeholderSm;
   const modalSrc = resolveSrc(p.image) || placeholderLg;
+  const isOutOfStock = typeof p.stock === 'number' ? p.stock <= 0 : false;
 
   return (
     <>
       <div className="card group p-3 md:p-4 flex flex-col border border-gray-100 rounded-lg shadow-sm hover:shadow-md transition">
-        <div className="bg-gray-50 border rounded-lg shadow-sm p-2 cursor-zoom-in" onClick={()=>setOpen(true)}>
+        <div className="relative bg-gray-50 border rounded-lg shadow-sm p-2 cursor-zoom-in" onClick={()=>setOpen(true)}>
           <img
             src={cardSrc}
             onError={(e)=>{ e.currentTarget.onerror=null; e.currentTarget.src=placeholderSm; }}
             className="w-full h-32 md:h-40 object-contain rounded-md mix-blend-multiply"
             alt={p.name}
           />
+          {isOutOfStock && (
+            <div className="absolute top-1 left-1 px-2 py-0.5 rounded-full bg-red-600 text-white text-[10px] md:text-xs font-semibold shadow">
+              Немає в наявності
+            </div>
+          )}
         </div>
         <h3 className="mt-2 md:mt-3 font-semibold text-sm md:text-base cursor-pointer" onClick={()=>setOpen(true)}>{p.name}</h3>
+        {p.sku && (
+          <div className="mt-0.5 text-[11px] md:text-xs text-gray-500">Артикул: {p.sku}</div>
+        )}
         <div
           className="text-xs md:text-sm text-gray-600 flex-1 mt-1 cursor-pointer prose prose-[0.85rem] md:prose-sm max-w-none"
           style={{ display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}
@@ -155,16 +164,24 @@ export default function ProductCard({p, onAdd}){
               ✕
             </button>
             <div className="flex-1 p-4 md:p-6 pb-0 overflow-auto">
-              <div className="bg-gray-50 border rounded-xl shadow-sm p-2">
+              <div className="relative bg-gray-50 border rounded-xl shadow-sm p-2">
                 <img
                   src={modalSrc}
                   onError={(e)=>{ e.currentTarget.onerror=null; e.currentTarget.src=placeholderLg; }}
                   className="w-full max-h-[30vh] md:max-h-[34vh] object-contain rounded-md"
                   alt={p.name}
                 />
+                {isOutOfStock && (
+                  <div className="absolute top-2 left-2 px-2 py-0.5 rounded-full bg-red-600 text-white text-[11px] md:text-xs font-semibold shadow">
+                    Немає в наявності
+                  </div>
+                )}
               </div>
               <h3 className="mt-4 text-2xl font-semibold tracking-tight text-left">{p.name}</h3>
-              <div className="mt-3 prose prose-sm md:prose-base max-w-none text-left">
+              {p.sku && (
+                <div className="text-sm text-gray-500 mb-1">Артикул: {p.sku}</div>
+              )}
+              <div className="mt-1 prose prose-sm md:prose-base max-w-none text-left">
                 <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeSanitize]}>
                   {p.description || 'Без опису'}
                 </ReactMarkdown>
