@@ -33,7 +33,9 @@ app.use(cors({
 }));
 // Allow images to be consumed from a different origin/port (e.g., Vite dev server)
 app.use(helmet({ crossOriginResourcePolicy: { policy: "cross-origin" } }));
-app.use(express.json());
+// Підняти ліміт body для великих імпортів товарів
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use(mongoSanitize());
 
 const authLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 100 });

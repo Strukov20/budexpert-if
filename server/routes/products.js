@@ -69,35 +69,82 @@ router.post("/bulk", requireAdmin, async (req, res) => {
     }
 
     // Збираємо унікальні categoryName для мапінгу на ObjectId
-    const names = Array.from(new Set(
+    const categoryNames = Array.from(new Set(
       payload
         .map((p) => (p && typeof p.categoryName === "string" ? p.categoryName.trim() : null))
         .filter(Boolean)
     ));
 
     let catMap = new Map();
-    if (names.length) {
-      const cats = await Category.find({ name: { $in: names } });
+    if (categoryNames.length) {
+      const cats = await Category.find({ name: { $in: categoryNames } });
       cats.forEach((c) => catMap.set(c.name, c._id));
       // створити відсутні категорії
-      const missing = names.filter(n => !catMap.has(n));
+      const missing = categoryNames.filter(n => !catMap.has(n));
       if (missing.length) {
         const created = await Category.insertMany(missing.map(name => ({ name })), { ordered: false });
         created.forEach(c => catMap.set(c.name, c._id));
       }
     }
 
+    // Підготовка документів + нормалізація name/sku
     const docs = payload.map((p) => {
       const doc = { ...p };
       if (!doc.category && doc.categoryName && catMap.has(doc.categoryName)) {
         doc.category = catMap.get(doc.categoryName);
       }
       delete doc.categoryName;
+      if (doc.name) doc.name = String(doc.name).trim();
+      if (doc.sku) doc.sku = String(doc.sku).trim();
       return doc;
     });
 
-    const inserted = await Product.insertMany(docs, { ordered: false });
-    return res.status(201).json({ count: inserted.length, items: inserted });
+    // Дублікати: спочатку подивимось, що вже є в базі
+    const importNames = Array.from(new Set(docs.map(d => d.name).filter(Boolean)));
+    const importSkus  = Array.from(new Set(docs.map(d => d.sku).filter(Boolean)));
+
+    let existing = [];
+    const orConds = [
+      importNames.length ? { name: { $in: importNames } } : null,
+      importSkus.length  ? { sku:  { $in: importSkus } }  : null,
+    ].filter(Boolean);
+
+    if (orConds.length) {
+      existing = await Product.find({ $or: orConds }).select('name sku');
+    }
+
+    const existingNames = new Set(existing.map(p => p.name));
+    const existingSkus  = new Set(existing.map(p => p.sku).filter(Boolean));
+
+    // Прибираємо дублікати всередині самого імпорту та проти існуючих товарів
+    const seenNames = new Set();
+    const seenSkus  = new Set();
+    const filtered = [];
+    let skipped = 0;
+
+    for (const d of docs) {
+      const n = d.name || '';
+      const s = d.sku || '';
+
+      const nameDup = n && (existingNames.has(n) || seenNames.has(n));
+      const skuDup  = s && (existingSkus.has(s)  || seenSkus.has(s));
+
+      if (nameDup || skuDup) {
+        skipped++;
+        continue;
+      }
+
+      if (n) seenNames.add(n);
+      if (s) seenSkus.add(s);
+      filtered.push(d);
+    }
+
+    if (!filtered.length) {
+      return res.status(200).json({ count: 0, skipped, items: [] });
+    }
+
+    const inserted = await Product.insertMany(filtered, { ordered: false });
+    return res.status(201).json({ count: inserted.length, skipped, items: inserted });
   } catch (err) {
     // Якщо були часткові вставки при ordered:false
     if (err && err.insertedDocs) {
