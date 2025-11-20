@@ -12,6 +12,8 @@ export default function Home(){
   const [search, setSearch] = useState('')
   const [page, setPage] = useState(1)
   const perPage = 12
+  const [visibleCount, setVisibleCount] = useState(perPage)
+  const [isMobile, setIsMobile] = useState(false)
   const slides = [
     { before: 'Будівельний маркет', after: ' — все для ремонту та будівництва', subtitle: 'Швидка доставка, гарантія якості та широкий асортимент.' },
     { before: 'Профінструменти та витратні матеріали від', after: '', subtitle: 'Знижки для постійних клієнтів і майстрів.' },
@@ -68,7 +70,21 @@ export default function Home(){
     loadProducts()
   },[])
 
-  useEffect(()=> setPage(1), [cat, search])
+  useEffect(()=> {
+    setPage(1)
+    setVisibleCount(perPage)
+  }, [cat, search])
+
+  // Визначення мобільного режиму
+  useEffect(()=>{
+    const checkMobile = () => {
+      if (typeof window === 'undefined') return
+      setIsMobile(window.innerWidth < 768)
+    }
+    checkMobile()
+    window.addEventListener('resize', checkMobile)
+    return () => window.removeEventListener('resize', checkMobile)
+  },[])
 
   function startTimer(){
     if (timerRef.current) clearInterval(timerRef.current)
@@ -101,7 +117,30 @@ export default function Home(){
 
   const filtered = products.filter(p=> true) // server returns filtered, but keep for safety
   const pages = Math.max(1, Math.ceil(filtered.length / perPage))
-  const paginated = filtered.slice((page-1)*perPage, page*perPage)
+
+  const canLoadMore = visibleCount < filtered.length
+  const paginatedDesktop = filtered.slice((page-1)*perPage, page*perPage)
+  const paginatedMobile = filtered.slice(0, visibleCount)
+  const itemsToRender = isMobile ? paginatedMobile : paginatedDesktop
+
+  // Lazy loading для мобільних: підвантажуємо ще товари при скролі до низу
+  useEffect(()=>{
+    if (!isMobile) return
+    const onScroll = () => {
+      if (!canLoadMore) return
+      if (typeof window === 'undefined') return
+      const scrollPosition = window.innerHeight + window.scrollY
+      const threshold = document.body.offsetHeight - 200
+      if (scrollPosition >= threshold) {
+        setVisibleCount(prev => {
+          const next = prev + perPage
+          return next > filtered.length ? filtered.length : next
+        })
+      }
+    }
+    window.addEventListener('scroll', onScroll)
+    return () => window.removeEventListener('scroll', onScroll)
+  }, [isMobile, canLoadMore, filtered.length])
 
   const addToCart = (p) => {
     // Persist to localStorage so it appears after navigation to /cart
@@ -174,10 +213,10 @@ export default function Home(){
       </div>
 
       <div className='grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4'>
-        {paginated.map(p=> <ProductCard key={p._id} p={p} onAdd={addToCart} />)}
+        {itemsToRender.map(p=> <ProductCard key={p._id} p={p} onAdd={addToCart} />)}
       </div>
 
-      <div className='mt-6'>
+      <div className='mt-6 hidden md:block'>
         <Pagination page={page} pages={pages} onChange={setPage} />
       </div>
 
