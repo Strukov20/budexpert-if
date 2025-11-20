@@ -745,28 +745,39 @@ export default function AdminPanel(){
                           <td className='px-3 py-2 text-center'>{fmtDateShort(p.createdAt)}</td>
                           <td className='px-3 py-2 text-center'>{(p.price||0).toFixed(2)} ₴</td>
                           <td className='px-3 py-2 text-center'>{getCategoryName(p.category)}</td>
-                          <td className='px-3 py-2 text-center'>
-                            <button
-                              title='Редагувати'
-                              aria-label='Редагувати'
-                              className='w-9 h-9 inline-flex items-center justify-center border rounded-lg hover:bg-black hover:text-white transition bg-white'
-                              onClick={()=>{
-                                setSelectedProdId(p._id);
-                                setProdForm({ name:p.name||'', price:p.price||0, image:p.image||'', description:p.description||'', category:(p.category? (typeof p.category==='string'?p.category:p.category?._id):'')||'' });
-                                setShowProdList(false);
-                                setShowProdEdit(true);
-                              }}
-                            >
-                              <FiEdit2 size={16} />
-                            </button>
-                            <button
-                              title='Видалити'
-                              aria-label='Видалити'
-                              className='ml-2 w-9 h-9 inline-flex items-center justify-center border rounded-lg text-red-600 hover:bg-red-600 hover:text-white transition'
-                              onClick={()=> handleDeleteProduct(p._id)}
-                            >
-                              <FiTrash2 size={16} />
-                            </button>
+                          <td className='px-3 py-2 text-center align-middle'>
+                            <div className='inline-flex flex-col items-center justify-center gap-2'>
+                              <button
+                                title='Редагувати'
+                                aria-label='Редагувати'
+                                className='w-9 h-9 inline-flex items-center justify-center border rounded-lg hover:bg-black hover:text-white transition bg-white'
+                                onClick={()=>{
+                                  setSelectedProdId(p._id);
+                                  setProdForm({ name:p.name||'', price:p.price||0, image:p.image||'', description:p.description||'', category:(p.category? (typeof p.category==='string'?p.category:p.category?._id):'')||'' });
+                                  setShowProdList(false);
+                                  setShowProdEdit(true);
+                                }}
+                              >
+                                <FiEdit2 size={16} />
+                              </button>
+                              <button
+                                title='Видалити'
+                                aria-label='Видалити'
+                                className='w-9 h-9 inline-flex items-center justify-center border rounded-lg text-red-600 hover:bg-red-600 hover:text-white transition bg-white'
+                                onClick={async()=>{
+                                  if(!confirm('Видалити товар?')) return;
+                                  try{
+                                    await deleteProduct(p._id);
+                                    loadAll();
+                                    showToast('Товар видалено','success')
+                                  } catch(err){
+                                    showToast(getErrMsg(err),'error')
+                                  }
+                                }}
+                              >
+                                <FiTrash2 size={16} />
+                              </button>
+                            </div>
                           </td>
                         </tr>
                       ))
