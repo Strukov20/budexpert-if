@@ -5,6 +5,42 @@ import { FiShoppingCart, FiGrid, FiMapPin } from 'react-icons/fi';
 // Локальний плейсхолдер (56x56) для міні‑кошика
 const NO_IMG_56 = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="56" height="56"><rect width="100%" height="100%" fill="%23f3f4f6"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="%239ca3af" font-family="Arial" font-size="9">No%20image</text></svg>'
 
+// Уніфікований резолвер URL для зображень у міні‑кошiku (аналогічно ProductCard/Cart)
+const resolveThumbSrc = (raw) => {
+  let s = (raw || '').toString().trim();
+  if (!s || s === 'null' || s === 'undefined') return '';
+  try {
+    // Автоматичне оновлення http -> https для API‑хосту, щоб уникнути mixed content
+    if (s.startsWith('http://')) {
+      const api = import.meta.env.VITE_API_URL || '';
+      if (api) {
+        const apiOrigin = new URL(api).origin.replace('http://', 'https://');
+        const url = new URL(s);
+        if (url.host === new URL(apiOrigin).host) {
+          url.protocol = 'https:';
+          s = url.toString();
+        }
+      }
+    }
+  } catch {}
+
+  if (s.startsWith('http://') || s.startsWith('https://')) return s;
+  if (s.startsWith('/uploads/')) {
+    try {
+      const api = import.meta.env.VITE_API_URL || '';
+      if (api && (api.startsWith('http://') || api.startsWith('https://'))) {
+        const origin = new URL(api).origin;
+        return origin + s;
+      }
+      return window.location.origin + s;
+    } catch {
+      return s;
+    }
+  }
+  if (s.startsWith('/')) return s;
+  return '';
+}
+
 export default function Header() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -170,36 +206,26 @@ export default function Header() {
                       {items.slice(0,5).map(i => (
                         <div key={i._id} className="py-2 flex items-center gap-3">
                           <div className="flex items-center gap-2 min-w-0 flex-1">
-                            <img src={i.image || NO_IMG_56} alt={i.name} className="w-12 h-12 object-cover rounded" />
+                            <img src={resolveThumbSrc(i.image) || NO_IMG_56} alt={i.name} className="w-12 h-12 object-cover rounded" />
                             <div className="min-w-0">
                               <div className="text-sm font-medium break-words">{i.name}</div>
-                              <div className="text-xs text-gray-600">{fmt.format(i.price)} ₴/шт</div>
+                              <div className="text-xs text-gray-600">
+                                {i.quantity || 1} × {fmt.format(i.price)} ₴/шт
+                              </div>
                             </div>
-                          </div>
-                          <div className="text-sm font-semibold whitespace-nowrap">{fmt.format(i.price * (i.quantity||1))} ₴</div>
-                          <div className="flex items-center gap-2 shrink-0 ml-2">
-                            <button onClick={()=>decItem(i._id)} className="w-6 h-6 border rounded flex items-center justify-center text-sm transition active:scale-95">−</button>
-                            <span className="w-5 text-center text-sm">{i.quantity}</span>
-                            <button onClick={()=>incItem(i._id)} className="w-6 h-6 border rounded flex items-center justify-center text-sm transition active:scale-95">+</button>
                           </div>
                         </div>
                       ))}
                     </div>
                   )}
                   {items.length > 0 && (
-                    <div className="mt-3 pt-3 border-t flex items-center justify-between">
-                      <div className="text-sm text-gray-600">Всього</div>
-                      <div className="font-semibold">{fmt.format(items.reduce((s,i)=>s+i.price*(i.quantity||1),0))} ₴</div>
+                    <div className="mt-3 flex items-center justify-between text-sm text-gray-700">
+                      <span className="text-xs text-gray-500">Всього:</span>
+                      <span className="inline-flex items-center px-3 py-1.5 rounded-full bg-red-600 text-white text-base font-semibold tracking-wide shadow">
+                        {fmt.format(items.reduce((s,i)=>s+i.price*(i.quantity||1),0))} ₴
+                      </span>
                     </div>
                   )}
-                  <div className="mt-3">
-                    <button
-                      onClick={()=>{ setMiniOpen(false); navigate('/checkout') }}
-                      className="btn w-full transition active:scale-95"
-                    >
-                      Оформити замовлення
-                    </button>
-                  </div>
                 </div>
               </div>
             )}

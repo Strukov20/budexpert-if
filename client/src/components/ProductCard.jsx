@@ -88,6 +88,7 @@ export default function ProductCard({p, onAdd}){
   const cardSrc = resolveSrc(p.image) || placeholderSm;
   const modalSrc = resolveSrc(p.image) || placeholderLg;
   const isOutOfStock = typeof p.stock === 'number' ? p.stock <= 0 : false;
+  const inCart = qty > 0;
 
   return (
     <>
@@ -124,13 +125,13 @@ export default function ProductCard({p, onAdd}){
         </div>
         <div className="mt-2 md:mt-3 flex items-center justify-between">
           <div className="font-bold text-base md:text-xl">{fmt.format(p.price)} ₴</div>
-          {/* Мобільні: завжди кнопка "+" */}
+          {/* Мобільні: кнопка "+", яка стає галочкою, якщо товар вже в кошику */}
           <button
             onClick={()=>onAdd(p)}
             className="btn transition active:scale-95 sm:hidden w-9 h-9 flex items-center justify-center p-0 text-xl font-bold"
             aria-label="Додати в кошик"
           >
-            +
+            {inCart ? '✓' : '+'}
           </button>
           {/* Планшет/десктоп: лічильник, якщо товар вже в кошику; інакше кнопка "+" */}
           <div className="hidden sm:block">
@@ -146,7 +147,7 @@ export default function ProductCard({p, onAdd}){
                 className="btn transition active:scale-95 w-9 h-9 flex items-center justify-center p-0 text-xl font-bold"
                 aria-label="Додати в кошик"
               >
-                +
+                {inCart ? '✓' : '+'}
               </button>
             )}
           </div>
@@ -197,7 +198,9 @@ export default function ProductCard({p, onAdd}){
                     <button onClick={inc} className="w-8 h-8 border rounded flex items-center justify-center transition active:scale-95">+</button>
                   </div>
                 ) : (
-                  <button onClick={()=>{ onAdd(p); }} className="btn transition active:scale-95 text-2xl font-bold">+</button>
+                  <button onClick={()=>{ onAdd(p); }} className="btn transition active:scale-95 text-2xl font-bold">
+                    {inCart ? '✓' : '+'}
+                  </button>
                 )}
               </div>
             </div>
