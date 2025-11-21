@@ -8,6 +8,42 @@ import { FiX, FiTrash2 } from 'react-icons/fi'
 const NO_IMG_80 = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="80" height="80"><rect width="100%" height="100%" fill="%23f3f4f6"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="%239ca3af" font-family="Arial" font-size="10">No%20image</text></svg>'
 const NO_IMG_LARGE = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="800" height="480"><rect width="100%" height="100%" fill="%23f3f4f6"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="%239ca3af" font-family="Arial" font-size="24">No%20image</text></svg>'
 
+// Уніфікований резолвер URL для зображень, як у ProductCard
+const resolveSrc = (raw) => {
+  let s = (raw || '').toString().trim();
+  if (!s || s === 'null' || s === 'undefined') return '';
+  try {
+    // Автоматичне оновлення http -> https для API‑хосту, щоб уникнути mixed content
+    if (s.startsWith('http://')) {
+      const api = import.meta.env.VITE_API_URL || '';
+      if (api) {
+        const apiOrigin = new URL(api).origin.replace('http://', 'https://');
+        const url = new URL(s);
+        if (url.host === new URL(apiOrigin).host) {
+          url.protocol = 'https:';
+          s = url.toString();
+        }
+      }
+    }
+  } catch {}
+
+  if (s.startsWith('http://') || s.startsWith('https://')) return s;
+  if (s.startsWith('/uploads/')) {
+    try {
+      const api = import.meta.env.VITE_API_URL || '';
+      if (api && (api.startsWith('http://') || api.startsWith('https://'))) {
+        const origin = new URL(api).origin;
+        return origin + s;
+      }
+      return window.location.origin + s;
+    } catch {
+      return s;
+    }
+  }
+  if (s.startsWith('/')) return s;
+  return '';
+}
+
 export default function CartPage(){
   const [cart, setCart] = useState(() => {
     try {
@@ -57,7 +93,7 @@ export default function CartPage(){
               {cart.map(i=> (
                 <div key={i._id} className='p-3 bg-white rounded shadow flex flex-col sm:flex-row sm:flex-wrap md:flex-nowrap sm:items-center justify-between gap-3'>
                   <div className='flex items-center gap-3 min-w-0 flex-1 cursor-pointer pr-1 sm:pr-3 md:pr-4' onClick={()=> setSelected(i)}>
-                    <img src={i.image || NO_IMG_80} alt={i.name} className='w-14 h-14 sm:w-16 sm:h-16 md:w-20 md:h-20 object-cover rounded' />
+                    <img src={resolveSrc(i.image) || NO_IMG_80} alt={i.name} className='w-14 h-14 sm:w-16 sm:h-16 md:w-20 md:h-20 object-cover rounded' />
                     <div className='flex flex-col min-w-0'>
                       <div className='font-medium truncate'>{i.name}</div>
                       {i.sku && (
@@ -120,7 +156,7 @@ export default function CartPage(){
               </button>
               <div className='p-4 md:p-6'>
                 <div className='bg-gray-50 border rounded-xl shadow-sm p-2'>
-                  <img src={live.image || NO_IMG_LARGE} className='mx-auto w-full md:w-4/5 max-h-[32vh] md:max-h-[38vh] object-contain rounded-md' alt={live.name} />
+                  <img src={resolveSrc(live.image) || NO_IMG_LARGE} className='mx-auto w-full md:w-4/5 max-h-[32vh] md:max-h-[38vh] object-contain rounded-md' alt={live.name} />
                 </div>
                 <h3 className='mt-4 text-2xl font-semibold tracking-tight text-center'>{live.name}</h3>
                 {live.sku && (

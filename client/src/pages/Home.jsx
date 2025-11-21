@@ -23,6 +23,7 @@ export default function Home(){
   const [slide, setSlide] = useState(0)
   const [isFading, setIsFading] = useState(false)
   const timerRef = useRef(null)
+  const sentinelRef = useRef(null)
 
   // SEO: title, description, LocalBusiness structured data
   useEffect(()=>{
@@ -123,24 +124,29 @@ export default function Home(){
   const paginatedMobile = filtered.slice(0, visibleCount)
   const itemsToRender = isMobile ? paginatedMobile : paginatedDesktop
 
-  // Lazy loading для мобільних: підвантажуємо ще товари при скролі до низу
+  // Lazy loading для мобільних через IntersectionObserver: тригер до футера
   useEffect(()=>{
     if (!isMobile) return
-    const onScroll = () => {
+    if (!sentinelRef.current) return
+
+    const el = sentinelRef.current
+    const observer = new IntersectionObserver((entries)=>{
+      const entry = entries[0]
+      if (!entry.isIntersecting) return
       if (!canLoadMore) return
-      if (typeof window === 'undefined') return
-      const scrollPosition = window.innerHeight + window.scrollY
-      const threshold = document.body.offsetHeight - 200
-      if (scrollPosition >= threshold) {
-        setVisibleCount(prev => {
-          const next = prev + perPage
-          return next > filtered.length ? filtered.length : next
-        })
-      }
-    }
-    window.addEventListener('scroll', onScroll)
-    return () => window.removeEventListener('scroll', onScroll)
-  }, [isMobile, canLoadMore, filtered.length])
+      setVisibleCount(prev => {
+        const next = prev + perPage
+        return next > filtered.length ? filtered.length : next
+      })
+    }, {
+      root: null,
+      rootMargin: '0px 0px 200px 0px',
+      threshold: 0.1,
+    })
+
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [isMobile, canLoadMore, filtered.length, perPage])
 
   const addToCart = (p) => {
     // Persist to localStorage so it appears after navigation to /cart
@@ -215,6 +221,9 @@ export default function Home(){
       <div className='grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4'>
         {itemsToRender.map(p=> <ProductCard key={p._id} p={p} onAdd={addToCart} />)}
       </div>
+
+      {/* Sentinel для lazy loading на мобільних: розташований одразу після товарів, до форми та футера */}
+      <div ref={sentinelRef} className='h-4 w-full'></div>
 
       <div className='mt-6 hidden md:block'>
         <Pagination page={page} pages={pages} onChange={setPage} />
