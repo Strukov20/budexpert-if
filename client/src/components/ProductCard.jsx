@@ -157,15 +157,17 @@ export default function ProductCard({p, onAdd}){
       {open && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={()=>setOpen(false)}>
           <div className="relative bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[80vh] flex flex-col overflow-hidden transition" onClick={e=>e.stopPropagation()}>
-            <button
-              aria-label="Закрити"
-              onClick={()=> setOpen(false)}
-              className="absolute top-3 right-3 w-9 h-9 rounded-full bg-white/90 border flex items-center justify-center shadow transition-colors cursor-pointer hover:bg-red-600 hover:text-white focus:outline-none focus:ring-2 focus:ring-red-500/40"
-            >
-              ✕
-            </button>
+            <div className="relative z-10">
+              <button
+                aria-label="Закрити"
+                onClick={(e) => { e.stopPropagation(); setOpen(false); }}
+                className="absolute top-3 right-3 w-9 h-9 rounded-full bg-white/90 border flex items-center justify-center shadow transition-colors cursor-pointer hover:bg-red-600 hover:text-white focus:outline-none focus:ring-2 focus:ring-red-500/40 z-[60]"
+              >
+                ✕
+              </button>
+            </div>
             <div className="flex-1 p-4 md:p-6 pb-0 overflow-auto">
-              <div className="relative bg-gray-50 border rounded-xl shadow-sm p-2">
+              <div className="relative bg-gray-50 border rounded-xl shadow-sm p-2 z-0">
                 <img
                   src={modalSrc}
                   onError={(e)=>{ e.currentTarget.onerror=null; e.currentTarget.src=placeholderLg; }}
