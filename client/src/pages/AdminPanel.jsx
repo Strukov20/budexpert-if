@@ -20,7 +20,7 @@ export default function AdminPanel(){
   const [selectedProdId, setSelectedProdId] = useState('')
   const [showProdEdit, setShowProdEdit] = useState(false)
   const [showProdCreate, setShowProdCreate] = useState(false)
-  const [prodForm, setProdForm] = useState({ name:'', price:0, image:'', description:'', category:'', sku:'', stock:0 })
+  const [prodForm, setProdForm] = useState({ name:'', price:0, discount:0, image:'', description:'', category:'', sku:'', stock:0 })
   const [showProdList, setShowProdList] = useState(false)
   const [prodListSearch, setProdListSearch] = useState('')
   const [prodSearchOpen, setProdSearchOpen] = useState(false)
@@ -110,8 +110,10 @@ export default function AdminPanel(){
         items = rows.map(r=>{
           const rawPrice = (r.price||'').toString().replace(',', '.').trim()
           const price = Number(rawPrice || 0) || 0
-          const rawStock = (r.stock||r.quantity||r.kilkist||'').toString().replace(',', '.').trim()
+          const rawStock = (r.stock||r.quantity||r.kilkist||r.kilkist||'').toString().replace(',', '.').trim()
           const stock = Math.max(0, Math.floor(Number(rawStock || 0) || 0))
+          const rawDiscount = (r.discount||r.Discount||r.DISCOUNT||'').toString().replace(',', '.').trim()
+          let discount = Math.max(0, Math.min(100, Number(rawDiscount || 0) || 0))
           return {
             name: r.name,
             price,
@@ -120,6 +122,7 @@ export default function AdminPanel(){
             categoryName: r.categoryName||r.category||'',
             sku: r.sku||r.SKU||r.artikul||r.article||'',
             stock,
+            discount,
             manufacturer: r.manufacturer||r.brand||r.group||r.група||''
           }
         })
@@ -230,7 +233,7 @@ export default function AdminPanel(){
     try{
       const payload = { ...prodForm, image: normalizeImageForSave(prodForm.image) }
       await createProduct(payload);
-      setShowProdCreate(false); setProdForm({ name:'', price:0, image:'', description:'', category:'', sku:'', stock:0 });
+      setShowProdCreate(false); setProdForm({ name:'', price:0, discount:0, image:'', description:'', category:'', sku:'', stock:0 });
       loadAll();
       showToast('Товар успішно додано','success')
     }catch(err){
@@ -242,7 +245,7 @@ export default function AdminPanel(){
       const payload = { ...prodForm, image: normalizeImageForSave(prodForm.image) }
       await updateProduct(selectedProdId, payload);
       setShowProdEdit(false);
-      setProdForm({ name:'', price:0, image:'', description:'', category:'', sku:'', stock:0 });
+      setProdForm({ name:'', price:0, discount:0, image:'', description:'', category:'', sku:'', stock:0 });
       loadAll();
       showToast('Товар оновлено','success')
     }catch(err){
@@ -512,7 +515,25 @@ export default function AdminPanel(){
                 </div>
                 <div className='grid md:grid-cols-2 gap-3'>
                   <input className='border p-2 rounded' required placeholder='Назва' value={prodForm.name} onChange={e=>setProdForm({...prodForm, name:e.target.value})} />
-                  <input className='border p-2 rounded' required type='number' placeholder='Ціна' value={prodForm.price} onChange={e=>setProdForm({...prodForm, price:Number(e.target.value)})} />
+                  <div className='grid grid-cols-[2fr_1fr] gap-2'>
+                    <input
+                      className='border p-2 rounded'
+                      required
+                      type='number'
+                      placeholder='Ціна'
+                      value={prodForm.price}
+                      onChange={e=>setProdForm({...prodForm, price:Number(e.target.value)})}
+                    />
+                    <input
+                      className='border p-2 rounded'
+                      type='number'
+                      min='0'
+                      max='100'
+                      placeholder='Discount %'
+                      value={prodForm.discount}
+                      onChange={e=>setProdForm({...prodForm, discount: Math.max(0, Math.min(100, Number(e.target.value)||0))})}
+                    />
+                  </div>
                   <div className='md:col-span-2 grid gap-2 sm:grid-cols-[1fr_auto] items-center'>
                     <input className='border p-2 rounded' placeholder='URL картинки' value={prodForm.image} onChange={e=>setProdForm({...prodForm, image:e.target.value})} />
                     <label className='inline-flex items-center gap-2 px-3 py-2 border rounded cursor-pointer'>
@@ -588,7 +609,25 @@ export default function AdminPanel(){
                 </div>
                 <div className='grid md:grid-cols-2 gap-3'>
                   <input className='border p-2 rounded' required placeholder='Назва' value={prodForm.name} onChange={e=>setProdForm({...prodForm, name:e.target.value})} />
-                  <input className='border p-2 rounded' required type='number' placeholder='Ціна' value={prodForm.price} onChange={e=>setProdForm({...prodForm, price:Number(e.target.value)})} />
+                  <div className='grid grid-cols-[2fr_1fr] gap-2'>
+                    <input
+                      className='border p-2 rounded'
+                      required
+                      type='number'
+                      placeholder='Ціна'
+                      value={prodForm.price}
+                      onChange={e=>setProdForm({...prodForm, price:Number(e.target.value)})}
+                    />
+                    <input
+                      className='border p-2 rounded'
+                      type='number'
+                      min='0'
+                      max='100'
+                      placeholder='Discount %'
+                      value={prodForm.discount}
+                      onChange={e=>setProdForm({...prodForm, discount: Math.max(0, Math.min(100, Number(e.target.value)||0))})}
+                    />
+                  </div>
                   <div className='md:col-span-2 grid gap-2 sm:grid-cols-[1fr_auto] items-center'>
                     <input className='border p-2 rounded' placeholder='URL картинки' value={prodForm.image} onChange={e=>setProdForm({...prodForm, image:e.target.value})} />
                     <label className='inline-flex items-center gap-2 px-3 py-2 border rounded cursor-pointer'>
@@ -743,7 +782,10 @@ export default function AdminPanel(){
                           </td>
                           <td className='px-3 py-2 text-center'>{p.name}</td>
                           <td className='px-3 py-2 text-center'>{fmtDateShort(p.createdAt)}</td>
-                          <td className='px-3 py-2 text-center'>{(p.price||0).toFixed(2)} ₴</td>
+                          <td className='px-3 py-2 text-center'>
+                            {(p.price||0).toFixed(2)} ₴
+                            {p.discount ? ' (' + p.discount + '%)' : ''}
+                          </td>
                           <td className='px-3 py-2 text-center'>{getCategoryName(p.category)}</td>
                           <td className='px-3 py-2 text-center align-middle'>
                             <div className='inline-flex flex-col items-center justify-center gap-2'>
@@ -753,7 +795,16 @@ export default function AdminPanel(){
                                 className='w-9 h-9 inline-flex items-center justify-center border rounded-lg hover:bg-black hover:text-white transition bg-white'
                                 onClick={()=>{
                                   setSelectedProdId(p._id);
-                                  setProdForm({ name:p.name||'', price:p.price||0, image:p.image||'', description:p.description||'', category:(p.category? (typeof p.category==='string'?p.category:p.category?._id):'')||'' });
+                                  setProdForm({
+                                    name: p.name||'',
+                                    price: p.price||0,
+                                    discount: p.discount||0,
+                                    image: p.image||'',
+                                    description: p.description||'',
+                                    category: (p.category ? (typeof p.category==='string' ? p.category : p.category?._id) : '') || '',
+                                    sku: p.sku||'',
+                                    stock: p.stock||0,
+                                  });
                                   setShowProdList(false);
                                   setShowProdEdit(true);
                                 }}

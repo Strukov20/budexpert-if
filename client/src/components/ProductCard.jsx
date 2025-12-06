@@ -90,6 +90,11 @@ export default function ProductCard({p, onAdd}){
   const isOutOfStock = typeof p.stock === 'number' ? p.stock <= 0 : false;
   const inCart = qty > 0;
 
+  const rawDiscount = typeof p.discount === 'number' ? p.discount : Number(p.discount || 0) || 0;
+  const discount = Math.min(100, Math.max(0, rawDiscount));
+  const hasDiscount = discount > 0;
+  const finalPrice = hasDiscount ? (p.price * (100 - discount)) / 100 : p.price;
+
   return (
     <>
       <div className="card group p-3 md:p-4 flex flex-col border border-gray-100 rounded-lg shadow-sm hover:shadow-md transition">
@@ -124,7 +129,20 @@ export default function ProductCard({p, onAdd}){
           Натисни, щоб побачити повний опис
         </div>
         <div className="mt-2 md:mt-3 flex items-center justify-between">
-          <div className="font-bold text-base md:text-xl">{fmt.format(p.price)} ₴</div>
+          <div className="flex flex-col items-start">
+            {hasDiscount ? (
+              <>
+                <div className="text-xs md:text-sm text-gray-400 line-through">
+                  {fmt.format(p.price)} ₴
+                </div>
+                <div className="font-bold text-base md:text-xl text-red-600">
+                  {fmt.format(finalPrice)} ₴
+                </div>
+              </>
+            ) : (
+              <div className="font-bold text-base md:text-xl">{fmt.format(p.price)} ₴</div>
+            )}
+          </div>
           {/* Мобільні: кнопка "+", яка стає галочкою, якщо товар вже в кошику */}
           <button
             onClick={()=>onAdd(p)}
@@ -191,7 +209,20 @@ export default function ProductCard({p, onAdd}){
               </div>
             </div>
             <div className="mt-4 md:mt-0 border-t bg-gray-50 px-4 md:px-6 py-3 flex items-center justify-between">
-              <div className="font-bold text-2xl md:text-3xl">{fmt.format(p.price)} ₴</div>
+              <div className="flex flex-col items-start">
+                {hasDiscount ? (
+                  <>
+                    <div className="text-sm md:text-base text-gray-400 line-through">
+                      {fmt.format(p.price)} ₴
+                    </div>
+                    <div className="font-bold text-2xl md:text-3xl text-red-600">
+                      {fmt.format(finalPrice)} ₴
+                    </div>
+                  </>
+                ) : (
+                  <div className="font-bold text-2xl md:text-3xl">{fmt.format(p.price)} ₴</div>
+                )}
+              </div>
               <div className="flex items-center gap-2">
                 {qty > 0 ? (
                   <div className="flex items-center gap-2">
