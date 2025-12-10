@@ -150,20 +150,20 @@ export default function Header() {
           <button className="text-sm px-3 py-2 rounded-lg hover:bg-red-50 hover:text-red-600 transition" onClick={() => navigate("/services")}>
             Послуги
           </button>
-          <div className="relative group">
+          <div
+            className="relative"
+            onMouseEnter={()=> setMapOpen(true)}
+            onMouseLeave={()=> setMapOpen(false)}
+          >
             <button
               className="inline-flex items-center gap-2 text-sm px-3 py-2 rounded-lg hover:bg-red-50 hover:text-red-600 transition"
               onClick={() => window.open(mapsUrl, '_blank')}
-              onMouseEnter={() => setMapOpen(true)}
             >
               <FiMapPin className="w-4 h-4" />
               <span>Де ми знаходимось?</span>
             </button>
-            <div 
-              className="absolute right-0 mt-2 w-80 bg-white rounded-xl shadow-2xl ring-1 ring-gray-200 z-50 p-4 text-left transition-all duration-200 ease-in-out opacity-0 invisible group-hover:opacity-100 group-hover:visible"
-              onMouseEnter={() => setMapOpen(true)}
-              onMouseLeave={() => setMapOpen(false)}
-            >
+            {mapOpen && (
+              <div className="absolute right-0 mt-2 w-80 bg-white rounded-xl shadow-2xl ring-1 ring-gray-200 z-50 p-4 text-left">
                 <div className="text-sm font-semibold mb-1">Наш магазин</div>
                 <div className="text-xs text-gray-600 mb-2">
                   <div>Івано-Франківськ</div>
@@ -177,6 +177,7 @@ export default function Header() {
                   Відкрити маршрут на карті
                 </button>
               </div>
+            )}
           </div>
           <div className="relative"
                onMouseEnter={()=>{ if (!isCartPage && isLgUp()) setMiniOpen(true) }}
