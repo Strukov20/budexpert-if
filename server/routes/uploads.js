@@ -2,11 +2,20 @@ import express from 'express'
 import multer from 'multer'
 import path from 'path'
 import fs from 'fs'
+import { v2 as cloudinary } from 'cloudinary'
 
 const router = express.Router()
 
+// Локальна папка можна залишити як тимчасове сховище (multer зберігає сюди перед аплоудом у Cloudinary)
 const uploadsDir = path.join(process.cwd(), 'server', 'uploads')
 if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true })
+
+// Конфіг Cloudinary з env
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
+})
 
 const storage = multer.diskStorage({
   destination: (_req, _file, cb) => cb(null, uploadsDir),
@@ -28,12 +37,28 @@ const upload = multer({
 })
 
 // POST /api/uploads (form-data: file)
-router.post('/', upload.single('file'), (req, res) => {
-  if (!req.file) return res.status(400).json({ message: 'Файл не отримано' })
-  const filename = req.file.filename
-  const relativeUrl = `/uploads/${filename}`
-  const url = relativeUrl
-  res.status(201).json({ url, filename })
+router.post('/', upload.single('file'), async (req, res) => {
+  try {
+    if (!req.file) return res.status(400).json({ message: 'Файл не отримано' })
+
+    // Шлях до тимчасового файлу, який зберіг multer
+    const localPath = req.file.path
+
+    // Завантаження у Cloudinary в папку "products"
+    const result = await cloudinary.uploader.upload(localPath, {
+      folder: 'products',
+      resource_type: 'image',
+    })
+
+    const url = result.secure_url
+    const publicId = result.public_id
+
+    // Відповідь у форматі, сумісному з адмінкою (url основний, filename залишаємо як publicId)
+    res.status(201).json({ url, filename: publicId })
+  } catch (err) {
+    console.error('Upload error (Cloudinary):', err)
+    res.status(500).json({ message: 'Не вдалося завантажити зображення' })
+  }
 })
 
 export default router

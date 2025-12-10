@@ -67,5 +67,6 @@ export async function updateOrder(id, payload){ const r = await api.put(`/orders
 export async function getLeads(params){ const r = await api.get('/leads', { params }); return r.data; }
 export async function createLead(payload){ const r = await api.post('/leads', payload); return r.data; }
 export async function updateLead(id, payload){ const r = await api.put(`/leads/${id}`, payload); return r.data; }
-
-
+// Нова пошта: довідники міст та відділень
+export async function getPostCities(params){ const r = await api.get('/post/cities', { params }); return r.data; }
+export async function getPostOffices(params){ const r = await api.get('/post/offices', { params }); return r.data; }

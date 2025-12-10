@@ -178,7 +178,7 @@ export default function ProductCard({p, onAdd}){
             <button
               aria-label="Закрити"
               onClick={()=> setOpen(false)}
-              className="absolute top-3 right-3 w-9 h-9 rounded-full bg-white/90 border flex items-center justify-center shadow transition-colors cursor-pointer hover:bg-red-600 hover:text-white focus:outline-none focus:ring-2 focus:ring-red-500/40"
+              className="absolute top-3 right-3 w-9 h-9 rounded-full bg-white/90 border flex items-center justify-center shadow transition-colors cursor-pointer hover:bg-red-600 hover:text-white focus:outline-none focus:ring-2 focus:ring-red-500/40 z-20"
             >
               ✕
             </button>
