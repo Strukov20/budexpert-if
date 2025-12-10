@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react'
-import { createOrder } from '../api'
+import { createOrder, getPostCities, getPostOffices } from '../api'
 import { useNavigate } from 'react-router-dom'
 
 export default function Checkout(){
@@ -18,10 +18,26 @@ export default function Checkout(){
   const [touched, setTouched] = useState({})
   const [dtDate, setDtDate] = useState('')
   const [dtTime, setDtTime] = useState('')
-  const [method, setMethod] = useState('delivery') // delivery | pickup
+  const [method, setMethod] = useState('delivery') // delivery | pickup | post
+  const [npCities, setNpCities] = useState([])
+  const [npOffices, setNpOffices] = useState([])
+  const [npCityRef, setNpCityRef] = useState('')
+  const [npCityName, setNpCityName] = useState('')
+  const [npOfficeRef, setNpOfficeRef] = useState('')
+  const [npOfficeName, setNpOfficeName] = useState('')
+  const [npLoadingCities, setNpLoadingCities] = useState(false)
+  const [npLoadingOffices, setNpLoadingOffices] = useState(false)
+  const [npTouched, setNpTouched] = useState(false)
+  const [npCityQuery, setNpCityQuery] = useState('')
+  const [npOfficeQuery, setNpOfficeQuery] = useState('')
+  const [npShowCityList, setNpShowCityList] = useState(false)
+  const [npShowOfficeList, setNpShowOfficeList] = useState(false)
   const navigate = useNavigate()
 
   useEffect(()=>{ const stored = JSON.parse(localStorage.getItem('cart')||'[]'); setCart(stored); },[])
+
+  const cartTotal = useMemo(() => cart.reduce((sum, item) => sum + (item.price || 0) * (item.quantity || 1), 0), [cart])
+  const moneyFmt = useMemo(() => new Intl.NumberFormat('uk-UA', { minimumFractionDigits: 2, maximumFractionDigits: 2 }), [])
 
   // Валідатори (як у DeliveryLeadForm)
   const ukNameRegex = useMemo(()=> /^[А-ЩЬЮЯІЇЄҐа-щьюяіїєґ'’\- ]{2,}$/u, [])
@@ -90,26 +106,38 @@ export default function Checkout(){
   const handleSubmit = async e => {
     e.preventDefault();
     if(cart.length===0) return setStatus('Кошик порожній');
+    const isDelivery = method === 'delivery'
+    const isPickup = method === 'pickup'
+    const isPost = method === 'post'
+
     // Увімкнути торкнуті поля відповідно до методу
-    if (method==='delivery') {
+    if (isDelivery) {
       setTouched({ name:true, phone:true, city:true, street:true, house:true, dt:true })
     } else {
       setTouched({ name:true, phone:true })
     }
-    const deliveryErrors = !!(nameError || phoneError || cityError || streetError || houseError || dtError)
-    const pickupErrors = !!(nameError || phoneError)
-    const hasErrors = method==='delivery' ? deliveryErrors : pickupErrors
+    if (isPost) setNpTouched(true)
+
+    const baseErrors = !!(nameError || phoneError)
+    const deliveryErrors = isDelivery && !!(cityError || streetError || houseError || dtError)
+    const postErrors = isPost && (!npCityRef || !npOfficeRef)
+    const hasErrors = baseErrors || deliveryErrors || postErrors
     if (hasErrors) return
 
-    const address = method==='delivery'
-      ? ([city.trim(), street.trim(), house.trim()].filter(Boolean).join(', ') + (dtStr ? `, бажано: ${new Date(dtStr).toLocaleString('uk-UA')}` : ''))
-      : 'Самовивіз'
+    let address = ''
+    if (isDelivery) {
+      address = ([city.trim(), street.trim(), house.trim()].filter(Boolean).join(', ') + (dtStr ? `, бажано: ${new Date(dtStr).toLocaleString('uk-UA')}` : ''))
+    } else if (isPost) {
+      address = `Нова пошта, ${npCityName || ''}, ${npOfficeName || ''}`.replace(/,\s*,/g, ',').replace(/^,\s*|,\s*$/g, '')
+    } else {
+      address = 'Самовивіз'
+    }
     const payload = {
       customerName: name.trim(),
       phone: phone.replace(/\s+/g,'') ,
       address,
       items: cart.map(c=>({ productId: c._id, quantity: c.quantity })),
-      total: cart.reduce((s,i)=>s+i.price*i.quantity,0)
+      total: cartTotal
     }
     try{
       setLoading(true)
@@ -138,24 +166,59 @@ export default function Checkout(){
         <div className='absolute -top-16 -right-16 w-56 h-56 rounded-full bg-red-100 blur-2xl opacity-70 pointer-events-none'></div>
         <div className='relative p-5 md:p-6'>
           <h2 className='text-2xl font-semibold mb-3'>Оформлення замовлення</h2>
+
+          {/* Прогрес-бар кроків: Кошик -> Дані та доставка -> Підтвердження */}
+          <div className='mb-4 md:mb-5 flex justify-center'>
+            <div className='w-full max-w-xs md:max-w-md'>
+              <ol className='flex items-center justify-between text-[11px] md:text-xs text-gray-700'>
+                <li className='flex flex-col items-center gap-1 flex-1'>
+                  <div className='flex items-center justify-center w-7 h-7 rounded-full bg-black text-white text-[11px] font-semibold shrink-0 transition-colors'>1</div>
+                  <span className='hidden sm:inline whitespace-nowrap'>Кошик</span>
+                </li>
+                <li className='flex flex-col items-center gap-1 flex-1'>
+                  <div className={`flex items-center justify-center w-7 h-7 rounded-full text-[11px] font-semibold shrink-0 transition-colors ${showThanks ? 'bg-black text-white' : 'bg-red-600 text-white'}`}>
+                    2
+                  </div>
+                  <span className='hidden sm:inline whitespace-nowrap'>Дані та доставка</span>
+                </li>
+                <li className='flex flex-col items-center gap-1 flex-1'>
+                  <div className={`flex items-center justify-center w-7 h-7 rounded-full text-[11px] font-semibold shrink-0 transition-colors ${showThanks ? 'bg-black text-white' : 'bg-gray-200 text-gray-500'}`}>
+                    3
+                  </div>
+                  <span className='hidden sm:inline whitespace-nowrap'>Підтвердження</span>
+                </li>
+              </ol>
+            </div>
+          </div>
+
           <form onSubmit={handleSubmit} className='grid grid-cols-1 md:grid-cols-2 gap-3'>
-        <div className='md:col-span-2 flex items-center gap-2 mb-1'>
-          <label
-            className={`inline-flex items-center rounded-full border px-3 py-1.5 text-sm cursor-pointer select-none transition active:scale-95
-              ${method==='delivery' ? 'bg-black text-white border-black shadow-sm' : 'bg-white text-gray-800 hover:bg-gray-50 border-gray-300'}`}
-            title='Доставка'
-          >
-            <input type='radio' name='method' value='delivery' checked={method==='delivery'} onChange={()=> setMethod('delivery')} className='hidden' />
-            <span>Доставка</span>
-          </label>
-          <label
-            className={`inline-flex items-center rounded-full border px-3 py-1.5 text-sm cursor-pointer select-none transition active:scale-95
-              ${method==='pickup' ? 'bg-black text-white border-black shadow-sm' : 'bg-white text-gray-800 hover:bg-gray-50 border-gray-300'}`}
-            title='Самовивіз'
-          >
-            <input type='radio' name='method' value='pickup' checked={method==='pickup'} onChange={()=> setMethod('pickup')} className='hidden' />
-            <span>Самовивіз</span>
-          </label>
+        <div className='md:col-span-2 mb-2'>
+          <div className='flex rounded-full bg-gray-100 p-1 text-xs md:text-sm font-medium'>
+            <label
+              className={`flex-1 inline-flex items-center justify-center rounded-full cursor-pointer select-none px-3 py-1.5 transition
+                ${method==='delivery' ? 'bg-black text-white shadow-sm' : 'text-gray-800 hover:bg-white/60'}`}
+              title='Доставка по місту'
+            >
+              <input type='radio' name='method' value='delivery' checked={method==='delivery'} onChange={()=> setMethod('delivery')} className='hidden' />
+              <span>Доставка по місту</span>
+            </label>
+            <label
+              className={`flex-1 inline-flex items-center justify-center rounded-full cursor-pointer select-none px-3 py-1.5 transition
+                ${method==='post' ? 'bg-black text-white shadow-sm' : 'text-gray-800 hover:bg-white/60'}`}
+              title='Доставка на пошту'
+            >
+              <input type='radio' name='method' value='post' checked={method==='post'} onChange={()=> setMethod('post')} className='hidden' />
+              <span>Доставка на пошту</span>
+            </label>
+            <label
+              className={`flex-1 inline-flex items-center justify-center rounded-full cursor-pointer select-none px-3 py-1.5 transition
+                ${method==='pickup' ? 'bg-black text-white shadow-sm' : 'text-gray-800 hover:bg-white/60'}`}
+              title='Самовивіз'
+            >
+              <input type='radio' name='method' value='pickup' checked={method==='pickup'} onChange={()=> setMethod('pickup')} className='hidden' />
+              <span>Самовивіз</span>
+            </label>
+          </div>
         </div>
         <div>
           <label className='text-sm text-gray-700 mb-1 block'>Ваше ім’я</label>
@@ -186,20 +249,186 @@ export default function Checkout(){
           </div>
           {phoneError && <div className='text-xs text-red-600 mt-1'>{phoneError}</div>}
         </div>
-        {method==='delivery' && (
+        {method!=='pickup' && (
         <div>
           <label className='text-sm text-gray-700 mb-1 block'>Місто</label>
-          <div className={`relative bg-white rounded-xl ring-1 ring-gray-200 shadow px-3 transition hover:bg-red-50/40 hover:ring-red-200 ${cityError ? 'ring-red-300' : ''}`}>
-            <input
-              className='h-11 text-base w-full appearance-none bg-transparent border-0 focus:ring-0 focus:outline-none px-0'
-              placeholder='Місто'
-              value={city}
-              onChange={e=> setCity(e.target.value)}
-              onBlur={()=> setTouched(t=> ({...t, city:true}))}
-              required
-            />
+          <div className={`relative bg-white rounded-xl ring-1 ring-gray-200 shadow px-3 transition hover:bg-red-50/40 hover:ring-red-200 ${method==='delivery' && cityError ? 'ring-red-300' : ''}`}>
+            {method === 'post' ? (
+              <>
+                <div className='relative'>
+                  <input
+                    className='h-11 text-base w-full appearance-none bg-transparent border-0 focus:outline-none pr-7'
+                    placeholder='Пошук міста (мін. 2 символи)'
+                    value={npCityQuery}
+                    onFocus={async () => {
+                    if (!npShowCityList) {
+                      if (!npCities.length && npCityQuery.trim().length >= 2) {
+                        try {
+                          setNpLoadingCities(true)
+                          const data = await getPostCities({ q: npCityQuery.trim() })
+                          setNpCities(Array.isArray(data) ? data : [])
+                        } catch {
+                          setNpCities([])
+                        } finally {
+                          setNpLoadingCities(false)
+                        }
+                      }
+                      setNpShowCityList(true)
+                    }
+                    }}
+                    onChange={async e => {
+                      const v = e.target.value
+                      setNpCityQuery(v)
+                      setNpCityRef('')
+                      setNpCityName('')
+                      setNpOfficeRef('')
+                      setNpOfficeName('')
+                      setNpOfficeQuery('')
+                      setNpShowCityList(true)
+                      if (!v || v.trim().length < 2) {
+                        setNpCities([])
+                        return
+                      }
+                      try {
+                        setNpLoadingCities(true)
+                        const data = await getPostCities({ q: v.trim() })
+                        setNpCities(Array.isArray(data) ? data : [])
+                      } catch {
+                        setNpCities([])
+                      } finally {
+                        setNpLoadingCities(false)
+                      }
+                    }}
+                  />
+                  {npCityQuery && (
+                    <button
+                      type='button'
+                      className='absolute inset-y-0 right-0 px-2 text-gray-400 hover:text-gray-600 text-sm'
+                      onClick={() => {
+                        setNpCityQuery('')
+                        setNpCityRef('')
+                        setNpCityName('')
+                        setNpOfficeRef('')
+                        setNpOfficeName('')
+                        setNpOfficeQuery('')
+                        setNpCities([])
+                        setNpShowCityList(false)
+                        setNpShowOfficeList(false)
+                      }}
+                    >
+                      ×
+                    </button>
+                  )}
+                </div>
+                {!npLoadingCities && npShowCityList && npCities.length > 0 && (
+                  <div className='max-h-40 overflow-y-auto -mx-1 mt-1'>
+                    {npCities.map(c => (
+                      <button
+                        type='button'
+                        key={c.ref}
+                        className={`w-full text-left px-1 py-1 text-[13px] rounded cursor-pointer transition hover:bg-red-50 ${npCityRef === c.ref ? 'bg-red-50 font-medium' : ''}`}
+                        onClick={() => {
+                          const ref = c.ref
+                          setNpCityRef(ref)
+                          setNpCityName(c.name)
+                          setNpCityQuery(c.name)
+                          setNpOfficeRef('')
+                          setNpOfficeName('')
+                          setNpOfficeQuery('')
+                          setNpShowCityList(false)
+                          setNpShowOfficeList(true)
+                          setNpLoadingOffices(true)
+                          getPostOffices({ cityRef: ref })
+                            .then(data => setNpOffices(Array.isArray(data) ? data : []))
+                            .catch(()=> setNpOffices([]))
+                            .finally(()=> setNpLoadingOffices(false))
+                        }}
+                      >
+                        {c.name}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </>
+            ) : (
+              <input
+                className='h-11 text-base w-full appearance-none bg-transparent border-0 focus:ring-0 focus:outline-none px-0'
+                placeholder='Місто'
+                value={city}
+                onChange={e=> setCity(e.target.value)}
+                onBlur={()=> setTouched(t=> ({...t, city:true}))}
+                required
+              />
+            )}
           </div>
-          {cityError && <div className='text-xs text-red-600 mt-1'>{cityError}</div>}
+          {method==='delivery' && cityError && <div className='text-xs text-red-600 mt-1'>{cityError}</div>}
+          {method==='post' && npTouched && !npCityRef && <div className='text-xs text-red-600 mt-1'>Оберіть місто Нової пошти</div>}
+        </div>
+        )}
+        {method==='post' && (
+        <div>
+          <label className='text-sm text-gray-700 mb-1 block'>Відділення Нової пошти</label>
+          <div className='relative bg-white rounded-xl ring-1 ring-gray-200 shadow px-3 transition hover:bg-red-50/40 hover:ring-red-200'>
+            <div className='relative'>
+              <input
+                className='h-11 text-base w-full appearance-none bg-transparent border-0 focus:outline-none pr-7'
+                placeholder={!npCityRef ? 'Спочатку оберіть місто' : 'Пошук відділення'}
+                disabled={!npCityRef || npLoadingOffices}
+                value={npOfficeQuery}
+                onFocus={() => {
+                  if (npCityRef && npOffices.length > 0) {
+                    setNpShowOfficeList(true)
+                  }
+                }}
+                onChange={e => {
+                  setNpOfficeQuery(e.target.value)
+                  if (!npShowOfficeList) setNpShowOfficeList(true)
+                }}
+              />
+              {npCityRef && (
+                <button
+                  type='button'
+                  className='absolute inset-y-0 right-0 px-2 text-gray-400 hover:text-gray-600 text-sm'
+                  onClick={() => {
+                    setNpOfficeQuery('')
+                    setNpOfficeRef('')
+                    setNpOfficeName('')
+                    if (npOffices.length > 0) setNpShowOfficeList(true)
+                  }}
+                >
+                  ×
+                </button>
+              )}
+              {!npLoadingOffices && npShowOfficeList && npOffices.length > 0 && (
+                <div className='max-h-40 overflow-y-auto -mx-1 mt-1'>
+                  {npOffices
+                    .filter(o => {
+                      const q = (npOfficeQuery || '').trim().toLowerCase()
+                      if (!q) return true
+                      const label = (o.name || o.shortAddress || '').toLowerCase()
+                      return label.includes(q)
+                    })
+                    .map(o => (
+                    <button
+                      type='button'
+                      key={o.ref}
+                      className={`w-full text-left px-1 py-1 text-[13px] rounded cursor-pointer transition hover:bg-red-50 ${npOfficeRef === o.ref ? 'bg-red-50 font-medium' : ''}`}
+                      onClick={() => {
+                        setNpOfficeRef(o.ref)
+                        const label = o.name || o.shortAddress || ''
+                        setNpOfficeName(label)
+                        setNpOfficeQuery(label)
+                        setNpShowOfficeList(false)
+                      }}
+                    >
+                      {o.name}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+          {npTouched && !npOfficeRef && <div className='text-xs text-red-600 mt-1'>Оберіть відділення</div>}
         </div>
         )}
         {method==='delivery' && (
@@ -292,7 +521,17 @@ export default function Checkout(){
             </div>
           )
         })()}
-            <button className='btn md:col-span-2 transition active:scale-95 disabled:opacity-60' disabled={loading}> {loading ? 'Відправляємо...' : 'Підтвердити замовлення'} </button>
+            <button
+              type='submit'
+              className='btn md:col-span-2 transition active:scale-95 disabled:opacity-60 inline-flex items-center justify-center gap-2'
+              disabled={loading}
+              aria-busy={loading ? 'true' : 'false'}
+            >
+              {loading && (
+                <span className='inline-block w-4 h-4 border-2 border-white/60 border-t-transparent rounded-full animate-spin'></span>
+              )}
+              <span>{loading ? 'Відправляємо...' : 'Підтвердити замовлення'}</span>
+            </button>
           </form>
           {status && <div className='mt-3 text-green-600'>{status}</div>}
         </div>

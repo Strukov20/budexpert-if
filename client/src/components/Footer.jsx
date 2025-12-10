@@ -15,7 +15,7 @@ export default function Footer(){
               <span className="text-red-600">БУД</span>{' '}<span className="text-white">ЕКСПЕРТ</span>
             </h3>
           </div>
-          <p className="mt-3 text-sm text-gray-400">
+          <p className="mt-3 text-xs md:text-sm text-gray-400">
             Все для ремонту та будівництва: матеріали, інструменти та сервіс для майстрів і домашніх проєктів.
           </p>
           <div className="mt-4 flex items-center gap-3">
@@ -52,7 +52,7 @@ export default function Footer(){
         {/* Quick links */}
         <div>
           <h4 className="text-white font-semibold mb-4">Навігація</h4>
-          <ul className="space-y-2 text-sm">
+          <ul className="space-y-2 text-xs md:text-sm">
             <li><a href="/" className="hover:text-white transition-colors cursor-pointer">Каталог товарів</a></li>
             <li><a href="/services" className="hover:text-white transition-colors cursor-pointer">Послуги</a></li>
             <li><a href="/cart" className="hover:text-white transition-colors cursor-pointer">Кошик</a></li>
@@ -89,14 +89,14 @@ export default function Footer(){
               <FiClock className="mt-0.5 text-gray-400" />
               <div>
                 <div className="font-medium text-gray-200">Графік роботи</div>
-                <div className="text-gray-400 text-xs">Пн–Пт: 9:00–18:00<br />Сб: 9:00–15:00, Нд: вихідний</div>
+                <div className="text-gray-400 text-xs md:text-sm">Пн–Пт: 9:00–19:00<br />Сб: 9:00–15:00, Нд: вихідний</div>
               </div>
             </li>
             <li className="flex items-start gap-2">
               <FiTruck className="mt-0.5 text-gray-400 w-6 h-6" />
               <div>
                 <div className="font-medium text-gray-200">Доставка</div>
-                <div className="text-gray-400 text-xs">Безкоштовна доставка від 5000 ₴ по місту. Відправка по Україні службами доставки.</div>
+                <div className="text-gray-400 text-xs md:text-sm">Безкоштовна доставка від 5000 ₴ по місту. Відправка по Україні службами доставки.</div>
               </div>
             </li>
           </ul>
@@ -106,7 +106,7 @@ export default function Footer(){
         <div className="md:col-span-2 lg:col-span-4 border-t border-white/10 pt-6 grid gap-6 md:grid-cols-3">
           <div>
             <h4 className="text-white font-semibold mb-3">Контакти</h4>
-            <ul className="space-y-2 text-sm">
+            <ul className="space-y-2 text-xs md:text-sm">
               <li className="flex items-center gap-2">
                 <FiPhone className="text-gray-400" />
                 <a href="tel:+380980095577" className="hover:text-white transition-colors cursor-pointer">098 009 5577</a>
@@ -130,7 +130,7 @@ export default function Footer(){
           </div>
           <div>
             <h4 className="text-white font-semibold mb-3">Покупцям</h4>
-            <ul className="space-y-2 text-sm text-gray-400">
+            <ul className="space-y-2 text-xs md:text-sm text-gray-400">
               <li>Допомога у підборі матеріалів.</li>
               <li>Індивідуальні умови для майстрів.</li>
               <li>Можливість замовлення у Viber/Telegram.</li>
@@ -148,9 +148,9 @@ export default function Footer(){
       </div>
 
       <div className="border-t border-white/10">
-        <div className="container py-4 text-xs text-gray-400 flex flex-col md:flex-row items-center justify-between gap-2">
+        <div className="container py-4 text-xs md:text-sm text-gray-400 flex flex-col md:flex-row items-center justify-between gap-2">
           <div>© {new Date().getFullYear()} Буд Експерт. Всі права захищено.</div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 text-xs md:text-sm">
             <a href="#" className="hover:text-white transition-colors cursor-pointer">Політика конфіденційності</a>
             <span className="opacity-30">|</span>
             <a href="#" className="hover:text-white transition-colors cursor-pointer">Умови користування</a>

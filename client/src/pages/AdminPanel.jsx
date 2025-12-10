@@ -507,13 +507,13 @@ export default function AdminPanel(){
 
           {/* Modal: Edit Product */}
           {showProdEdit && (
-            <div className='fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4' onClick={()=> setShowProdEdit(false)}>
-              <div className='bg-white rounded-xl shadow-2xl w-full max-w-2xl p-5' onClick={(e)=>e.stopPropagation()}>
+            <div className='fixed inset-0 z-[60] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4'>
+              <div className='bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[95vh] overflow-auto p-6' onClick={(e)=>e.stopPropagation()}>
                 <div className='flex items-center justify-between mb-3'>
                   <h4 className='font-semibold'>Редагувати товар</h4>
                   <button aria-label='Закрити' onClick={()=> setShowProdEdit(false)} className='w-8 h-8 rounded-lg border'>✕</button>
                 </div>
-                <div className='grid md:grid-cols-2 gap-3'>
+                <div className='grid md:grid-cols-2 gap-4'>
                   <input className='border p-2 rounded' required placeholder='Назва' value={prodForm.name} onChange={e=>setProdForm({...prodForm, name:e.target.value})} />
                   <div className='grid grid-cols-[2fr_1fr] gap-2'>
                     <input
@@ -547,7 +547,7 @@ export default function AdminPanel(){
                       <button type='button' className='px-3 py-1 border rounded' onClick={()=>setProdForm({...prodForm, image:''})}>Очистити</button>
                     </div>
                   )}
-                  <div className='md:col-span-2 space-y-2'>
+                  <div className='md:col-span-2 space-y-3'>
                     <div className='flex gap-2 items-center'>
                       <div className='relative flex-1'>
                         <select className='border p-2 pr-10 rounded w-full' value={prodForm.category} onChange={e=>setProdForm({...prodForm, category:e.target.value})}>
@@ -589,7 +589,7 @@ export default function AdminPanel(){
                       </div>
                     )}
                   </div>
-                  <textarea className='md:col-span-2 border p-2 rounded' placeholder='Опис' value={prodForm.description} onChange={e=>setProdForm({...prodForm, description:e.target.value})} />
+                  <textarea className='md:col-span-2 border p-2 rounded min-h-32' placeholder='Опис' value={prodForm.description} onChange={e=>setProdForm({...prodForm, description:e.target.value})} />
                 </div>
                 <div className='mt-4 flex justify-end gap-2'>
                   <button onClick={()=> setShowProdEdit(false)} className='px-3 py-2 border rounded'>Скасувати</button>
@@ -601,8 +601,8 @@ export default function AdminPanel(){
 
           {/* Modal: Create Product */}
           {showProdCreate && (
-            <div className='fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4' onClick={()=> setShowProdCreate(false)}>
-              <div className='bg-white rounded-xl shadow-2xl w-full max-w-2xl p-5' onClick={(e)=>e.stopPropagation()}>
+            <div className='fixed inset-0 z-[60] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4'>
+              <div className='bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[95vh] overflow-auto p-6' onClick={(e)=>e.stopPropagation()}>
                 <div className='flex items-center justify-between mb-3'>
                   <h4 className='font-semibold'>Новий товар</h4>
                   <button aria-label='Закрити' onClick={()=> setShowProdCreate(false)} className='w-8 h-8 rounded-lg border'>✕</button>
@@ -696,8 +696,8 @@ export default function AdminPanel(){
 
         {/* Modal: View All Products (list) */}
         {showProdList && (
-          <div className='fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4' onClick={()=> setShowProdList(false)}>
-            <div className='bg-white rounded-2xl shadow-2xl w-full max-w-5xl p-5' onClick={(e)=>e.stopPropagation()}>
+          <div className='fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4'>
+            <div className='bg-white rounded-3xl shadow-2xl w-full max-w-6xl max-h-[90vh] overflow-auto p-6' onClick={(e)=>e.stopPropagation()}>
               <div className='flex items-center justify-between mb-4 border-b pb-3'>
                 <h4 className='font-semibold'>Усі товари</h4>
                 <button aria-label='Закрити' onClick={()=> setShowProdList(false)} className='w-8 h-8 rounded-lg border hover:bg-gray-100'>✕</button>
@@ -793,7 +793,7 @@ export default function AdminPanel(){
                                 title='Редагувати'
                                 aria-label='Редагувати'
                                 className='w-9 h-9 inline-flex items-center justify-center border rounded-lg hover:bg-black hover:text-white transition bg-white'
-                                onClick={()=>{
+                                onClick={() => {
                                   setSelectedProdId(p._id);
                                   setProdForm({
                                     name: p.name||'',
@@ -801,11 +801,10 @@ export default function AdminPanel(){
                                     discount: p.discount||0,
                                     image: p.image||'',
                                     description: p.description||'',
-                                    category: (p.category ? (typeof p.category==='string' ? p.category : p.category?._id) : '') || '',
+                                    category: p.category?._id || p.category || '',
                                     sku: p.sku||'',
                                     stock: p.stock||0,
                                   });
-                                  setShowProdList(false);
                                   setShowProdEdit(true);
                                 }}
                               >
