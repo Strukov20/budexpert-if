@@ -4,10 +4,12 @@ const productSchema = new mongoose.Schema({
   name: { type: String, required: true },
   price: { type: Number, required: true },
   image: { type: String },
+  imagePublicId: { type: String, trim: true },
   description: { type: String },
   category: { type: mongoose.Schema.Types.ObjectId, ref: 'Category' },
   sku: { type: String, trim: true },
   stock: { type: Number, default: 0, min: 0 },
+  unit: { type: String, trim: true },
   discount: { type: Number, default: 0, min: 0, max: 100 }
 }, { timestamps: true });
 

@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { getProducts, createProduct, updateProduct, deleteProduct, getCategories, createCategory, getOrders, deleteOrder, uploadImage, updateCategory, deleteCategory, reassignCategories, updateOrder, getLeads, updateLead, bulkCreateProducts, deleteAllProducts } from '../api'
-import { FiEdit2, FiPlus, FiX, FiCheckCircle, FiAlertTriangle, FiEye, FiTrash2, FiRefreshCcw, FiMaximize2, FiMinimize2, FiSearch } from 'react-icons/fi'
+import { getProducts, createProduct, updateProduct, deleteProduct, getCategories, createCategory, getOrders, deleteOrder, uploadImage, updateCategory, deleteCategory, reassignCategories, updateOrder, getLeads, updateLead, bulkCreateProducts, deleteAllProducts, exportProductsCsv } from '../api'
+import { FiEdit2, FiPlus, FiX, FiCheckCircle, FiAlertTriangle, FiEye, FiTrash2, FiRefreshCcw, FiMaximize2, FiMinimize2, FiSearch, FiDownload } from 'react-icons/fi'
 
 export default function AdminPanel(){
   const navigate = useNavigate()
@@ -20,7 +20,7 @@ export default function AdminPanel(){
   const [selectedProdId, setSelectedProdId] = useState('')
   const [showProdEdit, setShowProdEdit] = useState(false)
   const [showProdCreate, setShowProdCreate] = useState(false)
-  const [prodForm, setProdForm] = useState({ name:'', price:0, discount:0, image:'', description:'', category:'', sku:'', stock:0 })
+  const [prodForm, setProdForm] = useState({ name:'', price:0, discount:0, image:'', imagePublicId:'', description:'', category:'', sku:'', stock:0, unit:'' })
   const [showProdList, setShowProdList] = useState(false)
   const [prodListSearch, setProdListSearch] = useState('')
   const [prodSearchOpen, setProdSearchOpen] = useState(false)
@@ -66,6 +66,23 @@ export default function AdminPanel(){
     setTimeout(()=> closeToast(id), 10000)
   }
 
+  async function handleExportCsv(){
+    try{
+      const res = await exportProductsCsv();
+      const blob = new Blob([res.data], { type: 'text/csv;charset=utf-8;' });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'products-export.csv';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+    }catch(err){
+      showToast(getErrMsg(err),'error');
+    }
+  }
+
   // CSV простий парсер (підтримка лапок)
   function parseCsv(text){
     const lines = text.split(/\r?\n/).filter(l=> l.trim().length>0)
@@ -105,7 +122,7 @@ export default function AdminPanel(){
         const parsed = JSON.parse(text)
         items = Array.isArray(parsed) ? parsed : (parsed.items||[])
       } else {
-        // CSV очікує колонки: name,price,description,image,categoryName,sku,stock,manufacturer
+        // CSV очікує колонки: name,price,description,image,categoryName,sku,stock,manufacturer,unit
         const rows = parseCsv(text)
         items = rows.map(r=>{
           const rawPrice = (r.price||'').toString().replace(',', '.').trim()
@@ -114,6 +131,7 @@ export default function AdminPanel(){
           const stock = Math.max(0, Math.floor(Number(rawStock || 0) || 0))
           const rawDiscount = (r.discount||r.Discount||r.DISCOUNT||'').toString().replace(',', '.').trim()
           let discount = Math.max(0, Math.min(100, Number(rawDiscount || 0) || 0))
+          const unit = (r.unit||r.units||r['unitName']||r['одиниця']||r['одиниця_вимірювання']||'').toString().trim()
           return {
             name: r.name,
             price,
@@ -123,6 +141,7 @@ export default function AdminPanel(){
             sku: r.sku||r.SKU||r.artikul||r.article||'',
             stock,
             discount,
+            unit,
             manufacturer: r.manufacturer||r.brand||r.group||r.група||''
           }
         })
@@ -233,7 +252,7 @@ export default function AdminPanel(){
     try{
       const payload = { ...prodForm, image: normalizeImageForSave(prodForm.image) }
       await createProduct(payload);
-      setShowProdCreate(false); setProdForm({ name:'', price:0, discount:0, image:'', description:'', category:'', sku:'', stock:0 });
+      setShowProdCreate(false); setProdForm({ name:'', price:0, discount:0, image:'', imagePublicId:'', description:'', category:'', sku:'', stock:0, unit:'' });
       loadAll();
       showToast('Товар успішно додано','success')
     }catch(err){
@@ -245,7 +264,7 @@ export default function AdminPanel(){
       const payload = { ...prodForm, image: normalizeImageForSave(prodForm.image) }
       await updateProduct(selectedProdId, payload);
       setShowProdEdit(false);
-      setProdForm({ name:'', price:0, discount:0, image:'', description:'', category:'', sku:'', stock:0 });
+      setProdForm({ name:'', price:0, discount:0, image:'', imagePublicId:'', description:'', category:'', sku:'', stock:0, unit:'' });
       loadAll();
       showToast('Товар оновлено','success')
     }catch(err){
@@ -320,8 +339,8 @@ export default function AdminPanel(){
     if(!f) return;
     setUploading(true)
     try{
-      const { url } = await uploadImage(f)
-      setProdForm(prev=> ({ ...prev, image: url }))
+      const { url, filename } = await uploadImage(f)
+      setProdForm(prev=> ({ ...prev, image: url, imagePublicId: filename || prev.imagePublicId }))
     } finally{
       setUploading(false)
     }
@@ -475,6 +494,14 @@ export default function AdminPanel(){
               </button>
               <button
                 type='button'
+                onClick={handleExportCsv}
+                className='inline-flex items-center gap-2 px-3 py-2 border rounded hover:bg-black hover:text-white transition'
+              >
+                <FiDownload size={18} />
+                <span>Експорт CSV</span>
+              </button>
+              <button
+                type='button'
                 onClick={handleDeleteAllProducts}
                 className='inline-flex items-center justify-center w-10 h-10 border rounded text-red-600 hover:bg-red-600 hover:text-white transition'
                 title='Видалити всі товари'
@@ -534,6 +561,28 @@ export default function AdminPanel(){
                       onChange={e=>setProdForm({...prodForm, discount: Math.max(0, Math.min(100, Number(e.target.value)||0))})}
                     />
                   </div>
+                  <div className='grid grid-cols-3 gap-2'>
+                    <input
+                      className='border p-2 rounded'
+                      placeholder='SKU / артикул'
+                      value={prodForm.sku}
+                      onChange={e=>setProdForm({...prodForm, sku:e.target.value})}
+                    />
+                    <input
+                      className='border p-2 rounded'
+                      type='number'
+                      min='0'
+                      placeholder='Кількість на складі'
+                      value={prodForm.stock}
+                      onChange={e=>setProdForm({...prodForm, stock: Math.max(0, Number(e.target.value)||0)})}
+                    />
+                    <input
+                      className='border p-2 rounded'
+                      placeholder='Одиниця (шт, м, кг...)'
+                      value={prodForm.unit}
+                      onChange={e=>setProdForm({...prodForm, unit:e.target.value})}
+                    />
+                  </div>
                   <div className='md:col-span-2 grid gap-2 sm:grid-cols-[1fr_auto] items-center'>
                     <input className='border p-2 rounded' placeholder='URL картинки' value={prodForm.image} onChange={e=>setProdForm({...prodForm, image:e.target.value})} />
                     <label className='inline-flex items-center gap-2 px-3 py-2 border rounded cursor-pointer'>
@@ -544,7 +593,7 @@ export default function AdminPanel(){
                   {prodForm.image && (
                     <div className='md:col-span-2 flex items-center gap-3'>
                       <img src={resolveImageUrl(prodForm.image)} alt='preview' className='w-28 h-20 object-contain border rounded bg-white' referrerPolicy='no-referrer' />
-                      <button type='button' className='px-3 py-1 border rounded' onClick={()=>setProdForm({...prodForm, image:''})}>Очистити</button>
+                      <button type='button' className='px-3 py-1 border rounded' onClick={()=>setProdForm({...prodForm, image:'', imagePublicId:''})}>Очистити</button>
                     </div>
                   )}
                   <div className='md:col-span-2 space-y-3'>
@@ -628,6 +677,28 @@ export default function AdminPanel(){
                       onChange={e=>setProdForm({...prodForm, discount: Math.max(0, Math.min(100, Number(e.target.value)||0))})}
                     />
                   </div>
+                  <div className='grid grid-cols-3 gap-2'>
+                    <input
+                      className='border p-2 rounded'
+                      placeholder='SKU / артикул'
+                      value={prodForm.sku}
+                      onChange={e=>setProdForm({...prodForm, sku:e.target.value})}
+                    />
+                    <input
+                      className='border p-2 rounded'
+                      type='number'
+                      min='0'
+                      placeholder='Кількість на складі'
+                      value={prodForm.stock}
+                      onChange={e=>setProdForm({...prodForm, stock: Math.max(0, Number(e.target.value)||0)})}
+                    />
+                    <input
+                      className='border p-2 rounded'
+                      placeholder='Одиниця (шт, м, кг...)'
+                      value={prodForm.unit}
+                      onChange={e=>setProdForm({...prodForm, unit:e.target.value})}
+                    />
+                  </div>
                   <div className='md:col-span-2 grid gap-2 sm:grid-cols-[1fr_auto] items-center'>
                     <input className='border p-2 rounded' placeholder='URL картинки' value={prodForm.image} onChange={e=>setProdForm({...prodForm, image:e.target.value})} />
                     <label className='inline-flex items-center gap-2 px-3 py-2 border rounded cursor-pointer'>
@@ -638,7 +709,7 @@ export default function AdminPanel(){
                   {prodForm.image && (
                     <div className='md:col-span-2 flex items-center gap-3'>
                       <img src={resolveImageUrl(prodForm.image)} alt='preview' className='w-28 h-20 object-contain border rounded bg-white' />
-                      <button type='button' className='px-3 py-1 border rounded' onClick={()=>setProdForm({...prodForm, image:''})}>Очистити</button>
+                      <button type='button' className='px-3 py-1 border rounded' onClick={()=>setProdForm({...prodForm, image:'', imagePublicId:''})}>Очистити</button>
                     </div>
                   )}
                   <div className='md:col-span-2 space-y-2'>
@@ -699,7 +770,10 @@ export default function AdminPanel(){
           <div className='fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4'>
             <div className='bg-white rounded-3xl shadow-2xl w-full max-w-6xl max-h-[90vh] overflow-auto p-6' onClick={(e)=>e.stopPropagation()}>
               <div className='flex items-center justify-between mb-4 border-b pb-3'>
-                <h4 className='font-semibold'>Усі товари</h4>
+                <div className='flex flex-col gap-0.5'>
+                  <h4 className='font-semibold'>Усі товари</h4>
+                  <span className='text-xs text-gray-500'>Всього товарів: {products.length}</span>
+                </div>
                 <button aria-label='Закрити' onClick={()=> setShowProdList(false)} className='w-8 h-8 rounded-lg border hover:bg-gray-100'>✕</button>
               </div>
               <div className='mb-1 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3'>
@@ -751,6 +825,8 @@ export default function AdminPanel(){
                       <th className='px-3 py-2 text-center'>Назва</th>
                       <th className='px-3 py-2 text-center'>Дата</th>
                       <th className='px-3 py-2 text-center'>Ціна</th>
+                      <th className='px-3 py-2 text-center'>Кількість</th>
+                      <th className='px-3 py-2 text-center'>Одиниця</th>
                       <th className='px-3 py-2 text-center'>Категорія</th>
                       <th className='px-3 py-2 text-center'>Дії</th>
                     </tr>
@@ -760,7 +836,7 @@ export default function AdminPanel(){
                       const list = products
                         .filter(p=> (p.name||'').toLowerCase().includes(prodListSearch.trim().toLowerCase()))
                         .sort((a,b)=>{
-                          const dir = prodSortAsc ? 1 : -1
+                          const dir = 1; // завжди за зростанням
                           if (prodSortKey==='price'){
                             const av = Number(a.price||0), bv = Number(b.price||0)
                             return (av - bv) * dir
@@ -786,6 +862,8 @@ export default function AdminPanel(){
                             {(p.price||0).toFixed(2)} ₴
                             {p.discount ? ' (' + p.discount + '%)' : ''}
                           </td>
+                          <td className='px-3 py-2 text-center'>{p.stock ?? 0}</td>
+                          <td className='px-3 py-2 text-center'>{p.unit || ''}</td>
                           <td className='px-3 py-2 text-center'>{getCategoryName(p.category)}</td>
                           <td className='px-3 py-2 text-center align-middle'>
                             <div className='inline-flex flex-col items-center justify-center gap-2'>
