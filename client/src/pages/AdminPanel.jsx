@@ -23,7 +23,6 @@ export default function AdminPanel(){
   const [prodForm, setProdForm] = useState({ name:'', price:0, discount:0, image:'', imagePublicId:'', description:'', category:'', sku:'', stock:0, unit:'' })
   const [showProdList, setShowProdList] = useState(false)
   const [prodListSearch, setProdListSearch] = useState('')
-  const [prodSearchOpen, setProdSearchOpen] = useState(false)
   const [prodSortAsc, setProdSortAsc] = useState(true)
   const [prodSortKey, setProdSortKey] = useState('name') // name | price | date
   const [prodPage, setProdPage] = useState(1)
@@ -207,6 +206,12 @@ export default function AdminPanel(){
     }
     return u
   }
+
+  const placeholderProductImg = (()=>{
+    const w = 160, h = 90
+    const svg = `<?xml version="1.0" encoding="UTF-8"?><svg xmlns='http://www.w3.org/2000/svg' width='${w}' height='${h}' viewBox='0 0 ${w} ${h}'><rect width='100%' height='100%' fill='#f3f4f6'/><text x='50%' y='50%' dominant-baseline='middle' text-anchor='middle' font-family='Arial, Helvetica, sans-serif' font-size='10' fill='#9ca3af'>No image</text></svg>`
+    return 'data:image/svg+xml;utf8,' + encodeURIComponent(svg)
+  })()
 
   const normalizeImageForSave = (u)=>{
     try{
@@ -770,13 +775,26 @@ export default function AdminPanel(){
         {/* Modal: View All Products (list) */}
         {showProdList && (
           <div className='fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4'>
-            <div className='bg-white rounded-3xl shadow-2xl w-full max-w-6xl max-h-[90vh] overflow-auto p-6' onClick={(e)=>e.stopPropagation()}>
+            <div
+              className={`bg-white rounded-3xl shadow-2xl overflow-auto p-6 ${prodFull ? 'w-full h-full max-w-none' : 'w-full max-w-6xl max-h-[90vh]'}`}
+              onClick={(e)=>e.stopPropagation()}
+            >
               <div className='flex items-center justify-between mb-4 border-b pb-3'>
                 <div className='flex flex-col gap-0.5'>
                   <h4 className='font-semibold'>Усі товари</h4>
                   <span className='text-xs text-gray-500'>Всього товарів: {products.length}</span>
                 </div>
-                <button aria-label='Закрити' onClick={()=> setShowProdList(false)} className='w-8 h-8 rounded-lg border hover:bg-gray-100'>✕</button>
+                <div className='flex items-center gap-2'>
+                  <button
+                    className='w-8 h-8 rounded-lg border hover:bg-gray-100 flex items-center justify-center'
+                    onClick={()=> setProdFull(v=>!v)}
+                    aria-label={prodFull ? 'Вийти з повного екрану' : 'На весь екран'}
+                    title={prodFull ? 'Згорнути' : 'Розгорнути'}
+                  >
+                    {prodFull ? <FiMinimize2 size={16} /> : <FiMaximize2 size={16} />}
+                  </button>
+                  <button aria-label='Закрити' onClick={()=> setShowProdList(false)} className='w-8 h-8 rounded-lg border hover:bg-gray-100'>✕</button>
+                </div>
               </div>
               <div className='mb-1 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3'>
                 <div className='flex items-center gap-2'>
@@ -799,24 +817,12 @@ export default function AdminPanel(){
                   </button>
                 </div>
                 <div className='flex items-center justify-end gap-2 flex-1'>
-                  {prodSearchOpen && (
-                    <input
-                      autoFocus
-                      className='border rounded px-3 py-2 w-full max-w-xs'
-                      placeholder='Пошук за назвою'
-                      value={prodListSearch}
-                      onChange={e=>{ setProdListSearch(e.target.value); setProdPage(1) }}
-                    />
-                  )}
-                  <button
-                    type='button'
-                    onClick={()=> setProdSearchOpen(v=>!v)}
-                    className='w-9 h-9 inline-flex items-center justify-center border rounded hover:bg-black hover:text-white transition'
-                    title='Пошук'
-                    aria-label='Пошук товарів'
-                  >
-                    <FiSearch size={16} />
-                  </button>
+                  <input
+                    className='border rounded px-3 py-2 w-full max-w-xs'
+                    placeholder='Пошук...'
+                    value={prodListSearch}
+                    onChange={e=>{ setProdListSearch(e.target.value); setProdPage(1) }}
+                  />
                 </div>
               </div>
               <div className='max-h-[70vh] overflow-auto rounded-lg border'>
@@ -861,7 +867,13 @@ export default function AdminPanel(){
                         <tr key={p._id} className='border-t odd:bg-gray-50/40 hover:bg-gray-50 transition-colors'>
                           <td className='px-3 py-2 text-center'>
                             <div className='w-16 h-12 bg-gray-50 border rounded flex items-center justify-center overflow-hidden'>
-                              <img src={resolveImageUrl(p.image)} alt={p.name} className='w-full h-full object-contain' referrerPolicy='no-referrer' onError={(e)=>{ e.currentTarget.src = '' }} />
+                              <img
+                                src={resolveImageUrl(p.image) || placeholderProductImg}
+                                alt={p.name}
+                                className='w-full h-full object-contain'
+                                referrerPolicy='no-referrer'
+                                onError={(e)=>{ e.currentTarget.onerror=null; e.currentTarget.src = placeholderProductImg }}
+                              />
                             </div>
                           </td>
                           <td className='px-3 py-2 text-center'>{p.name}</td>
