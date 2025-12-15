@@ -51,6 +51,7 @@ export async function updateProduct(id,payload){ const r = await api.put(`/produ
 export async function deleteProduct(id){ const r = await api.delete(`/products/${id}`); return r.data; }
 export async function bulkCreateProducts(items){ const r = await api.post('/products/bulk', items); return r.data; }
 export async function deleteAllProducts(){ const r = await api.delete('/products', { params: { confirm: true } }); return r.data; }
+export async function exportProductsCsv(){ return api.get('/products/export/all', { responseType: 'blob' }); }
 
 export async function getCategories(){ const r = await api.get('/categories'); return r.data; }
 export async function createCategory(payload){ const r = await api.post('/categories', payload); return r.data; }

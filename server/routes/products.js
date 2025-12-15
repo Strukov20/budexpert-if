@@ -2,6 +2,7 @@ import express from "express";
 import Product from "../models/Product.js";
 import requireAdmin from "../middleware/auth.js";
 import Category from "../models/Category.js";
+import { v2 as cloudinary } from "cloudinary";
 
 const router = express.Router();
 
@@ -35,6 +36,56 @@ router.get("/:id", async (req, res) => {
   const p = await Product.findById(req.params.id);
   if (!p) return res.status(404).json({ message: "Not found" });
   res.json(p);
+});
+
+// GET /api/products/export
+// Експорт усіх товарів у CSV
+router.get("/export/all", requireAdmin, async (_req, res) => {
+  try {
+    const items = await Product.find({}).populate('category');
+
+    const header = [
+      'name','price','stock','unit','sku','description',
+      'categoryName','image','imagePublicId','discount','createdAt','updatedAt'
+    ];
+
+    const escapeCsv = (v)=>{
+      if (v === null || v === undefined) return '';
+      const s = String(v);
+      if (/[",\n]/.test(s)) {
+        return '"' + s.replace(/"/g,'""') + '"';
+      }
+      return s;
+    };
+
+    const lines = [];
+    lines.push(header.join(','));
+
+    for (const p of items) {
+      const row = [
+        p.name || '',
+        p.price ?? '',
+        p.stock ?? '',
+        p.unit || '',
+        p.sku || '',
+        p.description || '',
+        (p.category && p.category.name) || '',
+        p.image || '',
+        p.imagePublicId || '',
+        p.discount ?? '',
+        p.createdAt ? p.createdAt.toISOString() : '',
+        p.updatedAt ? p.updatedAt.toISOString() : '',
+      ].map(escapeCsv);
+      lines.push(row.join(','));
+    }
+
+    const csv = lines.join('\n');
+    res.setHeader('Content-Type','text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition','attachment; filename="products-export.csv"');
+    res.send(csv);
+  } catch (e) {
+    res.status(500).json({ message: 'Не вдалося сформувати CSV', error: e?.message });
+  }
 });
 
 // POST /api/products
@@ -99,52 +150,88 @@ router.post("/bulk", requireAdmin, async (req, res) => {
       return doc;
     });
 
-    // Дублікати: спочатку подивимось, що вже є в базі
-    const importNames = Array.from(new Set(docs.map(d => d.name).filter(Boolean)));
-    const importSkus  = Array.from(new Set(docs.map(d => d.sku).filter(Boolean)));
+    // Розділяємо товари з sku та без sku
+    const withSku = docs.filter(d => d.sku);
+    const withoutSku = docs.filter(d => !d.sku);
 
-    let existing = [];
-    const orConds = [
-      importNames.length ? { name: { $in: importNames } } : null,
-      importSkus.length  ? { sku:  { $in: importSkus } }  : null,
-    ].filter(Boolean);
-
-    if (orConds.length) {
-      existing = await Product.find({ $or: orConds }).select('name sku');
-    }
-
-    const existingNames = new Set(existing.map(p => p.name));
-    const existingSkus  = new Set(existing.map(p => p.sku).filter(Boolean));
-
-    // Прибираємо дублікати всередині самого імпорту та проти існуючих товарів
-    const seenNames = new Set();
-    const seenSkus  = new Set();
-    const filtered = [];
+    let insertedCount = 0;
+    let updatedCount = 0;
     let skipped = 0;
 
-    for (const d of docs) {
-      const n = d.name || '';
-      const s = d.sku || '';
-
-      const nameDup = n && (existingNames.has(n) || seenNames.has(n));
-      const skuDup  = s && (existingSkus.has(s)  || seenSkus.has(s));
-
-      if (nameDup || skuDup) {
-        skipped++;
-        continue;
+    // 1) upsert за sku для товарів, у яких sku заданий
+    if (withSku.length) {
+      // Прибираємо дублікати sku всередині самого імпорту
+      const seenSku = new Set();
+      const uniqueBySku = [];
+      for (const d of withSku) {
+        if (!d.sku) continue;
+        if (seenSku.has(d.sku)) {
+          skipped++;
+          continue;
+        }
+        seenSku.add(d.sku);
+        uniqueBySku.push(d);
       }
 
-      if (n) seenNames.add(n);
-      if (s) seenSkus.add(s);
-      filtered.push(d);
+      if (uniqueBySku.length) {
+        const ops = uniqueBySku.map(d => {
+          const { sku, _id, __v, ...rest } = d;
+          const update = { $set: { ...rest }, $setOnInsert: { sku } };
+          // Гарантуємо, що name теж оновиться, якщо передано
+          if (rest.name) {
+            update.$set.name = rest.name;
+          }
+          return {
+            updateOne: {
+              filter: { sku },
+              update,
+              upsert: true,
+            },
+          };
+        });
+
+        const bulkResult = await Product.bulkWrite(ops, { ordered: false });
+        const nUpserted = bulkResult.upsertedCount ?? bulkResult.nUpserted ?? 0;
+        const nModified = bulkResult.modifiedCount ?? bulkResult.nModified ?? 0;
+        insertedCount += nUpserted;
+        updatedCount += nModified;
+      }
     }
 
-    if (!filtered.length) {
-      return res.status(200).json({ count: 0, skipped, items: [] });
+    // 2) Товари без sku: створюємо нові, уникаючи дублів за name
+    if (withoutSku.length) {
+      const importNames = Array.from(new Set(withoutSku.map(d => d.name).filter(Boolean)));
+      let existingByName = [];
+      if (importNames.length) {
+        existingByName = await Product.find({ name: { $in: importNames } }).select('name');
+      }
+      const existingNames = new Set(existingByName.map(p => p.name));
+
+      const seenNames = new Set();
+      const toInsertNoSku = [];
+      for (const d of withoutSku) {
+        const n = d.name || '';
+        if (!n) {
+          skipped++;
+          continue;
+        }
+        const nameDup = existingNames.has(n) || seenNames.has(n);
+        if (nameDup) {
+          skipped++;
+          continue;
+        }
+        seenNames.add(n);
+        toInsertNoSku.push(d);
+      }
+
+      if (toInsertNoSku.length) {
+        const insertedDocs = await Product.insertMany(toInsertNoSku, { ordered: false });
+        insertedCount += insertedDocs.length;
+      }
     }
 
-    const inserted = await Product.insertMany(filtered, { ordered: false });
-    return res.status(201).json({ count: inserted.length, skipped, items: inserted });
+    const totalCount = insertedCount + updatedCount;
+    return res.status(200).json({ count: totalCount, inserted: insertedCount, updated: updatedCount, skipped });
   } catch (err) {
     // Якщо були часткові вставки при ordered:false
     if (err && err.insertedDocs) {
@@ -158,6 +245,11 @@ router.post("/bulk", requireAdmin, async (req, res) => {
 router.put("/:id", requireAdmin, async (req, res) => {
   try {
     const body = { ...req.body };
+
+    // Знаходимо поточний товар, щоб знати старе зображення
+    const current = await Product.findById(req.params.id);
+    if (!current) return res.status(404).json({ message: 'Not found' });
+
     const update = {};
     // копіюємо усі поля окрім category
     for (const k of Object.keys(body)) {
@@ -171,6 +263,30 @@ router.put("/:id", requireAdmin, async (req, res) => {
         update.category = body.category;
       }
     }
+
+    // Обробка видалення / заміни картинки в Cloudinary
+    const newImage = body.image;
+    const newPublicId = body.imagePublicId;
+    const oldPublicId = current.imagePublicId;
+
+    const shouldClearImage = (newImage === '' || newImage === null) && !newPublicId;
+    const isNewImagePublicId = newPublicId && newPublicId !== oldPublicId;
+
+    // Якщо картинку очищено або підставлено іншу — видаляємо стару з Cloudinary
+    if (oldPublicId && (shouldClearImage || isNewImagePublicId)) {
+      try {
+        await cloudinary.uploader.destroy(oldPublicId);
+      } catch (err) {
+        console.error('Cloudinary destroy error (update product):', err?.message || err);
+      }
+    }
+
+    // Якщо очищаємо картинку повністю
+    if (shouldClearImage) {
+      update.image = '';
+      update.imagePublicId = '';
+    }
+
     const p = await Product.findByIdAndUpdate(req.params.id, update, { new: true });
     if (!p) return res.status(404).json({ message: 'Not found' });
     res.json(p);
@@ -181,8 +297,23 @@ router.put("/:id", requireAdmin, async (req, res) => {
 
 // DELETE /api/products/:id
 router.delete("/:id", requireAdmin, async (req, res) => {
-  await Product.findByIdAndDelete(req.params.id);
-  res.json({ ok: true });
+  try {
+    const p = await Product.findById(req.params.id);
+    if (!p) return res.status(404).json({ message: 'Not found' });
+
+    if (p.imagePublicId) {
+      try {
+        await cloudinary.uploader.destroy(p.imagePublicId);
+      } catch (err) {
+        console.error('Cloudinary destroy error (delete product):', err?.message || err);
+      }
+    }
+
+    await Product.findByIdAndDelete(req.params.id);
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ message: "Не вдалося видалити товар", error: e?.message });
+  }
 });
 
 // DELETE /api/products
