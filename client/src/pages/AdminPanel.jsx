@@ -125,7 +125,9 @@ export default function AdminPanel(){
         // CSV очікує колонки: name,price,description,image,categoryName,sku,stock,manufacturer,unit
         const rows = parseCsv(text)
         items = rows.map(r=>{
-          const rawPrice = (r.price||'').toString().replace(',', '.').trim()
+          let rawPrice = (r.price||'').toString().trim()
+          // забираємо пробіли всередині та все, крім цифр, ком, крапок і мінуса
+          rawPrice = rawPrice.replace(/\s+/g,'').replace(/[^0-9,.-]/g,'').replace(',', '.')
           const price = Number(rawPrice || 0) || 0
           const rawStock = (r.stock||r.quantity||r.kilkist||r.kilkist||'').toString().replace(',', '.').trim()
           const stock = Math.max(0, Math.floor(Number(rawStock || 0) || 0))
@@ -826,17 +828,23 @@ export default function AdminPanel(){
                       <th className='px-3 py-2 text-center'>Дата</th>
                       <th className='px-3 py-2 text-center'>Ціна</th>
                       <th className='px-3 py-2 text-center'>Кількість</th>
-                      <th className='px-3 py-2 text-center'>Одиниця</th>
+                      <th className='px-3 py-2 text-center'>SKU</th>
                       <th className='px-3 py-2 text-center'>Категорія</th>
                       <th className='px-3 py-2 text-center'>Дії</th>
                     </tr>
                   </thead>
                   <tbody>
                     {(()=>{
+                      const term = prodListSearch.trim().toLowerCase();
                       const list = products
-                        .filter(p=> (p.name||'').toLowerCase().includes(prodListSearch.trim().toLowerCase()))
+                        .filter(p=>{
+                          if (!term) return true;
+                          const name = (p.name||'').toLowerCase();
+                          const sku  = (p.sku||'').toLowerCase();
+                          return name.includes(term) || sku.includes(term);
+                        })
                         .sort((a,b)=>{
-                          const dir = 1; // завжди за зростанням
+                          const dir = prodSortAsc ? 1 : -1;
                           if (prodSortKey==='price'){
                             const av = Number(a.price||0), bv = Number(b.price||0)
                             return (av - bv) * dir
@@ -863,7 +871,7 @@ export default function AdminPanel(){
                             {p.discount ? ' (' + p.discount + '%)' : ''}
                           </td>
                           <td className='px-3 py-2 text-center'>{p.stock ?? 0}</td>
-                          <td className='px-3 py-2 text-center'>{p.unit || ''}</td>
+                          <td className='px-3 py-2 text-center'>{p.sku || ''}</td>
                           <td className='px-3 py-2 text-center'>{getCategoryName(p.category)}</td>
                           <td className='px-3 py-2 text-center align-middle'>
                             <div className='inline-flex flex-col items-center justify-center gap-2'>
