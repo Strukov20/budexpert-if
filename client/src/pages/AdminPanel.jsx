@@ -547,105 +547,124 @@ export default function AdminPanel(){
                   <h4 className='font-semibold'>Редагувати товар</h4>
                   <button aria-label='Закрити' onClick={()=> setShowProdEdit(false)} className='w-8 h-8 rounded-lg border'>✕</button>
                 </div>
-                <div className='grid md:grid-cols-2 gap-4'>
-                  <input className='border p-2 rounded' required placeholder='Назва' value={prodForm.name} onChange={e=>setProdForm({...prodForm, name:e.target.value})} />
-                  <div className='grid grid-cols-[2fr_1fr] gap-2'>
-                    <input
-                      className='border p-2 rounded'
-                      required
-                      type='number'
-                      placeholder='Ціна'
-                      value={prodForm.price}
-                      onChange={e=>setProdForm({...prodForm, price:Number(e.target.value)})}
-                    />
-                    <input
-                      className='border p-2 rounded'
-                      type='number'
-                      min='0'
-                      max='100'
-                      placeholder='Discount %'
-                      value={prodForm.discount}
-                      onChange={e=>setProdForm({...prodForm, discount: Math.max(0, Math.min(100, Number(e.target.value)||0))})}
-                    />
+                <div className='grid gap-3'>
+                  <div className='grid gap-2 md:grid-cols-[220px_1fr] md:items-center'>
+                    <div className='text-sm text-gray-700'>Назва:</div>
+                    <input className='border p-2 rounded w-full' required value={prodForm.name} onChange={e=>setProdForm({...prodForm, name:e.target.value})} />
                   </div>
-                  <div className='grid grid-cols-3 gap-2'>
+
+                  <div className='grid gap-2 md:grid-cols-[220px_1fr] md:items-center'>
+                    <div className='text-sm text-gray-700'>Ціна / Знижка (%):</div>
+                    <div className='grid grid-cols-[2fr_1fr] gap-2'>
+                      <input
+                        className='border p-2 rounded'
+                        required
+                        type='number'
+                        value={prodForm.price}
+                        onChange={e=>setProdForm({...prodForm, price:Number(e.target.value)})}
+                      />
+                      <input
+                        className='border p-2 rounded'
+                        type='number'
+                        min='0'
+                        max='100'
+                        value={prodForm.discount}
+                        onChange={e=>setProdForm({...prodForm, discount: Math.max(0, Math.min(100, Number(e.target.value)||0))})}
+                      />
+                    </div>
+                  </div>
+
+                  <div className='grid gap-2 md:grid-cols-[220px_1fr] md:items-center'>
+                    <div className='text-sm text-gray-700'>SKU / Артикул:</div>
+                    <input className='border p-2 rounded w-full' value={prodForm.sku} onChange={e=>setProdForm({...prodForm, sku:e.target.value})} />
+                  </div>
+
+                  <div className='grid gap-2 md:grid-cols-[220px_1fr] md:items-center'>
+                    <div className='text-sm text-gray-700'>Кількість на складі:</div>
                     <input
-                      className='border p-2 rounded'
-                      placeholder='SKU / артикул'
-                      value={prodForm.sku}
-                      onChange={e=>setProdForm({...prodForm, sku:e.target.value})}
-                    />
-                    <input
-                      className='border p-2 rounded'
+                      className='border p-2 rounded w-full'
                       type='number'
                       min='0'
-                      placeholder='Кількість на складі'
                       value={prodForm.stock}
                       onChange={e=>setProdForm({...prodForm, stock: Math.max(0, Number(e.target.value)||0)})}
                     />
-                    <input
-                      className='border p-2 rounded'
-                      placeholder='Одиниця (шт, м, кг...)'
-                      value={prodForm.unit}
-                      onChange={e=>setProdForm({...prodForm, unit:e.target.value})}
-                    />
                   </div>
-                  <div className='md:col-span-2 grid gap-2 sm:grid-cols-[1fr_auto] items-center'>
-                    <input className='border p-2 rounded' placeholder='URL картинки' value={prodForm.image} onChange={e=>setProdForm({...prodForm, image:e.target.value})} />
-                    <label className='inline-flex items-center gap-2 px-3 py-2 border rounded cursor-pointer'>
-                      <input type='file' accept='image/*' className='hidden' onChange={handleFileChange} />
-                      <span>{uploading ? 'Завантаження…' : 'Завантажити файл'}</span>
-                    </label>
+
+                  <div className='grid gap-2 md:grid-cols-[220px_1fr] md:items-center'>
+                    <div className='text-sm text-gray-700'>Одиниця вимірювання:</div>
+                    <input className='border p-2 rounded w-full' value={prodForm.unit} onChange={e=>setProdForm({...prodForm, unit:e.target.value})} />
                   </div>
+
+                  <div className='grid gap-2 md:grid-cols-[220px_1fr] md:items-center'>
+                    <div className='text-sm text-gray-700'>Картинка (URL / файл):</div>
+                    <div className='grid gap-2 sm:grid-cols-[1fr_auto] items-center'>
+                      <input className='border p-2 rounded w-full' value={prodForm.image} onChange={e=>setProdForm({...prodForm, image:e.target.value})} />
+                      <label className='inline-flex items-center justify-center gap-2 px-3 py-2 border rounded cursor-pointer'>
+                        <input type='file' accept='image/*' className='hidden' onChange={handleFileChange} />
+                        <span>{uploading ? 'Завантаження…' : 'Завантажити файл'}</span>
+                      </label>
+                    </div>
+                  </div>
+
                   {prodForm.image && (
-                    <div className='md:col-span-2 flex items-center gap-3'>
-                      <img src={resolveImageUrl(prodForm.image)} alt='preview' className='w-28 h-20 object-contain border rounded bg-white' referrerPolicy='no-referrer' />
-                      <button type='button' className='px-3 py-1 border rounded' onClick={()=>setProdForm({...prodForm, image:'', imagePublicId:''})}>Очистити</button>
+                    <div className='grid gap-2 md:grid-cols-[220px_1fr] md:items-center'>
+                      <div className='text-sm text-gray-700'>Превʼю:</div>
+                      <div className='flex items-center gap-3'>
+                        <img src={resolveImageUrl(prodForm.image)} alt='preview' className='w-28 h-20 object-contain border rounded bg-white' referrerPolicy='no-referrer' />
+                        <button type='button' className='px-3 py-1 border rounded' onClick={()=>setProdForm({...prodForm, image:'', imagePublicId:''})}>Очистити</button>
+                      </div>
                     </div>
                   )}
-                  <div className='md:col-span-2 space-y-3'>
-                    <div className='flex gap-2 items-center'>
-                      <div className='relative flex-1'>
-                        <select className='border p-2 pr-10 rounded w-full' value={prodForm.category} onChange={e=>setProdForm({...prodForm, category:e.target.value})}>
-                          <option value=''>Виберіть категорію</option>
-                          {categories.map(c=> <option key={c._id} value={c._id}>{c.name}</option>)}
-                        </select>
-                        <span className='pointer-events-none absolute inset-y-0 right-3 flex items-center text-gray-500'>
-                          <svg xmlns='http://www.w3.org/2000/svg' className='h-4 w-4' viewBox='0 0 20 20' fill='currentColor'>
-                            <path fillRule='evenodd' d='M5.23 7.21a.75.75 0 011.06.02L10 10.94l3.71-3.71a.75.75 0 111.06 1.06l-4.24 4.24a.75.75 0 01-1.06 0L5.21 8.29a.75.75 0 01.02-1.08z' clipRule='evenodd' />
-                          </svg>
-                        </span>
-                      </div>
-                      <button
-                        type='button'
-                        onClick={()=> setShowInlineCat(v=>!v)}
-                        className='w-10 h-10 inline-flex items-center justify-center border rounded bg-white hover:bg-black hover:text-white transition'
-                        aria-label='Додати нову категорію'
-                      >
-                        <FiPlus size={18} />
-                      </button>
-                    </div>
-                    {showInlineCat && (
-                      <div className='flex flex-col sm:flex-row gap-2 sm:items-center'>
-                        <input
-                          className='border p-2 rounded flex-1'
-                          placeholder='Нова категорія'
-                          value={inlineCatName}
-                          onChange={e=> setInlineCatName(e.target.value)}
-                        />
+
+                  <div className='grid gap-2 md:grid-cols-[220px_1fr] md:items-center'>
+                    <div className='text-sm text-gray-700'>Категорія:</div>
+                    <div className='space-y-3'>
+                      <div className='flex gap-2 items-center'>
+                        <div className='relative flex-1'>
+                          <select className='border p-2 pr-10 rounded w-full' value={prodForm.category} onChange={e=>setProdForm({...prodForm, category:e.target.value})}>
+                            <option value=''>Виберіть категорію</option>
+                            {categories.map(c=> <option key={c._id} value={c._id}>{c.name}</option>)}
+                          </select>
+                          <span className='pointer-events-none absolute inset-y-0 right-3 flex items-center text-gray-500'>
+                            <svg xmlns='http://www.w3.org/2000/svg' className='h-4 w-4' viewBox='0 0 20 20' fill='currentColor'>
+                              <path fillRule='evenodd' d='M5.23 7.21a.75.75 0 011.06.02L10 10.94l3.71-3.71a.75.75 0 111.06 1.06l-4.24 4.24a.75.75 0 01-1.06 0L5.21 8.29a.75.75 0 01.02-1.08z' clipRule='evenodd' />
+                            </svg>
+                          </span>
+                        </div>
                         <button
                           type='button'
-                          onClick={handleInlineCreateCategory}
-                          disabled={inlineCatLoading || !inlineCatName.trim()}
-                          className='inline-flex items-center justify-center gap-2 px-3 py-2 border rounded bg-gray-50 hover:bg-black hover:text-white transition disabled:opacity-60 disabled:cursor-not-allowed'
+                          onClick={()=> setShowInlineCat(v=>!v)}
+                          className='w-10 h-10 inline-flex items-center justify-center border rounded bg-white hover:bg-black hover:text-white transition'
+                          aria-label='Додати нову категорію'
                         >
-                          <FiPlus size={16} />
-                          <span>{inlineCatLoading ? 'Створення…' : 'Додати категорію'}</span>
+                          <FiPlus size={18} />
                         </button>
                       </div>
-                    )}
+                      {showInlineCat && (
+                        <div className='flex flex-col sm:flex-row gap-2 sm:items-center'>
+                          <input
+                            className='border p-2 rounded flex-1'
+                            value={inlineCatName}
+                            onChange={e=> setInlineCatName(e.target.value)}
+                          />
+                          <button
+                            type='button'
+                            onClick={handleInlineCreateCategory}
+                            disabled={inlineCatLoading || !inlineCatName.trim()}
+                            className='inline-flex items-center justify-center gap-2 px-3 py-2 border rounded bg-gray-50 hover:bg-black hover:text-white transition disabled:opacity-60 disabled:cursor-not-allowed'
+                          >
+                            <FiPlus size={16} />
+                            <span>{inlineCatLoading ? 'Створення…' : 'Додати категорію'}</span>
+                          </button>
+                        </div>
+                      )}
+                    </div>
                   </div>
-                  <textarea className='md:col-span-2 border p-2 rounded min-h-32' placeholder='Опис' value={prodForm.description} onChange={e=>setProdForm({...prodForm, description:e.target.value})} />
+
+                  <div className='grid gap-2 md:grid-cols-[220px_1fr]'>
+                    <div className='text-sm text-gray-700 md:pt-2'>Опис:</div>
+                    <textarea className='border p-2 rounded min-h-32 w-full' value={prodForm.description} onChange={e=>setProdForm({...prodForm, description:e.target.value})} />
+                  </div>
                 </div>
                 <div className='mt-4 flex justify-end gap-2'>
                   <button onClick={()=> setShowProdEdit(false)} className='px-3 py-2 border rounded'>Скасувати</button>
