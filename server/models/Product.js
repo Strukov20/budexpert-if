@@ -6,6 +6,7 @@ const productSchema = new mongoose.Schema({
   image: { type: String },
   imagePublicId: { type: String, trim: true },
   description: { type: String },
+  specs: { type: Map, of: String, default: {} },
   category: { type: mongoose.Schema.Types.ObjectId, ref: 'Category' },
   sku: { type: String, trim: true },
   stock: { type: Number, default: 0, min: 0 },
