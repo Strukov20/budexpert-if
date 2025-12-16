@@ -20,7 +20,7 @@ export default function AdminPanel(){
   const [selectedProdId, setSelectedProdId] = useState('')
   const [showProdEdit, setShowProdEdit] = useState(false)
   const [showProdCreate, setShowProdCreate] = useState(false)
-  const [prodForm, setProdForm] = useState({ name:'', price:0, discount:0, image:'', imagePublicId:'', description:'', category:'', sku:'', stock:0, unit:'' })
+  const [prodForm, setProdForm] = useState({ name:'', price:0, discount:0, image:'', imagePublicId:'', description:'', specsPairs: [{ id: Date.now() + Math.random(), key:'', value:'' }], specsText:'', category:'', sku:'', stock:0, unit:'' })
   const [showProdList, setShowProdList] = useState(false)
   const [prodListSearch, setProdListSearch] = useState('')
   const [prodSortAsc, setProdSortAsc] = useState(true)
@@ -133,10 +133,19 @@ export default function AdminPanel(){
           const rawDiscount = (r.discount||r.Discount||r.DISCOUNT||'').toString().replace(',', '.').trim()
           let discount = Math.max(0, Math.min(100, Number(rawDiscount || 0) || 0))
           const unit = (r.unit||r.units||r['unitName']||r['одиниця']||r['одиниця_вимірювання']||'').toString().trim()
+          let specs = {}
+          try {
+            const rawSpecs = (r.specs||r.characteristics||r['характеристики']||'').toString().trim()
+            if (rawSpecs) {
+              const parsed = JSON.parse(rawSpecs)
+              if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) specs = parsed
+            }
+          } catch {}
           return {
             name: r.name,
             price,
             description: r.description||'',
+            specs,
             image: r.image||'',
             categoryName: r.categoryName||r.category||'',
             sku: r.sku||r.SKU||r.artikul||r.article||'',
@@ -185,6 +194,59 @@ export default function AdminPanel(){
   }
 
   const getErrMsg = (err)=> (err && err.response && err.response.data && (err.response.data.message || err.response.data.error)) || 'Сталася помилка'
+
+  const newSpecRow = ()=> ({ id: Date.now() + Math.random(), key: '', value: '' })
+  const ensureAtLeastOneSpecRow = (pairs)=>{
+    if (Array.isArray(pairs) && pairs.length) return pairs
+    return [newSpecRow()]
+  }
+
+  const parseSpecsText = (input)=>{
+    if (typeof input !== 'string') return {}
+    const out = {}
+    const parts = input
+      .replace(/\r\n/g, '\n')
+      .split(/[;\n]+/g)
+      .map(s => s.trim())
+      .filter(Boolean)
+    for (const p of parts) {
+      const idx = p.indexOf(':')
+      if (idx === -1) continue
+      const key = p.slice(0, idx).trim()
+      const value = p.slice(idx + 1).trim()
+      if (!key) continue
+      out[key] = value
+    }
+    return out
+  }
+
+  const specsObjectToText = (obj)=>{
+    if (!obj || typeof obj !== 'object') return ''
+    const entries = Object.entries(obj).filter(([k])=> (k||'').toString().trim())
+    return entries.map(([k,v]) => `${String(k).trim()}: ${String(v ?? '').trim()};`).join('\n')
+  }
+
+  const specsPairsToObject = (pairs)=>{
+    const out = {}
+    if (!Array.isArray(pairs)) return out
+    for (const row of pairs) {
+      const k = (row?.key || '').toString().trim()
+      if (!k) continue
+      const v = (row?.value ?? '').toString().trim()
+      out[k] = v
+    }
+    return out
+  }
+
+  const specsPairsToText = (pairs)=> specsObjectToText(specsPairsToObject(pairs))
+
+  const specsObjectToPairs = (obj)=>{
+    if (!obj || typeof obj !== 'object') return ensureAtLeastOneSpecRow([])
+    const pairs = Object.entries(obj)
+      .filter(([k])=> (k||'').toString().trim())
+      .map(([k,v])=> ({ id: Date.now() + Math.random(), key: String(k), value: String(v ?? '') }))
+    return ensureAtLeastOneSpecRow(pairs)
+  }
 
   function closeToast(id){
     // спершу приховати (анімувати), потім забрати з масиву
@@ -257,9 +319,10 @@ export default function AdminPanel(){
 
   const handleCreateProduct = async ()=>{
     try{
-      const payload = { ...prodForm, image: normalizeImageForSave(prodForm.image) }
+      const { specsPairs, specsText, ...rest } = prodForm
+      const payload = { ...rest, specs: specsPairsToObject(specsPairs), image: normalizeImageForSave(prodForm.image) }
       await createProduct(payload);
-      setShowProdCreate(false); setProdForm({ name:'', price:0, discount:0, image:'', imagePublicId:'', description:'', category:'', sku:'', stock:0, unit:'' });
+      setShowProdCreate(false); setProdForm({ name:'', price:0, discount:0, image:'', imagePublicId:'', description:'', specsPairs: [newSpecRow()], specsText:'', category:'', sku:'', stock:0, unit:'' });
       loadAll();
       showToast('Товар успішно додано','success')
     }catch(err){
@@ -268,10 +331,11 @@ export default function AdminPanel(){
   }
   const handleUpdate = async ()=>{
     try{
-      const payload = { ...prodForm, image: normalizeImageForSave(prodForm.image) }
+      const { specsPairs, specsText, ...rest } = prodForm
+      const payload = { ...rest, specs: specsPairsToObject(specsPairs), image: normalizeImageForSave(prodForm.image) }
       await updateProduct(selectedProdId, payload);
       setShowProdEdit(false);
-      setProdForm({ name:'', price:0, discount:0, image:'', imagePublicId:'', description:'', category:'', sku:'', stock:0, unit:'' });
+      setProdForm({ name:'', price:0, discount:0, image:'', imagePublicId:'', description:'', specsPairs: [newSpecRow()], specsText:'', category:'', sku:'', stock:0, unit:'' });
       loadAll();
       showToast('Товар оновлено','success')
     }catch(err){
@@ -665,6 +729,89 @@ export default function AdminPanel(){
                     <div className='text-sm text-gray-700 md:pt-2'>Опис:</div>
                     <textarea className='border p-2 rounded min-h-32 w-full' value={prodForm.description} onChange={e=>setProdForm({...prodForm, description:e.target.value})} />
                   </div>
+
+                  <div className='grid gap-2 md:grid-cols-[220px_1fr]'>
+                    <div></div>
+                    <div className='pt-3 border-t'>
+                      <div className='font-semibold'>Характеристики</div>
+                    </div>
+                  </div>
+
+                  <div className='grid gap-2 md:grid-cols-[220px_1fr]'>
+                    <div className='text-sm text-gray-700 md:pt-2'>Характеристики (ключ: значення):</div>
+                    <div className='space-y-2'>
+                      {(prodForm.specsPairs || []).map((row) => (
+                        <div key={row.id} className='grid grid-cols-[1fr_1fr_auto] gap-2 items-center'>
+                          <input
+                            className='border p-2 rounded w-full'
+                            placeholder='Ключ'
+                            value={row.key}
+                            onChange={(e)=>{
+                              const key = e.target.value
+                              setProdForm(prev=> {
+                                const nextPairs = (prev.specsPairs || []).map(r=> r.id===row.id ? { ...r, key } : r)
+                                return { ...prev, specsPairs: nextPairs, specsText: specsPairsToText(nextPairs) }
+                              })
+                            }}
+                          />
+                          <input
+                            className='border p-2 rounded w-full'
+                            placeholder='Значення'
+                            value={row.value}
+                            onChange={(e)=>{
+                              const value = e.target.value
+                              setProdForm(prev=> {
+                                const nextPairs = (prev.specsPairs || []).map(r=> r.id===row.id ? { ...r, value } : r)
+                                return { ...prev, specsPairs: nextPairs, specsText: specsPairsToText(nextPairs) }
+                              })
+                            }}
+                          />
+                          <button
+                            type='button'
+                            className='w-10 h-10 inline-flex items-center justify-center border rounded hover:bg-red-600 hover:text-white transition'
+                            onClick={()=>{
+                              setProdForm(prev=>{
+                                const next = (prev.specsPairs||[]).filter(r=> r.id!==row.id)
+                                const ensured = ensureAtLeastOneSpecRow(next)
+                                return { ...prev, specsPairs: ensured, specsText: specsPairsToText(ensured) }
+                              })
+                            }}
+                            aria-label='Видалити характеристику'
+                            title='Видалити'
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      ))}
+                      <div>
+                        <button
+                          type='button'
+                          className='px-3 py-2 border rounded hover:bg-black hover:text-white transition'
+                          onClick={()=> setProdForm(prev=> {
+                            const nextPairs = [...(prev.specsPairs||[]), newSpecRow()]
+                            return { ...prev, specsPairs: nextPairs, specsText: specsPairsToText(nextPairs) }
+                          })}
+                        >
+                          Додати характеристику
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className='grid gap-2 md:grid-cols-[220px_1fr]'>
+                    <div className='text-sm text-gray-700 md:pt-2'>Характеристики текстом (Ключ: Значення;):</div>
+                    <textarea
+                      className='border p-2 rounded min-h-32 w-full'
+                      value={prodForm.specsText || ''}
+                      onChange={e=>{
+                        const text = e.target.value
+                        const obj = parseSpecsText(text)
+                        const pairs = specsObjectToPairs(obj)
+                        setProdForm(prev=> ({ ...prev, specsText: text, specsPairs: pairs }))
+                      }}
+                      placeholder={'Бренд: Elf Decor;\nКраїна-виробник товару: Україна;'}
+                    />
+                  </div>
                 </div>
                 <div className='mt-4 flex justify-end gap-2'>
                   <button onClick={()=> setShowProdEdit(false)} className='px-3 py-2 border rounded'>Скасувати</button>
@@ -781,6 +928,86 @@ export default function AdminPanel(){
                     )}
                   </div>
                   <textarea className='md:col-span-2 border p-2 rounded' placeholder='Опис' value={prodForm.description} onChange={e=>setProdForm({...prodForm, description:e.target.value})} />
+
+                  <div className='md:col-span-2 pt-3 border-t'>
+                    <div className='font-semibold'>Характеристики</div>
+                  </div>
+
+                  <div className='md:col-span-2'>
+                    <div className='text-sm text-gray-600 mb-1'>Характеристики</div>
+                    <div className='space-y-2'>
+                      {(prodForm.specsPairs || []).map((row) => (
+                        <div key={row.id} className='grid grid-cols-[1fr_1fr_auto] gap-2 items-center'>
+                          <input
+                            className='border p-2 rounded w-full'
+                            placeholder='Ключ'
+                            value={row.key}
+                            onChange={(e)=>{
+                              const key = e.target.value
+                              setProdForm(prev=> {
+                                const nextPairs = (prev.specsPairs || []).map(r=> r.id===row.id ? { ...r, key } : r)
+                                return { ...prev, specsPairs: nextPairs, specsText: specsPairsToText(nextPairs) }
+                              })
+                            }}
+                          />
+                          <input
+                            className='border p-2 rounded w-full'
+                            placeholder='Значення'
+                            value={row.value}
+                            onChange={(e)=>{
+                              const value = e.target.value
+                              setProdForm(prev=> {
+                                const nextPairs = (prev.specsPairs || []).map(r=> r.id===row.id ? { ...r, value } : r)
+                                return { ...prev, specsPairs: nextPairs, specsText: specsPairsToText(nextPairs) }
+                              })
+                            }}
+                          />
+                          <button
+                            type='button'
+                            className='w-10 h-10 inline-flex items-center justify-center border rounded hover:bg-red-600 hover:text-white transition'
+                            onClick={() => {
+                              setProdForm(prev => {
+                                const next = (prev.specsPairs || []).filter(r => r.id !== row.id)
+                                const ensured = ensureAtLeastOneSpecRow(next)
+                                return { ...prev, specsPairs: ensured, specsText: specsPairsToText(ensured) }
+                              })
+                            }}
+                            aria-label='Видалити характеристику'
+                            title='Видалити'
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      ))}
+                      <div>
+                        <button
+                          type='button'
+                          className='px-3 py-2 border rounded hover:bg-black hover:text-white transition'
+                          onClick={()=> setProdForm(prev=> {
+                            const nextPairs = [...(prev.specsPairs||[]), newSpecRow()]
+                            return { ...prev, specsPairs: nextPairs, specsText: specsPairsToText(nextPairs) }
+                          })}
+                        >
+                          Додати характеристику
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className='md:col-span-2'>
+                    <div className='text-sm text-gray-600 mb-1'>Характеристики текстом (Ключ: Значення;)</div>
+                    <textarea
+                      className='border p-2 rounded min-h-32 w-full'
+                      value={prodForm.specsText || ''}
+                      onChange={e=>{
+                        const text = e.target.value
+                        const obj = parseSpecsText(text)
+                        const pairs = specsObjectToPairs(obj)
+                        setProdForm(prev=> ({ ...prev, specsText: text, specsPairs: pairs }))
+                      }}
+                      placeholder={'Бренд: Elf Decor;\nКраїна-виробник товару: Україна;'}
+                    />
+                  </div>
                 </div>
                 <div className='mt-4 flex justify-end gap-2'>
                   <button onClick={()=> setShowProdCreate(false)} className='px-3 py-2 border rounded'>Скасувати</button>
@@ -912,15 +1139,29 @@ export default function AdminPanel(){
                                 className='w-9 h-9 inline-flex items-center justify-center border rounded-lg hover:bg-black hover:text-white transition bg-white'
                                 onClick={() => {
                                   setSelectedProdId(p._id);
+                                  const specsObj = (()=>{
+                                    const s = p.specs
+                                    if (!s) return {}
+                                    if (s instanceof Map) return Object.fromEntries(s)
+                                    if (typeof s === 'object') return s
+                                    return {}
+                                  })()
+                                  const specsText = Object.entries(specsObj)
+                                    .map(([k, v]) => `${String(k).trim()}: ${String(v ?? '').trim()};`)
+                                    .join('\n')
                                   setProdForm({
                                     name: p.name||'',
                                     price: p.price||0,
                                     discount: p.discount||0,
                                     image: p.image||'',
+                                    imagePublicId: p.imagePublicId||'',
                                     description: p.description||'',
+                                    specsPairs: specsObjectToPairs(specsObj),
+                                    specsText,
                                     category: p.category?._id || p.category || '',
                                     sku: p.sku||'',
                                     stock: p.stock||0,
+                                    unit: p.unit||'',
                                   });
                                   setShowProdEdit(true);
                                 }}

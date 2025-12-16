@@ -44,6 +44,17 @@ router.post('/', upload.single('file'), async (req, res) => {
     // Шлях до тимчасового файлу, який зберіг multer
     const localPath = req.file.path
 
+    const cloudName = process.env.CLOUDINARY_CLOUD_NAME
+    const apiKey = process.env.CLOUDINARY_API_KEY
+    const apiSecret = process.env.CLOUDINARY_API_SECRET
+
+    // Cloudinary only: require env configuration
+    if (!cloudName || !apiKey || !apiSecret) {
+      return res.status(500).json({
+        message: 'Cloudinary не налаштовано. Додайте CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET у server/.env і перезапустіть бекенд.'
+      })
+    }
+
     // Завантаження у Cloudinary в папку "products"
     const result = await cloudinary.uploader.upload(localPath, {
       folder: 'products',
@@ -53,11 +64,15 @@ router.post('/', upload.single('file'), async (req, res) => {
     const url = result.secure_url
     const publicId = result.public_id
 
+    // Прибираємо тимчасовий локальний файл
+    try { fs.unlinkSync(localPath) } catch {}
+
     // Відповідь у форматі, сумісному з адмінкою (url основний, filename залишаємо як publicId)
     res.status(201).json({ url, filename: publicId })
   } catch (err) {
     console.error('Upload error (Cloudinary):', err)
-    res.status(500).json({ message: 'Не вдалося завантажити зображення' })
+    const details = err?.message || 'Unknown error'
+    res.status(500).json({ message: 'Не вдалося завантажити зображення', error: details })
   }
 })
 

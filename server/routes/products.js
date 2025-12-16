@@ -6,6 +6,27 @@ import { v2 as cloudinary } from "cloudinary";
 
 const router = express.Router();
 
+ const parseSpecsText = (input) => {
+   if (typeof input !== 'string') return undefined;
+   const out = {};
+   const parts = input
+     .replace(/\r\n/g, '\n')
+     .split(/[;\n]+/g)
+     .map(s => s.trim())
+     .filter(Boolean);
+ 
+   for (const p of parts) {
+     const idx = p.indexOf(':');
+     if (idx === -1) continue;
+     const key = p.slice(0, idx).trim();
+     const value = p.slice(idx + 1).trim();
+     if (!key) continue;
+     out[key] = value;
+   }
+ 
+   return out;
+ };
+
 // GET /api/products
 router.get("/", async (req, res) => {
   const { q, category } = req.query;
@@ -45,7 +66,7 @@ router.get("/export/all", requireAdmin, async (_req, res) => {
     const items = await Product.find({}).populate('category');
 
     const header = [
-      'name','price','stock','unit','sku','description',
+      'name','price','stock','unit','sku','description','specs',
       'categoryName','image','imagePublicId','discount','createdAt','updatedAt'
     ];
 
@@ -62,6 +83,7 @@ router.get("/export/all", requireAdmin, async (_req, res) => {
     lines.push(header.join(','));
 
     for (const p of items) {
+      const specsObj = p.specs ? Object.fromEntries(p.specs) : {};
       const row = [
         p.name || '',
         p.price ?? '',
@@ -69,6 +91,7 @@ router.get("/export/all", requireAdmin, async (_req, res) => {
         p.unit || '',
         p.sku || '',
         p.description || '',
+        JSON.stringify(specsObj),
         (p.category && p.category.name) || '',
         p.image || '',
         p.imagePublicId || '',
@@ -92,6 +115,14 @@ router.get("/export/all", requireAdmin, async (_req, res) => {
 router.post("/", requireAdmin, async (req, res) => {
   try {
     const payload = { ...req.body };
+
+     if (typeof payload.specs === 'string') {
+       payload.specs = parseSpecsText(payload.specs);
+     }
+     if (typeof payload.specsText === 'string') {
+       payload.specs = parseSpecsText(payload.specsText);
+       delete payload.specsText;
+     }
     if (payload.category === '' || payload.category === null) {
       delete payload.category;
     }
@@ -246,21 +277,29 @@ router.put("/:id", requireAdmin, async (req, res) => {
   try {
     const body = { ...req.body };
 
+     if (typeof body.specs === 'string') {
+       body.specs = parseSpecsText(body.specs);
+     }
+     if (typeof body.specsText === 'string') {
+       body.specs = parseSpecsText(body.specsText);
+       delete body.specsText;
+     }
+
     // Знаходимо поточний товар, щоб знати старе зображення
     const current = await Product.findById(req.params.id);
     if (!current) return res.status(404).json({ message: 'Not found' });
 
-    const update = {};
+    const update = { $set: {}, $unset: {} };
     // копіюємо усі поля окрім category
     for (const k of Object.keys(body)) {
-      if (k !== 'category') update[k] = body[k];
+      if (k !== 'category') update.$set[k] = body[k];
     }
     // спеціальна обробка category
     if ('category' in body) {
       if (body.category === '' || body.category === null) {
-        update.$unset = { ...(update.$unset||{}), category: "" };
+        update.$unset.category = "";
       } else {
-        update.category = body.category;
+        update.$set.category = body.category;
       }
     }
 
@@ -283,9 +322,12 @@ router.put("/:id", requireAdmin, async (req, res) => {
 
     // Якщо очищаємо картинку повністю
     if (shouldClearImage) {
-      update.image = '';
-      update.imagePublicId = '';
+      update.$set.image = '';
+      update.$set.imagePublicId = '';
     }
+
+    // прибрати порожні оператори
+    if (!Object.keys(update.$unset).length) delete update.$unset;
 
     const p = await Product.findByIdAndUpdate(req.params.id, update, { new: true });
     if (!p) return res.status(404).json({ message: 'Not found' });
