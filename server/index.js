@@ -15,6 +15,7 @@ import postRoutes from "./routes/post.js";
 import helmet from "helmet";
 import mongoSanitize from "express-mongo-sanitize";
 import rateLimit from "express-rate-limit";
+import Category from "./models/Category.js";
 
 
 dotenv.config();
@@ -61,7 +62,21 @@ mongoose
     useNewUrlParser: true,
     useUnifiedTopology: true,
   })
-  .then(() => console.log("MongoDB connected"))
+  .then(async () => {
+    console.log("MongoDB connected");
+    // Remove legacy unique index on Category.name that may still exist in MongoDB
+    // after switching to compound uniqueness (parent, name).
+    try {
+      await Category.collection.dropIndex('name_1');
+      console.log('[BOOT] Dropped legacy categories index name_1');
+    } catch (err) {
+      // Index may not exist; ignore
+      const msg = (err && err.message) ? err.message : '';
+      if (!/index not found/i.test(msg) && !(err && err.code === 27)) {
+        console.log('[BOOT] Could not drop legacy categories index name_1:', msg);
+      }
+    }
+  })
   .catch((err) => console.error("MongoDB connection error:", err));
 
 app.use("/api/products", productsRouter);

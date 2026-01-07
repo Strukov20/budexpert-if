@@ -46,6 +46,8 @@ export default function AdminPanel(){
   const [showCatEdit, setShowCatEdit] = useState(false)
   const [showCatCreate, setShowCatCreate] = useState(false)
   const [catEditingName, setCatEditingName] = useState('')
+  const [catSubName, setCatSubName] = useState('')
+  const [catSubLoading, setCatSubLoading] = useState(false)
   const [applyToProducts, setApplyToProducts] = useState(true)
   const [showCatList, setShowCatList] = useState(false)
   const [catListSearch, setCatListSearch] = useState('')
@@ -54,6 +56,7 @@ export default function AdminPanel(){
   const [catSortKey, setCatSortKey] = useState('name') // name | date
   const [catPage, setCatPage] = useState(1)
   const [catPerPage, setCatPerPage] = useState(10)
+  const [expandedCatId, setExpandedCatId] = useState('')
   const [uploading, setUploading] = useState(false)
   const [toasts, setToasts] = useState([]) // {id, open, type, message}
   const importInputRef = useRef(null)
@@ -594,6 +597,121 @@ export default function AdminPanel(){
                 </div>
               )
             })()}
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Edit Category (active, not hidden) */}
+      {showCatEdit && (
+        <div className='fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4' onClick={()=> setShowCatEdit(false)}>
+          <div className='bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[92vh] overflow-auto' onClick={(e)=>e.stopPropagation()}>
+            <div className='px-6 py-4 border-b bg-gradient-to-b from-gray-50 to-white rounded-t-2xl'>
+              <div className='flex items-start justify-between gap-3'>
+                <div>
+                  <div className='text-lg font-semibold leading-tight'>Редагувати категорію</div>
+                  <div className='text-xs text-gray-500 mt-0.5'>Керуйте назвою та підкатегоріями. Зміни застосуються одразу після збереження.</div>
+                </div>
+                <button
+                  aria-label='Закрити'
+                  onClick={()=> setShowCatEdit(false)}
+                  className='w-9 h-9 rounded-xl border bg-white hover:bg-gray-50 active:scale-95 transition'
+                >
+                  ✕
+                </button>
+              </div>
+            </div>
+
+            <div className='p-6 grid grid-cols-1 md:grid-cols-2 gap-5'>
+              <div className='border rounded-xl p-4 bg-white'>
+                <div className='text-sm font-semibold mb-3'>Основне</div>
+                <label className='text-sm text-gray-600'>Назва</label>
+                <input
+                  className='mt-1 border px-3 py-2.5 rounded-lg w-full focus:outline-none focus:ring-2 focus:ring-black/10 focus:border-gray-400'
+                  value={catEditingName}
+                  onChange={e=>setCatEditingName(e.target.value)}
+                  placeholder='Назва категорії'
+                />
+
+                <label className='flex items-start gap-2 mt-4 text-sm'>
+                  <input type='checkbox' className='mt-1' checked={applyToProducts} onChange={(e)=> setApplyToProducts(e.target.checked)} />
+                  <span>
+                    Застосувати нову назву до всіх товарів цієї категорії
+                    <div className='text-xs text-gray-500 mt-0.5'>Товари посилаються на категорію за ID, тому нова назва відобразиться автоматично.</div>
+                  </span>
+                </label>
+              </div>
+
+              <div className='border rounded-xl p-4 bg-white'>
+                <div className='text-sm font-semibold mb-1'>Підкатегорії</div>
+                <div className='text-xs text-gray-600 mb-3'>Додайте підкатегорію до цієї категорії — вона зʼявиться у дропдаунах товару.</div>
+
+                <div className='flex gap-2 mb-3'>
+                  <input
+                    className='border px-3 py-2.5 rounded-lg w-full focus:outline-none focus:ring-2 focus:ring-black/10 focus:border-gray-400'
+                    value={catSubName}
+                    onChange={e=> setCatSubName(e.target.value)}
+                    placeholder='Нова підкатегорія'
+                    disabled={catSubLoading}
+                  />
+                  <button
+                    type='button'
+                    className='px-4 py-2.5 rounded-lg bg-black text-white hover:bg-red-600 transition disabled:opacity-60 disabled:cursor-not-allowed'
+                    disabled={catSubLoading || !catSubName.trim() || !selectedCatId}
+                    onClick={async()=>{
+                      try{
+                        if (!selectedCatId) return
+                        const name = catSubName.trim()
+                        if (!name) return
+                        setCatSubLoading(true)
+                        await createCategory({ name, parent: selectedCatId })
+                        setCatSubName('')
+                        loadAll()
+                        showToast('Підкатегорію створено','success')
+                      }catch(err){
+                        showToast(getErrMsg(err),'error')
+                      }finally{
+                        setCatSubLoading(false)
+                      }
+                    }}
+                  >
+                    {catSubLoading ? 'Додаю…' : 'Додати'}
+                  </button>
+                </div>
+
+                <div className='max-h-56 overflow-auto rounded-xl border bg-gray-50'>
+                  {(()=>{
+                    const pid = (selectedCatId || '').toString()
+                    const getParentId = (c)=>{
+                      const p = c?.parent
+                      if (!p) return ''
+                      if (typeof p === 'string') return p
+                      if (typeof p === 'object') return p?._id || p?.id || (typeof p?.toString === 'function' ? p.toString() : '')
+                      return ''
+                    }
+                    const subs = categories.filter(c=> String(getParentId(c)||'') === String(pid))
+                    if (!subs.length) return <div className='p-3 text-sm text-gray-500'>Підкатегорій ще немає.</div>
+                    return subs.map(sc=> (
+                      <div key={sc._id} className='px-4 py-2.5 border-t first:border-t-0 text-sm bg-white hover:bg-gray-50'>
+                        {sc.name}
+                      </div>
+                    ))
+                  })()}
+                </div>
+              </div>
+            </div>
+
+            <div className='px-6 py-4 border-t bg-white rounded-b-2xl flex items-center justify-end gap-2'>
+              <button onClick={()=> setShowCatEdit(false)} className='px-4 py-2.5 rounded-lg border bg-white hover:bg-gray-50 transition'>Скасувати</button>
+              <button onClick={async()=>{
+                try{
+                  if (!selectedCatId) return;
+                  if (catEditingName.trim()) await updateCategory(selectedCatId, { name: catEditingName.trim() })
+                  setShowCatEdit(false);
+                  loadAll();
+                  showToast(applyToProducts ? 'Категорію оновлено. Товари відобразять нову назву автоматично.' : 'Категорію оновлено','success')
+                }catch(err){ showToast(getErrMsg(err),'error') }
+              }} className='px-4 py-2.5 rounded-lg bg-black text-white hover:bg-red-600 transition'>Зберегти</button>
+            </div>
           </div>
         </div>
       )}
@@ -1796,7 +1914,7 @@ export default function AdminPanel(){
       {/* Modal: View All Categories (list) */}
       {showCatList && (
         <div className='fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4' onClick={()=> setShowCatList(false)}>
-          <div className='bg-white rounded-2xl shadow-2xl w-full max-w-2xl p-5' onClick={(e)=>e.stopPropagation()}>
+          <div className='bg-white rounded-2xl shadow-2xl w-full max-w-5xl max-h-[92vh] overflow-auto p-6' onClick={(e)=>e.stopPropagation()}>
             <div className='flex items-center justify-between mb-4 border-b pb-3'>
               <h4 className='font-semibold'>Усі категорії</h4>
               <button aria-label='Закрити' onClick={()=> setShowCatList(false)} className='w-8 h-8 rounded-lg border hover:bg-gray-100'>✕</button>
@@ -1841,7 +1959,7 @@ export default function AdminPanel(){
                 </button>
               </div>
             </div>
-            <div className='max-h-[70vh] overflow-auto rounded-lg border'>
+            <div className='max-h-[78vh] overflow-auto rounded-lg border'>
               <table className='min-w-full text-sm'>
                 <thead className='bg-gray-50 sticky top-0 z-10'>
                   <tr>
@@ -1852,8 +1970,17 @@ export default function AdminPanel(){
                 </thead>
                 <tbody>
                   {(()=>{
+                    const getParentId = (c)=>{
+                      const p = c?.parent
+                      if (!p) return ''
+                      if (typeof p === 'string') return p
+                      if (typeof p === 'object') return p?._id || p?.id || (typeof p?.toString === 'function' ? p.toString() : '')
+                      return ''
+                    }
+                    const q = catListSearch.trim().toLowerCase()
                     const list = categories
-                      .filter(c=> c.name.toLowerCase().includes(catListSearch.trim().toLowerCase()))
+                      .filter(c=> !getParentId(c))
+                      .filter(c=> !q ? true : c.name.toLowerCase().includes(q))
                       .sort((a,b)=>{
                         const dir = catSortAsc ? 1 : -1
                         if (catSortKey==='date'){
@@ -1863,21 +1990,62 @@ export default function AdminPanel(){
                         }
                         return a.name.localeCompare(b.name) * dir
                       })
-                    const rows = list
-                    return rows.map(c=> (
-                      <tr key={c._id} className='border-t odd:bg-gray-50/40 hover:bg-gray-50 transition-colors'>
-                        <td className='px-3 py-2 text-center'>{c.name}</td>
-                        <td className='px-3 py-2 text-center'>{fmtDateShort(c.createdAt)}</td>
-                        <td className='px-3 py-2 text-center'>
-                          <button title='Редагувати' aria-label='Редагувати' className='w-9 h-9 inline-flex items-center justify-center border rounded-lg hover:bg-black hover:text-white transition' onClick={()=>{ setSelectedCatId(c._id); setCatEditingName(c.name); setShowCatList(false); setShowCatEdit(true); }}>
-                            <FiEdit2 size={16} />
-                          </button>
-                          <button title='Видалити' aria-label='Видалити' className='ml-2 w-9 h-9 inline-flex items-center justify-center border rounded-lg text-red-600 hover:bg-red-600 hover:text-white transition' onClick={async()=>{ if(!confirm('Видалити категорію?')) return; try{ await deleteCategory(c._id); loadAll(); showToast('Категорію видалено','success') } catch(err){ showToast(getErrMsg(err),'error') } }}>
-                            <FiTrash2 size={16} />
-                          </button>
-                        </td>
-                      </tr>
-                    ))
+                    const subsByParent = (pid)=>{
+                      return categories
+                        .filter(x=> String(getParentId(x)||'') === String(pid||''))
+                        .sort((a,b)=> a.name.localeCompare(b.name))
+                    }
+                    return list.flatMap(c=>{
+                      const isOpen = String(expandedCatId||'') === String(c._id||'')
+                      const subs = isOpen ? subsByParent(c._id) : []
+                      const mainRow = (
+                        <tr
+                          key={c._id}
+                          className='border-t odd:bg-gray-50/40 hover:bg-gray-50 transition-colors cursor-pointer'
+                          onClick={()=> setExpandedCatId(prev=> String(prev||'')===String(c._id||'') ? '' : c._id)}
+                          title='Натисніть, щоб показати/сховати підкатегорії'
+                        >
+                          <td className='px-3 py-2 text-center font-medium'>
+                            {c.name}
+                          </td>
+                          <td className='px-3 py-2 text-center'>{fmtDateShort(c.createdAt)}</td>
+                          <td className='px-3 py-2 text-center'>
+                            <button
+                              type='button'
+                              title='Редагувати'
+                              aria-label='Редагувати'
+                              className='w-9 h-9 inline-flex items-center justify-center border rounded-lg hover:bg-black hover:text-white transition'
+                              onClick={(e)=>{ e.preventDefault(); e.stopPropagation(); setSelectedCatId(c._id); setCatEditingName(c.name); setCatSubName(''); setShowCatList(false); setShowCatEdit(true); }}
+                            >
+                              <FiEdit2 size={16} />
+                            </button>
+                            <button
+                              title='Видалити'
+                              aria-label='Видалити'
+                              className='ml-2 w-9 h-9 inline-flex items-center justify-center border rounded-lg text-red-600 hover:bg-red-600 hover:text-white transition'
+                              onClick={async(e)=>{ e.preventDefault(); e.stopPropagation(); if(!confirm('Видалити категорію?')) return; try{ await deleteCategory(c._id); if (String(expandedCatId||'')===String(c._id||'')) setExpandedCatId(''); loadAll(); showToast('Категорію видалено','success') } catch(err){ showToast(getErrMsg(err),'error') } }}
+                            >
+                              <FiTrash2 size={16} />
+                            </button>
+                          </td>
+                        </tr>
+                      )
+
+                      const subRows = subs.map(sc=> (
+                        <tr key={`${c._id}__${sc._id}`} className='border-t bg-white'>
+                          <td className='px-3 py-2 text-center text-sm text-gray-700'>
+                            <span className='inline-block text-gray-400 mr-1'>—</span>
+                            {sc.name}
+                          </td>
+                          <td className='px-3 py-2 text-center text-sm text-gray-500'>{fmtDateShort(sc.createdAt)}</td>
+                          <td className='px-3 py-2 text-center text-sm text-gray-400'>
+                            
+                          </td>
+                        </tr>
+                      ))
+
+                      return [mainRow, ...subRows]
+                    })
                   })()}
                 </tbody>
               </table>
