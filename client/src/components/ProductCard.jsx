@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react'
-import { FiShoppingCart } from 'react-icons/fi'
+import { FiShoppingCart, FiChevronLeft, FiChevronRight } from 'react-icons/fi'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import rehypeSanitize from 'rehype-sanitize'
@@ -8,11 +8,18 @@ export default function ProductCard({p, onAdd}){
   const [open, setOpen] = useState(false)
   const [activeTab, setActiveTab] = useState('description')
   const [qty, setQty] = useState(0)
+  const [activeImg, setActiveImg] = useState(0)
   const fmt = new Intl.NumberFormat('uk-UA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
   const hasDescription = Boolean((p?.description || '').toString().trim())
   const descriptionPreviewFallback = 'Опис в процесі добавлення...'
   const descriptionModalFallbackLine1 = 'Опис в процесі добавлення, незабаром все буде!'
   const descriptionModalFallbackLine2 = 'Дякуємо за розуміння!'
+
+  const images = Array.isArray(p?.images) && p.images.length
+    ? p.images
+        .map(x=> ({ url: (x?.url||'').toString(), publicId: (x?.publicId||'').toString() }))
+        .filter(x=> x.url)
+    : (p?.image ? [{ url: p.image.toString(), publicId: (p?.imagePublicId||'').toString() }] : [])
 
   const getSpecsEntries = ()=>{
     const s = p?.specs
@@ -47,6 +54,33 @@ export default function ProductCard({p, onAdd}){
       window.removeEventListener('storage', onStorage);
     }
   }, [p._id])
+
+  useEffect(() => {
+    setActiveImg(0)
+  }, [p._id, open])
+
+  useEffect(() => {
+    if (!open) return
+    const onKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        e.preventDefault()
+        setOpen(false)
+        return
+      }
+      if (images.length <= 1) return
+      if (e.key === 'ArrowLeft') {
+        e.preventDefault()
+        setActiveImg((i) => (i - 1 + images.length) % images.length)
+        return
+      }
+      if (e.key === 'ArrowRight') {
+        e.preventDefault()
+        setActiveImg((i) => (i + 1) % images.length)
+      }
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [open, images.length])
 
   const inc = () => {
     onAdd(p); // існуюча логіка додавання оновить localStorage та події
@@ -102,8 +136,9 @@ export default function ProductCard({p, onAdd}){
   }
   const placeholderSm = makePlaceholder(400,240);
   const placeholderLg = makePlaceholder(800,480);
-  const cardSrc = resolveSrc(p.image) || placeholderSm;
-  const modalSrc = resolveSrc(p.image) || placeholderLg;
+  const mainUrl = images[activeImg]?.url || images[0]?.url || p.image || '';
+  const cardSrc = resolveSrc(images[0]?.url || p.image) || placeholderSm;
+  const modalSrc = resolveSrc(mainUrl) || placeholderLg;
   const isOutOfStock = typeof p.stock === 'number' ? p.stock <= 0 : false;
   const inCart = qty > 0;
 
@@ -113,6 +148,16 @@ export default function ProductCard({p, onAdd}){
   const discount = Math.min(100, Math.max(0, rawDiscount));
   const hasDiscount = discount > 0;
   const finalPrice = hasDiscount ? (p.price * (100 - discount)) / 100 : p.price;
+
+  const hasGallery = images.length > 1
+  const goPrevImg = () => {
+    if (!hasGallery) return
+    setActiveImg((i) => (i - 1 + images.length) % images.length)
+  }
+  const goNextImg = () => {
+    if (!hasGallery) return
+    setActiveImg((i) => (i + 1) % images.length)
+  }
 
   return (
     <>
@@ -222,6 +267,32 @@ export default function ProductCard({p, onAdd}){
                   className="w-full max-h-[30vh] md:max-h-[34vh] object-contain rounded-md"
                   alt={p.name}
                 />
+                {hasGallery && (
+                  <>
+                    <button
+                      type="button"
+                      aria-label="Попереднє фото"
+                      title="Попереднє"
+                      onClick={goPrevImg}
+                      className="absolute left-2 top-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-black/55 text-white border border-white/40 shadow-lg flex items-center justify-center hover:bg-black/70 active:scale-95 transition"
+                    >
+                      <span className="relative -left-[2px]">
+                        <FiChevronLeft size={28} />
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      aria-label="Наступне фото"
+                      title="Наступне"
+                      onClick={goNextImg}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-black/55 text-white border border-white/40 shadow-lg flex items-center justify-center hover:bg-black/70 active:scale-95 transition"
+                    >
+                      <span className="relative left-[2px]">
+                        <FiChevronRight size={28} />
+                      </span>
+                    </button>
+                  </>
+                )}
                 {(hasDiscount || isOutOfStock) && (
                   <div className="absolute top-2 left-2 flex flex-col gap-2">
                     {hasDiscount && (
@@ -237,6 +308,31 @@ export default function ProductCard({p, onAdd}){
                   </div>
                 )}
               </div>
+
+              {images.length > 1 && (
+                <div className="mt-3 flex gap-2 flex-wrap justify-center">
+                  {images.map((img, idx)=>(
+                    <button
+                      key={(img?.publicId||img?.url||idx) + '_' + idx}
+                      type="button"
+                      onClick={()=> setActiveImg(idx)}
+                      className={
+                        "w-16 h-12 rounded border bg-white overflow-hidden flex items-center justify-center " +
+                        (idx===activeImg ? 'ring-2 ring-red-500/60 border-red-300' : 'border-gray-200')
+                      }
+                      aria-label={`Вибрати фото ${idx + 1}`}
+                      title={`Фото ${idx + 1}`}
+                    >
+                      <img
+                        src={resolveSrc(img.url) || placeholderSm}
+                        onError={(e)=>{ e.currentTarget.onerror=null; e.currentTarget.src=placeholderSm; }}
+                        className="w-full h-full object-contain"
+                        alt={p.name}
+                      />
+                    </button>
+                  ))}
+                </div>
+              )}
               <h3 className="mt-4 text-2xl font-semibold tracking-tight text-left">{p.name}</h3>
               {p.sku && (
                 <div className="text-sm text-gray-500 mb-1">Артикул: {p.sku}</div>

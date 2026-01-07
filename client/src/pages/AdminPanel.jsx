@@ -2,6 +2,7 @@ import React, { useEffect, useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { getProducts, createProduct, updateProduct, deleteProduct, getCategories, createCategory, getOrders, deleteOrder, uploadImage, updateCategory, deleteCategory, reassignCategories, updateOrder, getLeads, updateLead, bulkCreateProducts, deleteAllProducts, exportProductsCsv } from '../api'
 import { FiEdit2, FiPlus, FiX, FiCheckCircle, FiAlertTriangle, FiEye, FiTrash2, FiRefreshCcw, FiMaximize2, FiMinimize2, FiSearch, FiDownload } from 'react-icons/fi'
+import ProductCard from '../components/ProductCard'
 
 export default function AdminPanel(){
   const navigate = useNavigate()
@@ -9,6 +10,10 @@ export default function AdminPanel(){
   const [categories, setCategories] = useState([])
   const [orders, setOrders] = useState([])
   const [leads, setLeads] = useState([])
+  const [loadingAll, setLoadingAll] = useState(false)
+  const [savingProduct, setSavingProduct] = useState(false)
+  const [deletingProductId, setDeletingProductId] = useState('')
+  const [deletingAllProductsLoading, setDeletingAllProductsLoading] = useState(false)
   const [leadsFull, setLeadsFull] = useState(false)
   const [ordersFull, setOrdersFull] = useState(false)
   const [prodFull, setProdFull] = useState(false)
@@ -20,17 +25,23 @@ export default function AdminPanel(){
   const [selectedProdId, setSelectedProdId] = useState('')
   const [showProdEdit, setShowProdEdit] = useState(false)
   const [showProdCreate, setShowProdCreate] = useState(false)
-  const [prodForm, setProdForm] = useState({ name:'', price:0, discount:0, image:'', imagePublicId:'', description:'', specsPairs: [{ id: Date.now() + Math.random(), key:'', value:'' }], specsText:'', category:'', sku:'', stock:0, unit:'' })
+  const [showProdPreview, setShowProdPreview] = useState(false)
+  const [previewProd, setPreviewProd] = useState(null)
+  const [prodForm, setProdForm] = useState({ name:'', price:0, discount:0, image:'', imagePublicId:'', images: [], description:'', specsPairs: [{ id: Date.now() + Math.random(), key:'', value:'' }], specsText:'', category:'', subcategory:'', sku:'', stock:0, unit:'' })
   const [showProdList, setShowProdList] = useState(false)
   const [prodListSearch, setProdListSearch] = useState('')
-  const [prodSortAsc, setProdSortAsc] = useState(true)
-  const [prodSortKey, setProdSortKey] = useState('name') // name | price | date
+  const [prodCatFilter, setProdCatFilter] = useState('')
+  const [prodSubcatFilter, setProdSubcatFilter] = useState('')
+  const [prodSortMode, setProdSortMode] = useState('date_desc') // price_asc | price_desc | date_desc | date_asc | stock_asc | stock_desc
   const [prodPage, setProdPage] = useState(1)
   const [prodPerPage, setProdPerPage] = useState(10)
   const [catName, setCatName] = useState('')
   const [inlineCatName, setInlineCatName] = useState('')
   const [inlineCatLoading, setInlineCatLoading] = useState(false)
   const [showInlineCat, setShowInlineCat] = useState(false)
+  const [inlineSubcatName, setInlineSubcatName] = useState('')
+  const [inlineSubcatLoading, setInlineSubcatLoading] = useState(false)
+  const [showInlineSubcat, setShowInlineSubcat] = useState(false)
   const [selectedCatId, setSelectedCatId] = useState('')
   const [showCatEdit, setShowCatEdit] = useState(false)
   const [showCatCreate, setShowCatCreate] = useState(false)
@@ -46,6 +57,9 @@ export default function AdminPanel(){
   const [uploading, setUploading] = useState(false)
   const [toasts, setToasts] = useState([]) // {id, open, type, message}
   const importInputRef = useRef(null)
+
+  const [imgModalOpen, setImgModalOpen] = useState(false)
+  const [imgModalIndex, setImgModalIndex] = useState(0)
 
   // Orders UI state
   const [orderSearch, setOrderSearch] = useState('')
@@ -293,6 +307,25 @@ export default function AdminPanel(){
     } catch { return u }
   }
 
+  const normalizeImagesForSave = (images)=>{
+    if (!Array.isArray(images)) return []
+    return images
+      .filter(Boolean)
+      .map(x=> ({
+        url: normalizeImageForSave((x?.url||'').toString()),
+        publicId: (x?.publicId||'').toString(),
+      }))
+      .filter(x=> x.url || x.publicId)
+  }
+
+  const syncPrimaryFromImages = (images)=>{
+    const first = Array.isArray(images) && images.length ? images[0] : null
+    return {
+      image: first?.url || '',
+      imagePublicId: first?.publicId || '',
+    }
+  }
+
   useEffect(()=>{
     const token = localStorage.getItem('admin_token')
     if(!token){
@@ -302,11 +335,27 @@ export default function AdminPanel(){
     loadAll()
   },[])
 
-  function loadAll(){
-    getProducts().then(d=>setProducts(d)).catch(()=>{})
-    getCategories().then(d=>setCategories(d)).catch(()=>{})
-    getOrders().then(d=>setOrders(d)).catch(()=>{})
-    getLeads().then(d=>setLeads(d)).catch(()=>{})
+  async function loadAll(){
+    setLoadingAll(true)
+    try {
+      const [pRes, cRes, oRes, lRes] = await Promise.allSettled([
+        getProducts(),
+        getCategories(),
+        getOrders(),
+        getLeads(),
+      ])
+
+      if (pRes.status === 'fulfilled') {
+        const d = pRes.value
+        const items = Array.isArray(d) ? d : (Array.isArray(d?.items) ? d.items : [])
+        setProducts(items)
+      }
+      if (cRes.status === 'fulfilled') setCategories(cRes.value)
+      if (oRes.status === 'fulfilled') setOrders(oRes.value)
+      if (lRes.status === 'fulfilled') setLeads(lRes.value)
+    } finally {
+      setLoadingAll(false)
+    }
   }
 
   useEffect(()=>{ getLeads().then(setLeads).catch(()=>{}) }, [])
@@ -318,32 +367,42 @@ export default function AdminPanel(){
   }
 
   const handleCreateProduct = async ()=>{
+    if (savingProduct) return
+    setSavingProduct(true)
     try{
       const { specsPairs, specsText, ...rest } = prodForm
-      const payload = { ...rest, specs: specsPairsToObject(specsPairs), image: normalizeImageForSave(prodForm.image) }
+      const payload = { ...rest, specs: specsPairsToObject(specsPairs), images: normalizeImagesForSave(prodForm.images) }
       await createProduct(payload);
-      setShowProdCreate(false); setProdForm({ name:'', price:0, discount:0, image:'', imagePublicId:'', description:'', specsPairs: [newSpecRow()], specsText:'', category:'', sku:'', stock:0, unit:'' });
+      setShowProdCreate(false); setProdForm({ name:'', price:0, discount:0, image:'', imagePublicId:'', images: [], description:'', specsPairs: [newSpecRow()], specsText:'', category:'', subcategory:'', sku:'', stock:0, unit:'' });
       loadAll();
       showToast('Товар успішно додано','success')
     }catch(err){
       showToast(getErrMsg(err),'error')
+    } finally {
+      setSavingProduct(false)
     }
   }
   const handleUpdate = async ()=>{
+    if (savingProduct) return
+    setSavingProduct(true)
     try{
       const { specsPairs, specsText, ...rest } = prodForm
-      const payload = { ...rest, specs: specsPairsToObject(specsPairs), image: normalizeImageForSave(prodForm.image) }
+      const payload = { ...rest, specs: specsPairsToObject(specsPairs), images: normalizeImagesForSave(prodForm.images) }
       await updateProduct(selectedProdId, payload);
       setShowProdEdit(false);
-      setProdForm({ name:'', price:0, discount:0, image:'', imagePublicId:'', description:'', specsPairs: [newSpecRow()], specsText:'', category:'', sku:'', stock:0, unit:'' });
+      setProdForm({ name:'', price:0, discount:0, image:'', imagePublicId:'', images: [], description:'', specsPairs: [newSpecRow()], specsText:'', category:'', subcategory:'', sku:'', stock:0, unit:'' });
       loadAll();
       showToast('Товар оновлено','success')
     }catch(err){
       showToast(getErrMsg(err),'error')
+    } finally {
+      setSavingProduct(false)
     }
   }
   const handleDeleteProduct = async id=>{
+    if (deletingProductId) return
     if(!confirm('Видалити товар?')) return;
+    setDeletingProductId(id)
     try {
       await deleteProduct(id);
       loadAll();
@@ -351,17 +410,23 @@ export default function AdminPanel(){
       showToast('Товар видалено','success')
     } catch(err){
       showToast(getErrMsg(err),'error')
+    } finally {
+      setDeletingProductId('')
     }
   }
 
   const handleDeleteAllProducts = async ()=>{
+    if (deletingAllProductsLoading) return
     if(!confirm('Видалити всі товари? Дію не можна скасувати.')) return;
+    setDeletingAllProductsLoading(true)
     try{
       const res = await deleteAllProducts();
       loadAll();
       showToast(`Видалено товарів: ${res?.deletedCount ?? 0}`,'success')
     } catch(err){
       showToast(getErrMsg(err),'error')
+    } finally {
+      setDeletingAllProductsLoading(false)
     }
   }
 
@@ -394,6 +459,28 @@ export default function AdminPanel(){
     }
   }
 
+  const handleInlineCreateSubcategory = async ()=>{
+    const name = (inlineSubcatName||'').trim()
+    if (!name) return
+    if (!prodForm.category) {
+      showToast('Спочатку виберіть головну категорію','error')
+      return
+    }
+    setInlineSubcatLoading(true)
+    try{
+      const created = await createCategory({ name, parent: prodForm.category })
+      setCategories(prev=> [...prev, created])
+      setProdForm(prev=> ({ ...prev, subcategory: created._id || prev.subcategory }))
+      setInlineSubcatName('')
+      setShowInlineSubcat(false)
+      showToast('Підкатегорію створено','success')
+    } catch(err){
+      showToast(getErrMsg(err),'error')
+    } finally {
+      setInlineSubcatLoading(false)
+    }
+  }
+
   const handleDeleteOrder = async id=>{
     if(!confirm('Видалити замовлення?')) return;
     try{
@@ -406,15 +493,50 @@ export default function AdminPanel(){
   }
 
   async function handleFileChange(e){
-    const f = e.target.files?.[0];
-    if(!f) return;
+    const files = Array.from(e.target.files || [])
+    if(!files.length) return
     setUploading(true)
     try{
-      const { url, filename } = await uploadImage(f)
-      setProdForm(prev=> ({ ...prev, image: url, imagePublicId: filename || prev.imagePublicId }))
+      const uploaded = []
+      for (const f of files) {
+        const { url, filename } = await uploadImage(f)
+        uploaded.push({ url, publicId: filename || '' })
+      }
+      setProdForm(prev=>{
+        const images = [...(prev.images||[]), ...uploaded]
+        const primary = syncPrimaryFromImages(images)
+        return { ...prev, images, ...primary }
+      })
     } finally{
       setUploading(false)
+      e.target.value = ''
     }
+  }
+
+  const removeImageAt = (idx)=>{
+    setProdForm(prev=>{
+      const images = Array.isArray(prev.images) ? [...prev.images] : []
+      images.splice(idx, 1)
+      const primary = syncPrimaryFromImages(images)
+      return { ...prev, images, ...primary }
+    })
+  }
+
+  const makeImagePrimaryAt = (idx)=>{
+    setProdForm(prev=>{
+      const images = Array.isArray(prev.images) ? [...prev.images] : []
+      if (idx < 0 || idx >= images.length) return prev
+      if (idx === 0) return prev
+      const [picked] = images.splice(idx, 1)
+      images.unshift(picked)
+      const primary = syncPrimaryFromImages(images)
+      return { ...prev, images, ...primary }
+    })
+  }
+
+  const openImgModal = (idx)=>{
+    setImgModalIndex(idx)
+    setImgModalOpen(true)
   }
 
   return (
@@ -429,6 +551,52 @@ export default function AdminPanel(){
           Вийти
         </button>
       </div>
+
+      {imgModalOpen && (
+        <div className='fixed inset-0 z-[80] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4' onClick={()=>setImgModalOpen(false)}>
+          <div className='bg-white rounded-2xl shadow-2xl w-full max-w-3xl p-5' onClick={(e)=>e.stopPropagation()}>
+            <div className='flex items-center justify-between mb-3'>
+              <h4 className='font-semibold'>Перегляд фото</h4>
+              <button aria-label='Закрити' onClick={()=> setImgModalOpen(false)} className='w-8 h-8 rounded-lg border'>✕</button>
+            </div>
+
+            {(() => {
+              const images = Array.isArray(prodForm.images) ? prodForm.images : []
+              const img = images[imgModalIndex]
+              const url = (img?.url || '').toString()
+              return (
+                <div className='grid gap-4'>
+                  <div className='bg-gray-50 border rounded-xl p-2 flex items-center justify-center'>
+                    <img
+                      src={resolveImageUrl(url)}
+                      alt='preview'
+                      className='w-full max-h-[60vh] object-contain rounded'
+                      referrerPolicy='no-referrer'
+                    />
+                  </div>
+
+                  <div className='grid gap-2'>
+                    <div className='text-sm text-gray-700'>URL:</div>
+                    <input className='border p-2 rounded w-full' value={url} readOnly />
+                  </div>
+
+                  <div className='flex justify-end gap-2'>
+                    <button
+                      type='button'
+                      className='px-3 py-2 border rounded'
+                      onClick={()=>{ makeImagePrimaryAt(imgModalIndex); setImgModalIndex(0); }}
+                      disabled={imgModalIndex === 0}
+                      title={imgModalIndex === 0 ? 'Це вже головне фото' : 'Зробити головним'}
+                    >
+                      Зробити головним
+                    </button>
+                  </div>
+                </div>
+              )
+            })()}
+          </div>
+        </div>
+      )}
       {/* Toast stack */}
       <div className='fixed top-5 right-5 z-50 flex flex-col gap-2 items-end' aria-live='polite' aria-atomic='true'>
         {toasts.map(t => (
@@ -661,21 +829,45 @@ export default function AdminPanel(){
 
                   <div className='grid gap-2 md:grid-cols-[220px_1fr] md:items-center'>
                     <div className='text-sm text-gray-700'>Картинка (URL / файл):</div>
-                    <div className='grid gap-2 sm:grid-cols-[1fr_auto] items-center'>
-                      <input className='border p-2 rounded w-full' value={prodForm.image} onChange={e=>setProdForm({...prodForm, image:e.target.value})} />
-                      <label className='inline-flex items-center justify-center gap-2 px-3 py-2 border rounded cursor-pointer'>
-                        <input type='file' accept='image/*' className='hidden' onChange={handleFileChange} />
+                    <div className='flex'>
+                      <label className='inline-flex items-center justify-center gap-2 px-3 py-2 border rounded cursor-pointer w-full sm:w-auto'>
+                        <input type='file' accept='image/*' multiple className='hidden' onChange={handleFileChange} />
                         <span>{uploading ? 'Завантаження…' : 'Завантажити файл'}</span>
                       </label>
                     </div>
                   </div>
 
-                  {prodForm.image && (
+                  {Array.isArray(prodForm.images) && prodForm.images.length > 0 && (
                     <div className='grid gap-2 md:grid-cols-[220px_1fr] md:items-center'>
                       <div className='text-sm text-gray-700'>Превʼю:</div>
-                      <div className='flex items-center gap-3'>
-                        <img src={resolveImageUrl(prodForm.image)} alt='preview' className='w-28 h-20 object-contain border rounded bg-white' referrerPolicy='no-referrer' />
-                        <button type='button' className='px-3 py-1 border rounded' onClick={()=>setProdForm({...prodForm, image:'', imagePublicId:''})}>Очистити</button>
+                      <div className='flex flex-wrap items-center gap-3'>
+                        {prodForm.images.map((img, idx)=>(
+                          <div key={(img?.publicId||img?.url||idx) + '_' + idx} className='relative'>
+                            <img
+                              src={resolveImageUrl(img?.url)}
+                              alt='preview'
+                              className='w-28 h-20 object-contain border rounded bg-white cursor-zoom-in'
+                              referrerPolicy='no-referrer'
+                              onClick={()=>openImgModal(idx)}
+                            />
+                            <button
+                              type='button'
+                              className='absolute -top-2 -right-2 w-6 h-6 rounded-full bg-white border flex items-center justify-center'
+                              onClick={()=>removeImageAt(idx)}
+                              aria-label='Видалити фото'
+                              title='Видалити фото'
+                            >
+                              <FiX size={14} />
+                            </button>
+                          </div>
+                        ))}
+                        <button
+                          type='button'
+                          className='px-3 py-1 border rounded'
+                          onClick={()=>setProdForm(prev=> ({ ...prev, image:'', imagePublicId:'', images: [] }))}
+                        >
+                          Очистити всі
+                        </button>
                       </div>
                     </div>
                   )}
@@ -685,9 +877,9 @@ export default function AdminPanel(){
                     <div className='space-y-3'>
                       <div className='flex gap-2 items-center'>
                         <div className='relative flex-1'>
-                          <select className='border p-2 pr-10 rounded w-full' value={prodForm.category} onChange={e=>setProdForm({...prodForm, category:e.target.value})}>
+                          <select className='border p-2 pr-10 rounded w-full' value={prodForm.category} onChange={e=>setProdForm({...prodForm, category:e.target.value, subcategory:''})}>
                             <option value=''>Виберіть категорію</option>
-                            {categories.map(c=> <option key={c._id} value={c._id}>{c.name}</option>)}
+                            {categories.filter(c=> !c.parent).map(c=> <option key={c._id} value={c._id}>{c.name}</option>)}
                           </select>
                           <span className='pointer-events-none absolute inset-y-0 right-3 flex items-center text-gray-500'>
                             <svg xmlns='http://www.w3.org/2000/svg' className='h-4 w-4' viewBox='0 0 20 20' fill='currentColor'>
@@ -719,6 +911,62 @@ export default function AdminPanel(){
                           >
                             <FiPlus size={16} />
                             <span>{inlineCatLoading ? 'Створення…' : 'Додати категорію'}</span>
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className='grid gap-2 md:grid-cols-[220px_1fr] md:items-center'>
+                    <div className='text-sm text-gray-700'>Підкатегорія:</div>
+                    <div className='space-y-2'>
+                      <div className='flex gap-2 items-center'>
+                        <div className='relative flex-1'>
+                          <select
+                            className='border p-2 pr-10 rounded w-full'
+                            value={prodForm.subcategory}
+                            onChange={e=>setProdForm({...prodForm, subcategory:e.target.value})}
+                            disabled={!prodForm.category}
+                          >
+                            <option value=''>Всі підкатегорії</option>
+                            {categories
+                              .filter(c=> {
+                                const pid = (typeof c.parent === 'object'
+                                  ? (c.parent?._id || c.parent?.id || (typeof c.parent?.toString === 'function' ? c.parent.toString() : ''))
+                                  : c.parent)
+                                return Boolean(prodForm.category) && String(pid||'') === String(prodForm.category)
+                              })
+                              .map(c=> <option key={c._id} value={c._id}>{c.name}</option>)}
+                          </select>
+                        </div>
+                        <button
+                          type='button'
+                          onClick={()=> setShowInlineSubcat(v=>!v)}
+                          disabled={!prodForm.category}
+                          className='w-10 h-10 inline-flex items-center justify-center border rounded bg-white hover:bg-black hover:text-white transition disabled:opacity-60 disabled:cursor-not-allowed'
+                          aria-label='Додати підкатегорію'
+                          title='Додати підкатегорію'
+                        >
+                          <FiPlus size={18} />
+                        </button>
+                      </div>
+
+                      {showInlineSubcat && (
+                        <div className='flex flex-col sm:flex-row gap-2 sm:items-center'>
+                          <input
+                            className='border p-2 rounded flex-1'
+                            value={inlineSubcatName}
+                            onChange={e=> setInlineSubcatName(e.target.value)}
+                            placeholder='Назва підкатегорії'
+                          />
+                          <button
+                            type='button'
+                            onClick={handleInlineCreateSubcategory}
+                            disabled={inlineSubcatLoading || !inlineSubcatName.trim() || !prodForm.category}
+                            className='inline-flex items-center justify-center gap-2 px-3 py-2 border rounded bg-gray-50 hover:bg-black hover:text-white transition disabled:opacity-60 disabled:cursor-not-allowed'
+                          >
+                            <FiPlus size={16} />
+                            <span>{inlineSubcatLoading ? 'Створення…' : 'Додати підкатегорію'}</span>
                           </button>
                         </div>
                       )}
@@ -814,8 +1062,15 @@ export default function AdminPanel(){
                   </div>
                 </div>
                 <div className='mt-4 flex justify-end gap-2'>
-                  <button onClick={()=> setShowProdEdit(false)} className='px-3 py-2 border rounded'>Скасувати</button>
-                  <button onClick={handleUpdate} className='px-3 py-2 bg-black text-white rounded hover:bg-red-600 transition'>Зберегти</button>
+                  <button onClick={()=> setShowProdEdit(false)} className='px-3 py-2 border rounded' disabled={savingProduct}>Скасувати</button>
+                  <button
+                    onClick={handleUpdate}
+                    disabled={savingProduct}
+                    className='px-3 py-2 bg-black text-white rounded hover:bg-red-600 transition disabled:opacity-60 disabled:cursor-not-allowed inline-flex items-center gap-2'
+                  >
+                    {savingProduct && <span className='w-4 h-4 rounded-full border-2 border-white/50 border-t-white animate-spin' />}
+                    <span>{savingProduct ? 'Збереження…' : 'Зберегти'}</span>
+                  </button>
                 </div>
               </div>
             </div>
@@ -872,17 +1127,140 @@ export default function AdminPanel(){
                       onChange={e=>setProdForm({...prodForm, unit:e.target.value})}
                     />
                   </div>
+
+                  <div className='md:col-span-2 space-y-3'>
+                    <div className='flex gap-2 items-center'>
+                      <div className='relative flex-1'>
+                        <select className='border p-2 pr-10 rounded w-full' value={prodForm.category} onChange={e=>setProdForm({...prodForm, category:e.target.value, subcategory:''})}>
+                          <option value=''>Виберіть категорію</option>
+                          {categories.filter(c=> !c.parent).map(c=> <option key={c._id} value={c._id}>{c.name}</option>)}
+                        </select>
+                        <span className='pointer-events-none absolute inset-y-0 right-3 flex items-center text-gray-500'>
+                          <svg xmlns='http://www.w3.org/2000/svg' className='h-4 w-4' viewBox='0 0 20 20' fill='currentColor'>
+                            <path fillRule='evenodd' d='M5.23 7.21a.75.75 0 011.06.02L10 10.94l3.71-3.71a.75.75 0 111.06 1.06l-4.24 4.24a.75.75 0 01-1.06 0L5.21 8.29a.75.75 0 01.02-1.08z' clipRule='evenodd' />
+                          </svg>
+                        </span>
+                      </div>
+                      <button
+                        type='button'
+                        onClick={()=> setShowInlineCat(v=>!v)}
+                        className='w-10 h-10 inline-flex items-center justify-center border rounded bg-white hover:bg-black hover:text-white transition'
+                        aria-label='Додати нову категорію'
+                      >
+                        <FiPlus size={18} />
+                      </button>
+                    </div>
+
+                    {showInlineCat && (
+                      <div className='flex flex-col sm:flex-row gap-2 sm:items-center'>
+                        <input
+                          className='border p-2 rounded flex-1'
+                          value={inlineCatName}
+                          onChange={e=> setInlineCatName(e.target.value)}
+                          placeholder='Назва категорії'
+                        />
+                        <button
+                          type='button'
+                          onClick={handleInlineCreateCategory}
+                          disabled={inlineCatLoading || !inlineCatName.trim()}
+                          className='inline-flex items-center justify-center gap-2 px-3 py-2 border rounded bg-gray-50 hover:bg-black hover:text-white transition disabled:opacity-60 disabled:cursor-not-allowed'
+                        >
+                          <FiPlus size={16} />
+                          <span>{inlineCatLoading ? 'Створення…' : 'Додати категорію'}</span>
+                        </button>
+                      </div>
+                    )}
+
+                    <div className='space-y-2'>
+                      <div className='flex gap-2 items-center'>
+                        <div className='relative flex-1'>
+                          <select
+                            className='border p-2 pr-10 rounded w-full'
+                            value={prodForm.subcategory}
+                            onChange={e=>setProdForm({...prodForm, subcategory:e.target.value})}
+                            disabled={!prodForm.category}
+                          >
+                            <option value=''>Всі підкатегорії</option>
+                            {categories
+                              .filter(c=> {
+                                const pid = (typeof c.parent === 'object'
+                                  ? (c.parent?._id || c.parent?.id || (typeof c.parent?.toString === 'function' ? c.parent.toString() : ''))
+                                  : c.parent)
+                                return Boolean(prodForm.category) && String(pid||'') === String(prodForm.category)
+                              })
+                              .map(c=> <option key={c._id} value={c._id}>{c.name}</option>)}
+                          </select>
+                        </div>
+                        <button
+                          type='button'
+                          onClick={()=> setShowInlineSubcat(v=>!v)}
+                          disabled={!prodForm.category}
+                          className='w-10 h-10 inline-flex items-center justify-center border rounded bg-white hover:bg-black hover:text-white transition disabled:opacity-60 disabled:cursor-not-allowed'
+                          aria-label='Додати підкатегорію'
+                          title='Додати підкатегорію'
+                        >
+                          <FiPlus size={18} />
+                        </button>
+                      </div>
+
+                      {showInlineSubcat && (
+                        <div className='flex flex-col sm:flex-row gap-2 sm:items-center'>
+                          <input
+                            className='border p-2 rounded flex-1'
+                            value={inlineSubcatName}
+                            onChange={e=> setInlineSubcatName(e.target.value)}
+                            placeholder='Назва підкатегорії'
+                          />
+                          <button
+                            type='button'
+                            onClick={handleInlineCreateSubcategory}
+                            disabled={inlineSubcatLoading || !inlineSubcatName.trim() || !prodForm.category}
+                            className='inline-flex items-center justify-center gap-2 px-3 py-2 border rounded bg-gray-50 hover:bg-black hover:text-white transition disabled:opacity-60 disabled:cursor-not-allowed'
+                          >
+                            <FiPlus size={16} />
+                            <span>{inlineSubcatLoading ? 'Створення…' : 'Додати підкатегорію'}</span>
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
                   <div className='md:col-span-2 grid gap-2 sm:grid-cols-[1fr_auto] items-center'>
                     <input className='border p-2 rounded' placeholder='URL картинки' value={prodForm.image} onChange={e=>setProdForm({...prodForm, image:e.target.value})} />
                     <label className='inline-flex items-center gap-2 px-3 py-2 border rounded cursor-pointer'>
-                      <input type='file' accept='image/*' className='hidden' onChange={handleFileChange} />
+                      <input type='file' accept='image/*' multiple className='hidden' onChange={handleFileChange} />
                       <span>{uploading ? 'Завантаження…' : 'Завантажити файл'}</span>
                     </label>
                   </div>
-                  {prodForm.image && (
-                    <div className='md:col-span-2 flex items-center gap-3'>
-                      <img src={resolveImageUrl(prodForm.image)} alt='preview' className='w-28 h-20 object-contain border rounded bg-white' />
-                      <button type='button' className='px-3 py-1 border rounded' onClick={()=>setProdForm({...prodForm, image:'', imagePublicId:''})}>Очистити</button>
+
+                  {Array.isArray(prodForm.images) && prodForm.images.length > 0 && (
+                    <div className='md:col-span-2 flex flex-wrap items-center gap-3'>
+                      {prodForm.images.map((img, idx)=>(
+                        <div key={(img?.publicId||img?.url||idx) + '_' + idx} className='relative'>
+                          <img
+                            src={resolveImageUrl(img?.url)}
+                            alt='preview'
+                            className='w-28 h-20 object-contain border rounded bg-white cursor-zoom-in'
+                            referrerPolicy='no-referrer'
+                            onClick={()=>openImgModal(idx)}
+                          />
+                          <button
+                            type='button'
+                            className='absolute -top-2 -right-2 w-6 h-6 rounded-full bg-white border flex items-center justify-center'
+                            onClick={()=>removeImageAt(idx)}
+                            aria-label='Видалити фото'
+                            title='Видалити фото'
+                          >
+                            <FiX size={14} />
+                          </button>
+                        </div>
+                      ))}
+                      <button
+                        type='button'
+                        className='px-3 py-1 border rounded'
+                        onClick={()=>setProdForm(prev=> ({ ...prev, image:'', imagePublicId:'', images: [] }))}
+                      >
+                        Очистити всі
+                      </button>
                     </div>
                   )}
                   <div className='md:col-span-2 space-y-2'>
@@ -1010,8 +1388,15 @@ export default function AdminPanel(){
                   </div>
                 </div>
                 <div className='mt-4 flex justify-end gap-2'>
-                  <button onClick={()=> setShowProdCreate(false)} className='px-3 py-2 border rounded'>Скасувати</button>
-                  <button onClick={handleCreateProduct} className='px-3 py-2 bg-black text-white rounded hover:bg-red-600 transition'>Створити</button>
+                  <button onClick={()=> setShowProdCreate(false)} className='px-3 py-2 border rounded' disabled={savingProduct}>Скасувати</button>
+                  <button
+                    onClick={handleCreateProduct}
+                    disabled={savingProduct}
+                    className='px-3 py-2 bg-black text-white rounded hover:bg-red-600 transition disabled:opacity-60 disabled:cursor-not-allowed inline-flex items-center gap-2'
+                  >
+                    {savingProduct && <span className='w-4 h-4 rounded-full border-2 border-white/50 border-t-white animate-spin' />}
+                    <span>{savingProduct ? 'Створення…' : 'Створити'}</span>
+                  </button>
                 </div>
               </div>
             </div>
@@ -1028,7 +1413,9 @@ export default function AdminPanel(){
               <div className='flex items-center justify-between mb-4 border-b pb-3'>
                 <div className='flex flex-col gap-0.5'>
                   <h4 className='font-semibold'>Усі товари</h4>
-                  <span className='text-xs text-gray-500'>Всього товарів: {products.length}</span>
+                  <span className='text-xs text-gray-500'>
+                    Всього товарів: {loadingAll ? 'Завантаження…' : products.length}
+                  </span>
                 </div>
                 <div className='flex items-center gap-2'>
                   <button
@@ -1039,55 +1426,126 @@ export default function AdminPanel(){
                   >
                     {prodFull ? <FiMinimize2 size={16} /> : <FiMaximize2 size={16} />}
                   </button>
+                  <button
+                    className='w-8 h-8 rounded-lg border hover:bg-gray-100 flex items-center justify-center'
+                    onClick={()=> loadAll()}
+                    aria-label='Оновити'
+                    title='Оновити'
+                    disabled={loadingAll}
+                  >
+                    <FiRefreshCcw size={16} />
+                  </button>
                   <button aria-label='Закрити' onClick={()=> setShowProdList(false)} className='w-8 h-8 rounded-lg border hover:bg-gray-100'>✕</button>
                 </div>
               </div>
               <div className='mb-1 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3'>
                 <div className='flex items-center gap-2'>
-                  <span className='text-sm text-gray-600'>Сортування:</span>
+                  <span className='text-sm text-gray-600'>Сортувати:</span>
                   <select
-                    className='border rounded px-3 py-2 pr-10 min-w-[150px]'
-                    value={prodSortKey}
-                    onChange={e=> setProdSortKey(e.target.value)}
+                    className='border rounded px-3 py-2 pr-10 min-w-[220px]'
+                    value={prodSortMode}
+                    onChange={e=>{ setProdSortMode(e.target.value); setProdPage(1) }}
+                    disabled={loadingAll}
                   >
-                    <option value='name'>Назва</option>
-                    <option value='price'>Ціна</option>
-                    <option value='date'>Дата</option>
+                    <option value='price_asc'>Ціна (↑)</option>
+                    <option value='price_desc'>Ціна (↓)</option>
+                    <option value='stock_asc'>Кількість (↑)</option>
+                    <option value='stock_desc'>Кількість (↓)</option>
+                    <option value='date_desc'>Дата (нові)</option>
+                    <option value='date_asc'>Дата (старі)</option>
                   </select>
-                  <button
-                    className='px-3 py-2 border rounded hover:bg-black hover:text-white transition'
-                    onClick={()=> setProdSortAsc(v=>!v)}
-                    title={prodSortAsc ? 'За зростанням' : 'За спаданням'}
-                  >
-                    {prodSortAsc ? '↑' : '↓'}
-                  </button>
                 </div>
-                <div className='flex items-center justify-end gap-2 flex-1'>
+                <div className='flex items-center justify-end gap-2 flex-1 flex-wrap sm:flex-nowrap'>
+                  <select
+                    className='border rounded px-3 py-2 pr-10 w-full sm:w-auto min-w-[180px]'
+                    value={prodCatFilter}
+                    onChange={e=>{ setProdCatFilter(e.target.value); setProdSubcatFilter(''); setProdPage(1) }}
+                    title='Фільтр по категорії'
+                    disabled={loadingAll}
+                  >
+                    <option value=''>Всі категорії</option>
+                    {categories
+                      .filter(c=> !c.parent)
+                      .map(c=> (
+                        <option key={c._id} value={c._id}>{c.name}</option>
+                      ))}
+                  </select>
+
+                  <select
+                    className='border rounded px-3 py-2 pr-10 w-full sm:w-auto min-w-[200px]'
+                    value={prodSubcatFilter}
+                    onChange={e=>{ setProdSubcatFilter(e.target.value); setProdPage(1) }}
+                    disabled={!prodCatFilter}
+                    title='Фільтр по підкатегорії'
+                  >
+                    <option value=''>Всі підкатегорії</option>
+                    {(()=>{
+                      const parentId = (prodCatFilter || '').toString()
+                      const getParentId = (c)=>{
+                        const p = c?.parent
+                        if (!p) return ''
+                        if (typeof p === 'string') return p
+                        if (typeof p === 'object') return p?._id || p?.id || (typeof p?.toString === 'function' ? p.toString() : '')
+                        return ''
+                      }
+                      return categories
+                        .filter(c=> String(getParentId(c)||'') === String(parentId))
+                        .map(c=> <option key={c._id} value={c._id}>{c.name}</option>)
+                    })()}
+                  </select>
+
                   <input
-                    className='border rounded px-3 py-2 w-full max-w-xs'
+                    className='border rounded px-3 py-2 w-full sm:w-auto max-w-[180px]'
                     placeholder='Пошук...'
                     value={prodListSearch}
                     onChange={e=>{ setProdListSearch(e.target.value); setProdPage(1) }}
+                    disabled={loadingAll}
                   />
                 </div>
               </div>
-              <div className='max-h-[70vh] overflow-auto rounded-lg border'>
+              <div className={`relative ${prodFull ? 'h-[calc(100vh-220px)]' : 'max-h-[70vh]'} overflow-auto rounded-lg border`}>
+                {loadingAll && (
+                  <div className='absolute inset-0 z-20 bg-white/70 backdrop-blur-sm flex items-center justify-center'>
+                    <div className='flex items-center gap-3 text-sm text-gray-700'>
+                      <span className='w-6 h-6 rounded-full border-2 border-gray-300 border-t-black animate-spin' />
+                      <span>Завантаження…</span>
+                    </div>
+                  </div>
+                )}
                 <table className='min-w-full text-sm'>
                   <thead className='bg-gray-50 sticky top-0 z-10'>
                     <tr>
                       <th className='px-3 py-2 text-center'>Фото</th>
                       <th className='px-3 py-2 text-center'>Назва</th>
-                      <th className='px-3 py-2 text-center'>Дата</th>
                       <th className='px-3 py-2 text-center'>Ціна</th>
                       <th className='px-3 py-2 text-center'>Кількість</th>
-                      <th className='px-3 py-2 text-center'>SKU</th>
+                      {(()=>{
+                        const mode = (prodSortMode || 'date_desc').toString()
+                        const sortKey = mode.split('_')[0]
+                        return sortKey === 'date' ? (
+                          <th className='px-3 py-2 text-center'>Дата</th>
+                        ) : null
+                      })()}
                       <th className='px-3 py-2 text-center'>Категорія</th>
+                      <th className='px-3 py-2 text-center'>Підкатегорія</th>
                       <th className='px-3 py-2 text-center'>Дії</th>
                     </tr>
                   </thead>
                   <tbody>
                     {(()=>{
                       const term = prodListSearch.trim().toLowerCase();
+                      const catId = (prodCatFilter || '').toString();
+                      const subId = (prodSubcatFilter || '').toString();
+                      const mode = (prodSortMode || 'date_desc').toString()
+                      const sortKey = mode.split('_')[0]
+                      const sortDir = mode.endsWith('_desc') ? -1 : 1
+                      const showDateCol = sortKey === 'date'
+                      const getId = (v)=>{
+                        if (!v) return '';
+                        if (typeof v === 'string') return v;
+                        if (typeof v === 'object') return v?._id || v?.id || (typeof v?.toString === 'function' ? v.toString() : '');
+                        return '';
+                      }
                       const list = products
                         .filter(p=>{
                           if (!term) return true;
@@ -1095,18 +1553,33 @@ export default function AdminPanel(){
                           const sku  = (p.sku||'').toLowerCase();
                           return name.includes(term) || sku.includes(term);
                         })
+                        .filter(p=>{
+                          if (!catId) return true;
+                          return String(getId(p.category)||'') === String(catId);
+                        })
+                        .filter(p=>{
+                          if (!subId) return true;
+                          return String(getId(p.subcategory)||'') === String(subId);
+                        })
                         .sort((a,b)=>{
-                          const dir = prodSortAsc ? 1 : -1;
-                          if (prodSortKey==='price'){
+                          const dir = sortDir
+                          if (sortKey==='price'){
                             const av = Number(a.price||0), bv = Number(b.price||0)
                             return (av - bv) * dir
                           }
-                          if (prodSortKey==='date'){
+                          if (sortKey==='stock'){
+                            const av = Number(a.stock??0), bv = Number(b.stock??0)
+                            return (av - bv) * dir
+                          }
+                          if (sortKey==='date'){
                             const av = new Date(a.createdAt || 0).getTime()
                             const bv = new Date(b.createdAt || 0).getTime()
                             return (av - bv) * dir
                           }
-                          return ((a.name||'').localeCompare(b.name||'')) * dir
+                          // fallback: date desc
+                          const av = new Date(a.createdAt || 0).getTime()
+                          const bv = new Date(b.createdAt || 0).getTime()
+                          return (bv - av)
                         })
                       const rows = list
                       return rows.map(p=> (
@@ -1114,7 +1587,7 @@ export default function AdminPanel(){
                           <td className='px-3 py-2 text-center'>
                             <div className='w-16 h-12 bg-gray-50 border rounded flex items-center justify-center overflow-hidden'>
                               <img
-                                src={resolveImageUrl(p.image) || placeholderProductImg}
+                                src={resolveImageUrl((p.images && p.images[0] && p.images[0].url) ? p.images[0].url : p.image) || placeholderProductImg}
                                 alt={p.name}
                                 className='w-full h-full object-contain'
                                 referrerPolicy='no-referrer'
@@ -1123,16 +1596,32 @@ export default function AdminPanel(){
                             </div>
                           </td>
                           <td className='px-3 py-2 text-center'>{p.name}</td>
-                          <td className='px-3 py-2 text-center'>{fmtDateShort(p.createdAt)}</td>
                           <td className='px-3 py-2 text-center'>
                             {(p.price||0).toFixed(2)} ₴
                             {p.discount ? ' (' + p.discount + '%)' : ''}
                           </td>
-                          <td className='px-3 py-2 text-center'>{p.stock ?? 0}</td>
-                          <td className='px-3 py-2 text-center'>{p.sku || ''}</td>
+                          <td className='px-3 py-2 text-center'>
+                            {p.stock ?? 0}
+                            {p.unit ? ' ' + p.unit : ''}
+                          </td>
+                          {showDateCol ? (
+                            <td className='px-3 py-2 text-center'>{fmtDateShort(p.createdAt)}</td>
+                          ) : null}
                           <td className='px-3 py-2 text-center'>{getCategoryName(p.category)}</td>
+                          <td className='px-3 py-2 text-center'>{getCategoryName(p.subcategory)}</td>
                           <td className='px-3 py-2 text-center align-middle'>
-                            <div className='inline-flex flex-col items-center justify-center gap-2'>
+                            <div className='inline-flex flex-row items-center justify-center gap-2'>
+                              <button
+                                title='Превʼю'
+                                aria-label='Превʼю'
+                                className='w-9 h-9 inline-flex items-center justify-center border rounded-lg hover:bg-black hover:text-white transition bg-white'
+                                onClick={() => {
+                                  setPreviewProd(p)
+                                  setShowProdPreview(true)
+                                }}
+                              >
+                                <FiEye size={16} />
+                              </button>
                               <button
                                 title='Редагувати'
                                 aria-label='Редагувати'
@@ -1155,10 +1644,14 @@ export default function AdminPanel(){
                                     discount: p.discount||0,
                                     image: p.image||'',
                                     imagePublicId: p.imagePublicId||'',
+                                    images: Array.isArray(p.images) && p.images.length
+                                      ? p.images
+                                      : ((p.image||p.imagePublicId) ? [{ url: p.image||'', publicId: p.imagePublicId||'' }] : []),
                                     description: p.description||'',
                                     specsPairs: specsObjectToPairs(specsObj),
                                     specsText,
                                     category: p.category?._id || p.category || '',
+                                    subcategory: p.subcategory?._id || p.subcategory || '',
                                     sku: p.sku||'',
                                     stock: p.stock||0,
                                     unit: p.unit||'',
@@ -1171,19 +1664,15 @@ export default function AdminPanel(){
                               <button
                                 title='Видалити'
                                 aria-label='Видалити'
-                                className='w-9 h-9 inline-flex items-center justify-center border rounded-lg text-red-600 hover:bg-red-600 hover:text-white transition bg-white'
-                                onClick={async()=>{
-                                  if(!confirm('Видалити товар?')) return;
-                                  try{
-                                    await deleteProduct(p._id);
-                                    loadAll();
-                                    showToast('Товар видалено','success')
-                                  } catch(err){
-                                    showToast(getErrMsg(err),'error')
-                                  }
-                                }}
+                                className='w-9 h-9 inline-flex items-center justify-center border rounded-lg text-red-600 hover:bg-red-600 hover:text-white transition bg-white disabled:opacity-60 disabled:cursor-not-allowed'
+                                disabled={Boolean(deletingProductId)}
+                                onClick={()=> handleDeleteProduct(p._id)}
                               >
-                                <FiTrash2 size={16} />
+                                {deletingProductId === p._id ? (
+                                  <span className='w-4 h-4 rounded-full border-2 border-red-300 border-t-red-600 animate-spin' />
+                                ) : (
+                                  <FiTrash2 size={16} />
+                                )}
                               </button>
                             </div>
                           </td>
@@ -1194,6 +1683,38 @@ export default function AdminPanel(){
                 </table>
               </div>
               
+            </div>
+          </div>
+        )}
+
+        {showProdPreview && (
+          <div
+            className='fixed inset-0 z-[70] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4'
+            onClick={()=>{ setShowProdPreview(false); setPreviewProd(null) }}
+          >
+            <div
+              className='bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-auto p-6'
+              onClick={(e)=>e.stopPropagation()}
+            >
+              <div className='flex items-center justify-between mb-4'>
+                <div className='font-semibold'>Превʼю товару</div>
+                <button
+                  type='button'
+                  className='w-9 h-9 inline-flex items-center justify-center border rounded-lg hover:bg-black hover:text-white transition'
+                  onClick={()=>{ setShowProdPreview(false); setPreviewProd(null) }}
+                  aria-label='Закрити'
+                  title='Закрити'
+                >
+                  <FiX size={16} />
+                </button>
+              </div>
+              {previewProd ? (
+                <div className='max-w-sm mx-auto'>
+                  <ProductCard p={previewProd} onAdd={()=>{}} />
+                </div>
+              ) : (
+                <div className='text-sm text-gray-500'>Товар не вибрано</div>
+              )}
             </div>
           </div>
         )}
