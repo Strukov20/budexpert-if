@@ -189,7 +189,7 @@ export default function ProductCard({p, onAdd}){
           <div className="mt-0.5 text-[11px] md:text-xs text-gray-500">Артикул: {p.sku}</div>
         )}
         <div
-          className="text-xs md:text-sm text-gray-600 flex-1 mt-1 cursor-pointer prose prose-[0.85rem] md:prose-sm max-w-none"
+          className="text-xs md:text-sm text-gray-600 flex-1 mt-1 cursor-pointer prose prose-[0.85rem] md:prose-sm max-w-none leading-snug prose-p:my-0 prose-ul:my-0 prose-ol:my-0"
           style={{ display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}
           title="Натисни, щоб побачити повний опис"
           onClick={()=>setOpen(true)}
