@@ -5,11 +5,23 @@ import Product from "../models/Product.js";
 
 const router = express.Router();
 
-// ✅ GET /api/categories — отримати всі категорії
+// ✅ GET /api/categories — отримати всі категорії (можна фільтрувати по parent)
+// Query: ?parent=<id> | ?parent=null
 router.get("/", async (req, res) => {
   try {
-    const categories = await Category.find().sort({ createdAt: -1 });
-    res.json(categories);
+    const { parent } = req.query;
+    const filter = {};
+    if (typeof parent === 'string') {
+      if (parent === 'null' || parent === '') filter.parent = null;
+      else filter.parent = parent;
+    }
+    const categories = await Category.find(filter).sort({ createdAt: -1 }).lean();
+    const normalized = (categories || []).map((c) => ({
+      ...c,
+      _id: c?._id ? String(c._id) : c?._id,
+      parent: c.parent ? String(c.parent) : null,
+    }));
+    res.json(normalized);
   } catch (err) {
     console.error("Error fetching categories:", err);
     res.status(500).json({ message: "Server error" });
@@ -27,8 +39,11 @@ router.post("/reassign", requireAdmin, async (req, res) => {
     const fromCat = await Category.findById(fromId);
     const toCat = await Category.findById(toId);
     if (!fromCat || !toCat) return res.status(404).json({ message: 'Категорію не знайдено' });
-    const r = await Product.updateMany({ category: fromId }, { $set: { category: toId } });
-    res.json({ ok: true, modifiedCount: r.modifiedCount });
+    const [r1, r2] = await Promise.all([
+      Product.updateMany({ category: fromId }, { $set: { category: toId } }),
+      Product.updateMany({ subcategory: fromId }, { $set: { subcategory: toId } }),
+    ]);
+    res.json({ ok: true, modifiedCount: (r1.modifiedCount || 0) + (r2.modifiedCount || 0) });
   } catch (err) {
     console.error('Error reassigning category:', err);
     res.status(500).json({ message: 'Server error' });
@@ -52,9 +67,10 @@ router.post("/", requireAdmin, async (req, res) => {
   try {
     const name = (req.body?.name || '').trim();
     if (!name) return res.status(400).json({ message: "Поле name обов'язкове" });
-    const exists = await Category.findOne({ name: { $regex: `^${name}$`, $options: 'i' } });
+    const parent = (req.body?.parent === '' || req.body?.parent === null) ? null : (req.body?.parent || null);
+    const exists = await Category.findOne({ parent, name: { $regex: `^${name}$`, $options: 'i' } });
     if (exists) return res.status(409).json({ message: "Категорія з такою назвою вже існує" });
-    const category = new Category({ ...req.body, name });
+    const category = new Category({ ...req.body, name, parent });
     await category.save();
     res.status(201).json(category);
   } catch (err) {
@@ -66,10 +82,18 @@ router.post("/", requireAdmin, async (req, res) => {
 // ✅ PUT /api/categories/:id — оновити категорію
 router.put("/:id", requireAdmin, async (req, res) => {
   try {
-    const updated = await Category.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    const body = { ...req.body };
+    if (typeof body.name === 'string') body.name = body.name.trim();
+    if ('parent' in body) {
+      if (body.parent === '' || body.parent === null) body.parent = null;
+    }
+    const updated = await Category.findByIdAndUpdate(req.params.id, body, { new: true, runValidators: true });
     res.json(updated);
   } catch (err) {
     console.error("Error updating category:", err);
+    if (err?.code === 11000) {
+      return res.status(409).json({ message: "Категорія з такою назвою вже існує" });
+    }
     res.status(500).json({ message: "Server error" });
   }
 });
@@ -77,7 +101,12 @@ router.put("/:id", requireAdmin, async (req, res) => {
 // ✅ DELETE /api/categories/:id — видалити категорію
 router.delete("/:id", requireAdmin, async (req, res) => {
   try {
-    await Category.findByIdAndDelete(req.params.id);
+    const id = req.params.id;
+    const childrenCount = await Category.countDocuments({ parent: id });
+    if (childrenCount > 0) {
+      return res.status(400).json({ message: 'Спочатку видаліть/перемістіть підкатегорії цієї категорії' });
+    }
+    await Category.findByIdAndDelete(id);
     res.json({ ok: true });
   } catch (err) {
     console.error("Error deleting category:", err);

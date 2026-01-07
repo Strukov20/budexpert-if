@@ -6,6 +6,30 @@ import { v2 as cloudinary } from "cloudinary";
 
 const router = express.Router();
 
+const normalizeImagesInput = (images) => {
+  if (!Array.isArray(images)) return undefined;
+  return images
+    .filter(Boolean)
+    .map((x) => {
+      if (typeof x === 'string') return { url: x, publicId: '' };
+      if (typeof x !== 'object') return null;
+      const url = (x.url ?? x.image ?? '').toString().trim();
+      const publicId = (x.publicId ?? x.imagePublicId ?? '').toString().trim();
+      if (!url && !publicId) return null;
+      return { url, publicId };
+    })
+    .filter(Boolean);
+};
+
+const pickFirstImage = (imagesArr) => {
+  if (!Array.isArray(imagesArr) || !imagesArr.length) return { image: '', imagePublicId: '' };
+  const first = imagesArr[0] || {};
+  return {
+    image: (first.url || '').toString().trim(),
+    imagePublicId: (first.publicId || '').toString().trim(),
+  };
+};
+
  const parseSpecsText = (input) => {
    if (typeof input !== 'string') return undefined;
    const out = {};
@@ -29,13 +53,16 @@ const router = express.Router();
 
 // GET /api/products
 router.get("/", async (req, res) => {
-  const { q, category } = req.query;
+  const { q, category, subcategory } = req.query;
   const filter = {};
   if (q) {
     filter.name = { $regex: q, $options: 'i' };
   }
   if (category) {
     filter.category = category;
+  }
+  if (subcategory) {
+    filter.subcategory = subcategory;
   }
   // Optional pagination
   const page = parseInt(req.query.page, 10);
@@ -125,6 +152,16 @@ router.post("/", requireAdmin, async (req, res) => {
      }
     if (payload.category === '' || payload.category === null) {
       delete payload.category;
+    }
+    if (payload.subcategory === '' || payload.subcategory === null) {
+      delete payload.subcategory;
+    }
+
+    if ('images' in payload) {
+      payload.images = normalizeImagesInput(payload.images) || [];
+      const { image, imagePublicId } = pickFirstImage(payload.images);
+      payload.image = image;
+      payload.imagePublicId = imagePublicId;
     }
     const name = (payload.name || '').trim();
     if (!name) return res.status(400).json({ message: "Поле name обов'язкове" });
@@ -289,10 +326,17 @@ router.put("/:id", requireAdmin, async (req, res) => {
     const current = await Product.findById(req.params.id);
     if (!current) return res.status(404).json({ message: 'Not found' });
 
+    if ('images' in body) {
+      body.images = normalizeImagesInput(body.images) || [];
+      const { image, imagePublicId } = pickFirstImage(body.images);
+      body.image = image;
+      body.imagePublicId = imagePublicId;
+    }
+
     const update = { $set: {}, $unset: {} };
     // копіюємо усі поля окрім category
     for (const k of Object.keys(body)) {
-      if (k !== 'category') update.$set[k] = body[k];
+      if (k !== 'category' && k !== 'subcategory') update.$set[k] = body[k];
     }
     // спеціальна обробка category
     if ('category' in body) {
@@ -303,27 +347,45 @@ router.put("/:id", requireAdmin, async (req, res) => {
       }
     }
 
-    // Обробка видалення / заміни картинки в Cloudinary
-    const newImage = body.image;
-    const newPublicId = body.imagePublicId;
-    const oldPublicId = current.imagePublicId;
-
-    const shouldClearImage = (newImage === '' || newImage === null) && !newPublicId;
-    const isNewImagePublicId = newPublicId && newPublicId !== oldPublicId;
-
-    // Якщо картинку очищено або підставлено іншу — видаляємо стару з Cloudinary
-    if (oldPublicId && (shouldClearImage || isNewImagePublicId)) {
-      try {
-        await cloudinary.uploader.destroy(oldPublicId);
-      } catch (err) {
-        console.error('Cloudinary destroy error (update product):', err?.message || err);
+    // спеціальна обробка subcategory
+    if ('subcategory' in body) {
+      if (body.subcategory === '' || body.subcategory === null) {
+        update.$unset.subcategory = "";
+      } else {
+        update.$set.subcategory = body.subcategory;
       }
     }
 
-    // Якщо очищаємо картинку повністю
-    if (shouldClearImage) {
-      update.$set.image = '';
-      update.$set.imagePublicId = '';
+    // Cloudinary cleanup: delete removed images (supports legacy imagePublicId + images[])
+    const oldIds = new Set(
+      [
+        current.imagePublicId,
+        ...(Array.isArray(current.images) ? current.images.map(x => x?.publicId).filter(Boolean) : []),
+      ].filter(Boolean)
+    );
+
+    const newIds = new Set(
+      [
+        body.imagePublicId,
+        ...(Array.isArray(body.images) ? body.images.map(x => x?.publicId).filter(Boolean) : []),
+      ].filter(Boolean)
+    );
+
+    const toDelete = [];
+    for (const id of oldIds) {
+      if (!newIds.has(id)) toDelete.push(id);
+    }
+
+    if (toDelete.length) {
+      await Promise.all(
+        toDelete.map(async (publicId) => {
+          try {
+            await cloudinary.uploader.destroy(publicId);
+          } catch (err) {
+            console.error('Cloudinary destroy error (update product):', err?.message || err);
+          }
+        })
+      );
     }
 
     // прибрати порожні оператори
@@ -343,12 +405,23 @@ router.delete("/:id", requireAdmin, async (req, res) => {
     const p = await Product.findById(req.params.id);
     if (!p) return res.status(404).json({ message: 'Not found' });
 
-    if (p.imagePublicId) {
-      try {
-        await cloudinary.uploader.destroy(p.imagePublicId);
-      } catch (err) {
-        console.error('Cloudinary destroy error (delete product):', err?.message || err);
-      }
+    const ids = Array.from(new Set(
+      [
+        p.imagePublicId,
+        ...(Array.isArray(p.images) ? p.images.map(x => x?.publicId).filter(Boolean) : []),
+      ].filter(Boolean)
+    ));
+
+    if (ids.length) {
+      await Promise.all(
+        ids.map(async (publicId) => {
+          try {
+            await cloudinary.uploader.destroy(publicId);
+          } catch (err) {
+            console.error('Cloudinary destroy error (delete product):', err?.message || err);
+          }
+        })
+      );
     }
 
     await Product.findByIdAndDelete(req.params.id);

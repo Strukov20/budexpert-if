@@ -8,7 +8,10 @@ import DeliveryLeadForm from '../components/DeliveryLeadForm'
 export default function Home(){
   const [products, setProducts] = useState([])
   const [categories, setCategories] = useState([])
+  const [loadingCategories, setLoadingCategories] = useState(false)
+  const [loadingProducts, setLoadingProducts] = useState(false)
   const [cat, setCat] = useState('')
+  const [subcat, setSubcat] = useState('')
   const [search, setSearch] = useState('')
   const [page, setPage] = useState(1)
   const perPage = 12
@@ -67,14 +70,18 @@ export default function Home(){
   },[])
 
   useEffect(()=>{
-    getCategories().then(d=>setCategories(d)).catch(()=>{})
+    setLoadingCategories(true)
+    getCategories()
+      .then(d=>setCategories(d))
+      .catch(()=>{})
+      .finally(()=> setLoadingCategories(false))
     loadProducts()
   },[])
 
   useEffect(()=> {
     setPage(1)
     setVisibleCount(perPage)
-  }, [cat, search])
+  }, [cat, subcat, search])
 
   // Визначення мобільного режиму
   useEffect(()=>{
@@ -111,10 +118,55 @@ export default function Home(){
 
   function loadProducts(){
     // request server with optional params: category, q, page, perPage
-    getProducts({ category: cat, q: search }).then(d=>setProducts(d)).catch(()=>{})
+    setLoadingProducts(true)
+    getProducts({ category: cat, subcategory: subcat, q: search })
+      .then(d=>setProducts(d))
+      .catch(()=>{})
+      .finally(()=> setLoadingProducts(false))
   }
 
-  useEffect(()=>{ loadProducts() }, [cat, search])
+  useEffect(()=>{ loadProducts() }, [cat, subcat, search])
+
+  const getParentId = (c)=>{
+    const p = c?.parent
+    if (!p) return ''
+    if (typeof p === 'string') return p
+    if (typeof p === 'object') return p?._id || p?.id || (typeof p?.toString === 'function' ? p.toString() : '')
+    return ''
+  }
+
+  const mainCategories = categories.filter(c=> !getParentId(c))
+  const subcategoriesByParent = (parentId)=> categories.filter(c=> {
+    const pid = getParentId(c)
+    return pid && String(pid) === String(parentId||'')
+  })
+
+  const [menuOpen, setMenuOpen] = useState(false)
+  const [hoverCat, setHoverCat] = useState('')
+
+  useEffect(()=>{
+    if (menuOpen) return
+    if (!hoverCat) return
+    setHoverCat('')
+  }, [menuOpen])
+
+  useEffect(()=>{
+    if (!menuOpen) return
+    if (hoverCat) return
+    const fallback = cat || (mainCategories[0]?._id || '')
+    if (fallback) setHoverCat(fallback)
+  }, [menuOpen])
+
+  const pickCategory = (id)=>{
+    setCat(id)
+    setSubcat('')
+    setMenuOpen(false)
+  }
+  const pickSubcategory = (parentId, subId)=>{
+    setCat(parentId)
+    setSubcat(subId)
+    setMenuOpen(false)
+  }
 
   const filtered = products.filter(p=> true) // server returns filtered, but keep for safety
   const pages = Math.max(1, Math.ceil(filtered.length / perPage))
@@ -199,18 +251,144 @@ export default function Home(){
 
       <div className='grid grid-cols-1 sm:grid-cols-[220px_1fr] gap-2 mb-4'>
         <div className='w-full'>
-          <div className='relative bg-white rounded-xl ring-1 ring-gray-200 shadow px-3 transition hover:bg-red-50/40 hover:ring-red-200'>
-            <select className='h-11 pr-8 text-base w-full appearance-none no-select-arrow bg-transparent border-0 focus:ring-0 focus:outline-none' value={cat} onChange={e=>setCat(e.target.value)}>
-              <option value=''>Всі категорії</option>
-              {categories.map(c=> <option key={c._id} value={c._id}>{c.name}</option>)}
-            </select>
-            <span className='pointer-events-none absolute inset-y-0 right-3 flex items-center text-gray-500'>
-              <svg xmlns='http://www.w3.org/2000/svg' className='h-4 w-4' viewBox='0 0 20 20' fill='currentColor'>
-                <path fillRule='evenodd' d='M5.23 7.21a.75.75 0 011.06.02L10 10.94l3.71-3.71a.75.75 0 111.06 1.06l-4.24 4.24a.75.75 0 01-1.06 0L5.21 8.29a.75.75 0 01.02-1.08z' clipRule='evenodd' />
-              </svg>
-            </span>
-          </div>
+          {isMobile ? (
+            <div className='relative bg-white rounded-xl ring-1 ring-gray-200 shadow px-3 transition hover:bg-red-50/40 hover:ring-red-200'>
+              <select
+                className='h-11 pr-8 text-base w-full appearance-none no-select-arrow bg-transparent border-0 focus:ring-0 focus:outline-none'
+                value={subcat || cat}
+                disabled={loadingCategories}
+                onChange={e=>{
+                  const v = e.target.value
+                  if (!v) { setCat(''); setSubcat(''); return }
+                  // mobile: allow selecting either main category or a subcategory option (encoded)
+                  const parts = String(v).split(':')
+                  if (parts[0] === 'sub' && parts[1] && parts[2]) {
+                    pickSubcategory(parts[1], parts[2])
+                  } else {
+                    pickCategory(v)
+                  }
+                }}
+              >
+                <option value=''>Всі категорії</option>
+                {mainCategories.map(c=> (
+                  <React.Fragment key={c._id}>
+                    <option value={c._id}>{c.name}</option>
+                    {subcategoriesByParent(c._id).map(sc=> (
+                      <option key={sc._id} value={`sub:${c._id}:${sc._id}`}>{`— ${sc.name}`}</option>
+                    ))}
+                  </React.Fragment>
+                ))}
+              </select>
+              <span className='pointer-events-none absolute inset-y-0 right-3 flex items-center text-gray-500'>
+                <svg xmlns='http://www.w3.org/2000/svg' className='h-4 w-4' viewBox='0 0 20 20' fill='currentColor'>
+                  <path fillRule='evenodd' d='M5.23 7.21a.75.75 0 011.06.02L10 10.94l3.71-3.71a.75.75 0 111.06 1.06l-4.24 4.24a.75.75 0 01-1.06 0L5.21 8.29a.75.75 0 01.02-1.08z' clipRule='evenodd' />
+                </svg>
+              </span>
+            </div>
+          ) : (
+            <div className='relative'>
+              <button
+                type='button'
+                onClick={()=> setMenuOpen(v=>!v)}
+                disabled={loadingCategories}
+                className='w-full h-11 px-3 rounded-xl ring-1 ring-gray-200 shadow bg-white flex items-center justify-between hover:bg-red-50/40 hover:ring-red-200 transition'
+              >
+                <span className='text-base text-left truncate'>
+                  {(() => {
+                    if (!cat && !subcat) return 'Всі категорії'
+                    const catObj = categories.find(x=> x._id===cat)
+                    if (subcat) {
+                      const subObj = categories.find(x=> x._id===subcat)
+                      return `${catObj?.name || ''} / ${subObj?.name || ''}`.trim() || 'Категорії'
+                    }
+                    return catObj?.name || 'Категорії'
+                  })()}
+                </span>
+                <span className='text-gray-500'>▾</span>
+              </button>
+
+              {menuOpen && (
+                <div
+                  className='absolute mt-2 left-0 z-30 bg-white border rounded-2xl shadow-xl overflow-hidden w-[720px] max-w-[94vw]'
+                >
+                  <div className='grid grid-cols-[280px_1fr] min-h-[320px]'>
+                    <div className='border-r bg-gray-50/60'>
+                      <div className='max-h-[600px] overflow-y-auto'>
+                        <button
+                          type='button'
+                          className={`w-full text-left px-4 py-3 text-base hover:bg-white transition ${(!cat && !subcat) ? 'bg-white font-semibold' : ''}`}
+                          onMouseEnter={()=> setHoverCat('')}
+                          onClick={()=>{ setCat(''); setSubcat(''); setMenuOpen(false) }}
+                        >
+                          Всі категорії
+                        </button>
+                        {mainCategories.map(c=>{
+                          const active = String(cat) === String(c._id) && !subcat
+                          return (
+                            <button
+                              key={c._id}
+                              type='button'
+                              className={`w-full text-left px-4 py-3 text-base hover:bg-white transition ${active ? 'bg-white font-semibold' : ''}`}
+                              onMouseEnter={()=> setHoverCat(c._id)}
+                              onFocus={()=> setHoverCat(c._id)}
+                              onClick={()=> pickCategory(c._id)}
+                            >
+                              <div className='flex items-center justify-between'>
+                                <span className='truncate'>{c.name}</span>
+                                <span className='text-gray-400'>›</span>
+                              </div>
+                            </button>
+                          )
+                        })}
+                      </div>
+                    </div>
+                    <div className='bg-white'>
+                      {(() => {
+                        const target = hoverCat || cat || (mainCategories[0]?._id || '')
+                        if (!target) {
+                          return (
+                            <div className='h-full flex items-center justify-center text-sm text-gray-500'>
+                              Наведіть на категорію
+                            </div>
+                          )
+                        }
+                        const subs = subcategoriesByParent(target)
+                        if (!subs.length) {
+                          return (
+                            <div className='h-full flex items-center justify-center text-sm text-gray-500'>
+                              Немає підкатегорій
+                            </div>
+                          )
+                        }
+                        return (
+                          <div className='p-3'>
+                            <div className='sticky top-0 bg-white/95 backdrop-blur px-3 py-2 text-sm font-semibold text-gray-700 border-b'>Підкатегорії</div>
+                            <div className='max-h-[600px] overflow-y-auto p-1'>
+                              {subs.map(sc=>{
+                                const active = String(subcat) === String(sc._id)
+                                return (
+                                  <button
+                                    key={sc._id}
+                                    type='button'
+                                    className={`w-full text-left px-3 py-3 text-base rounded-xl hover:bg-gray-50 transition ${active ? 'bg-gray-50 font-semibold' : ''}`}
+                                    onClick={()=> pickSubcategory(target, sc._id)}
+                                  >
+                                    {sc.name}
+                                  </button>
+                                )
+                              })}
+                            </div>
+                          </div>
+                        )
+                      })()}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
         </div>
+
         <div className='flex items-center justify-start sm:justify-end'>
           <div className='w-full sm:w-56 md:w-64'>
             <SearchBar value={search} onChange={setSearch} />
@@ -219,7 +397,16 @@ export default function Home(){
       </div>
 
       <div className='grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4'>
-        {itemsToRender.map(p=> <ProductCard key={p._id} p={p} onAdd={addToCart} />)}
+        {loadingProducts && itemsToRender.length === 0 ? (
+          <div className='col-span-full flex items-center justify-center py-10 text-gray-700'>
+            <div className='flex items-center gap-3'>
+              <span className='w-6 h-6 rounded-full border-2 border-gray-300 border-t-black animate-spin' />
+              <span>Завантаження товарів…</span>
+            </div>
+          </div>
+        ) : (
+          itemsToRender.map(p=> <ProductCard key={p._id} p={p} onAdd={addToCart} />)
+        )}
       </div>
 
       {/* Sentinel для lazy loading на мобільних: розташований одразу після товарів, до форми та футера */}

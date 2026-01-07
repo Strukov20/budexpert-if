@@ -12,9 +12,9 @@ if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true })
 
 // Конфіг Cloudinary з env
 cloudinary.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-  api_key: process.env.CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_API_SECRET,
+  cloud_name: (process.env.CLOUDINARY_CLOUD_NAME || '').trim(),
+  api_key: (process.env.CLOUDINARY_API_KEY || '').trim(),
+  api_secret: (process.env.CLOUDINARY_API_SECRET || '').trim(),
 })
 
 const storage = multer.diskStorage({
@@ -44,9 +44,9 @@ router.post('/', upload.single('file'), async (req, res) => {
     // Шлях до тимчасового файлу, який зберіг multer
     const localPath = req.file.path
 
-    const cloudName = process.env.CLOUDINARY_CLOUD_NAME
-    const apiKey = process.env.CLOUDINARY_API_KEY
-    const apiSecret = process.env.CLOUDINARY_API_SECRET
+    const cloudName = (process.env.CLOUDINARY_CLOUD_NAME || '').trim()
+    const apiKey = (process.env.CLOUDINARY_API_KEY || '').trim()
+    const apiSecret = (process.env.CLOUDINARY_API_SECRET || '').trim()
 
     // Cloudinary only: require env configuration
     if (!cloudName || !apiKey || !apiSecret) {
