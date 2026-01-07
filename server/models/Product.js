@@ -18,6 +18,7 @@ const productSchema = new mongoose.Schema({
   specs: { type: Map, of: String, default: {} },
   category: { type: mongoose.Schema.Types.ObjectId, ref: 'Category' },
   subcategory: { type: mongoose.Schema.Types.ObjectId, ref: 'Category' },
+  type: { type: mongoose.Schema.Types.ObjectId, ref: 'Category' },
   sku: { type: String, trim: true },
   stock: { type: Number, default: 0, min: 0 },
   unit: { type: String, trim: true },

@@ -53,7 +53,7 @@ const pickFirstImage = (imagesArr) => {
 
 // GET /api/products
 router.get("/", async (req, res) => {
-  const { q, category, subcategory } = req.query;
+  const { q, category, subcategory, type } = req.query;
   const filter = {};
   if (q) {
     filter.name = { $regex: q, $options: 'i' };
@@ -63,6 +63,9 @@ router.get("/", async (req, res) => {
   }
   if (subcategory) {
     filter.subcategory = subcategory;
+  }
+  if (type) {
+    filter.type = type;
   }
   // Optional pagination
   const page = parseInt(req.query.page, 10);
@@ -155,6 +158,10 @@ router.post("/", requireAdmin, async (req, res) => {
     }
     if (payload.subcategory === '' || payload.subcategory === null) {
       delete payload.subcategory;
+    }
+
+    if (payload.type === '' || payload.type === null) {
+      delete payload.type;
     }
 
     if ('images' in payload) {
@@ -334,9 +341,9 @@ router.put("/:id", requireAdmin, async (req, res) => {
     }
 
     const update = { $set: {}, $unset: {} };
-    // копіюємо усі поля окрім category
+    // копіюємо усі поля окрім category/subcategory/type
     for (const k of Object.keys(body)) {
-      if (k !== 'category' && k !== 'subcategory') update.$set[k] = body[k];
+      if (k !== 'category' && k !== 'subcategory' && k !== 'type') update.$set[k] = body[k];
     }
     // спеціальна обробка category
     if ('category' in body) {
@@ -353,6 +360,15 @@ router.put("/:id", requireAdmin, async (req, res) => {
         update.$unset.subcategory = "";
       } else {
         update.$set.subcategory = body.subcategory;
+      }
+    }
+
+    // спеціальна обробка type
+    if ('type' in body) {
+      if (body.type === '' || body.type === null) {
+        update.$unset.type = "";
+      } else {
+        update.$set.type = body.type;
       }
     }
 

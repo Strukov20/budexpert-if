@@ -12,6 +12,7 @@ export default function Home(){
   const [loadingProducts, setLoadingProducts] = useState(false)
   const [cat, setCat] = useState('')
   const [subcat, setSubcat] = useState('')
+  const [type, setType] = useState('')
   const [search, setSearch] = useState('')
   const [page, setPage] = useState(1)
   const perPage = 12
@@ -81,7 +82,7 @@ export default function Home(){
   useEffect(()=> {
     setPage(1)
     setVisibleCount(perPage)
-  }, [cat, subcat, search])
+  }, [cat, subcat, type, search])
 
   // Визначення мобільного режиму
   useEffect(()=>{
@@ -119,13 +120,13 @@ export default function Home(){
   function loadProducts(){
     // request server with optional params: category, q, page, perPage
     setLoadingProducts(true)
-    getProducts({ category: cat, subcategory: subcat, q: search })
+    getProducts({ category: cat, subcategory: subcat, type, q: search })
       .then(d=>setProducts(d))
       .catch(()=>{})
       .finally(()=> setLoadingProducts(false))
   }
 
-  useEffect(()=>{ loadProducts() }, [cat, subcat, search])
+  useEffect(()=>{ loadProducts() }, [cat, subcat, type, search])
 
   const getParentId = (c)=>{
     const p = c?.parent
@@ -141,30 +142,77 @@ export default function Home(){
     return pid && String(pid) === String(parentId||'')
   })
 
+  const typesBySubcategory = (subId)=> categories.filter(c=> {
+    const pid = getParentId(c)
+    return pid && String(pid) === String(subId||'')
+  })
+
   const [menuOpen, setMenuOpen] = useState(false)
   const [hoverCat, setHoverCat] = useState('')
+  const [hoverSub, setHoverSub] = useState('')
+  const hoverCloseTimerRef = useRef(null)
+  const hoverSubCloseTimerRef = useRef(null)
+
+  const hoveredSubs = hoverCat ? subcategoriesByParent(hoverCat) : []
+  const showSubsPanel = Boolean(hoverCat) && hoveredSubs.length > 0
+  const hoveredTypes = hoverSub ? typesBySubcategory(hoverSub) : []
+  const showTypesPanel = Boolean(hoverSub) && hoveredTypes.length > 0
+  const menuWidth = 260 + (showSubsPanel ? 320 : 0) + (showTypesPanel ? 320 : 0)
 
   useEffect(()=>{
     if (menuOpen) return
-    if (!hoverCat) return
+    if (!hoverCat && !hoverSub) return
     setHoverCat('')
+    setHoverSub('')
   }, [menuOpen])
 
-  useEffect(()=>{
-    if (!menuOpen) return
-    if (hoverCat) return
-    const fallback = cat || (mainCategories[0]?._id || '')
-    if (fallback) setHoverCat(fallback)
-  }, [menuOpen])
+  const cancelHoverCloseTimers = ()=>{
+    if (hoverCloseTimerRef.current) {
+      clearTimeout(hoverCloseTimerRef.current)
+      hoverCloseTimerRef.current = null
+    }
+    if (hoverSubCloseTimerRef.current) {
+      clearTimeout(hoverSubCloseTimerRef.current)
+      hoverSubCloseTimerRef.current = null
+    }
+  }
+
+  const hoverCloseDelayMs = 380
+
+  const scheduleCloseAllHover = ()=>{
+    cancelHoverCloseTimers()
+    hoverCloseTimerRef.current = setTimeout(()=>{
+      setHoverCat('')
+      setHoverSub('')
+    }, hoverCloseDelayMs)
+  }
+
+  const scheduleCloseSubHover = ()=>{
+    if (hoverSubCloseTimerRef.current) {
+      clearTimeout(hoverSubCloseTimerRef.current)
+      hoverSubCloseTimerRef.current = null
+    }
+    hoverSubCloseTimerRef.current = setTimeout(()=>{
+      setHoverSub('')
+    }, hoverCloseDelayMs)
+  }
 
   const pickCategory = (id)=>{
     setCat(id)
     setSubcat('')
+    setType('')
     setMenuOpen(false)
   }
   const pickSubcategory = (parentId, subId)=>{
     setCat(parentId)
     setSubcat(subId)
+    setType('')
+    setMenuOpen(false)
+  }
+  const pickType = (parentId, subId, typeId)=>{
+    setCat(parentId)
+    setSubcat(subId)
+    setType(typeId)
     setMenuOpen(false)
   }
 
@@ -255,18 +303,25 @@ export default function Home(){
             <div className='relative bg-white rounded-xl ring-1 ring-gray-200 shadow px-3 transition hover:bg-red-50/40 hover:ring-red-200'>
               <select
                 className='h-11 pr-8 text-base w-full appearance-none no-select-arrow bg-transparent border-0 focus:ring-0 focus:outline-none'
-                value={subcat || cat}
+                value={(() => {
+                  if (type) return `type:${cat}:${subcat}:${type}`
+                  if (subcat) return `sub:${cat}:${subcat}`
+                  return cat || ''
+                })()}
                 disabled={loadingCategories}
                 onChange={e=>{
                   const v = e.target.value
-                  if (!v) { setCat(''); setSubcat(''); return }
-                  // mobile: allow selecting either main category or a subcategory option (encoded)
+                  if (!v) { setCat(''); setSubcat(''); setType(''); return }
                   const parts = String(v).split(':')
                   if (parts[0] === 'sub' && parts[1] && parts[2]) {
                     pickSubcategory(parts[1], parts[2])
-                  } else {
-                    pickCategory(v)
+                    return
                   }
+                  if (parts[0] === 'type' && parts[1] && parts[2] && parts[3]) {
+                    pickType(parts[1], parts[2], parts[3])
+                    return
+                  }
+                  pickCategory(v)
                 }}
               >
                 <option value=''>Всі категорії</option>
@@ -274,7 +329,12 @@ export default function Home(){
                   <React.Fragment key={c._id}>
                     <option value={c._id}>{c.name}</option>
                     {subcategoriesByParent(c._id).map(sc=> (
-                      <option key={sc._id} value={`sub:${c._id}:${sc._id}`}>{`— ${sc.name}`}</option>
+                      <React.Fragment key={sc._id}>
+                        <option value={`sub:${c._id}:${sc._id}`}>{`— ${sc.name}`}</option>
+                        {typesBySubcategory(sc._id).map(t=> (
+                          <option key={t._id} value={`type:${c._id}:${sc._id}:${t._id}`}>{`—— ${t.name}`}</option>
+                        ))}
+                      </React.Fragment>
                     ))}
                   </React.Fragment>
                 ))}
@@ -295,10 +355,14 @@ export default function Home(){
               >
                 <span className='text-base text-left truncate'>
                   {(() => {
-                    if (!cat && !subcat) return 'Всі категорії'
+                    if (!cat && !subcat && !type) return 'Всі категорії'
                     const catObj = categories.find(x=> x._id===cat)
+                    const subObj = categories.find(x=> x._id===subcat)
+                    const typeObj = categories.find(x=> x._id===type)
+                    if (type) {
+                      return `${catObj?.name || ''} / ${subObj?.name || ''} / ${typeObj?.name || ''}`.trim() || 'Категорії'
+                    }
                     if (subcat) {
-                      const subObj = categories.find(x=> x._id===subcat)
                       return `${catObj?.name || ''} / ${subObj?.name || ''}`.trim() || 'Категорії'
                     }
                     return catObj?.name || 'Категорії'
@@ -309,79 +373,122 @@ export default function Home(){
 
               {menuOpen && (
                 <div
-                  className='absolute mt-2 left-0 z-30 bg-white border rounded-2xl shadow-xl overflow-hidden w-[720px] max-w-[94vw]'
+                  className='absolute mt-2 left-0 z-30 bg-white border rounded-2xl shadow-2xl overflow-hidden'
+                  style={{ width: menuWidth, maxWidth: '94vw' }}
                 >
-                  <div className='grid grid-cols-[280px_1fr] min-h-[320px]'>
-                    <div className='border-r bg-gray-50/60'>
-                      <div className='max-h-[600px] overflow-y-auto'>
+                  <div
+                    className='flex min-h-[320px] max-h-[70vh] overflow-hidden min-w-0 gap-2 p-2 bg-white'
+                    onMouseEnter={cancelHoverCloseTimers}
+                    onMouseLeave={scheduleCloseAllHover}
+                  >
+                    <div className='bg-gray-50/60 w-[260px] flex-shrink-0 rounded-xl overflow-hidden'>
+                      <div
+                        className='max-h-[70vh] overflow-y-auto'
+                        onMouseEnter={cancelHoverCloseTimers}
+                      >
                         <button
                           type='button'
-                          className={`w-full text-left px-4 py-3 text-base hover:bg-white transition ${(!cat && !subcat) ? 'bg-white font-semibold' : ''}`}
-                          onMouseEnter={()=> setHoverCat('')}
-                          onClick={()=>{ setCat(''); setSubcat(''); setMenuOpen(false) }}
+                          className={`w-full text-left px-4 py-3 text-base hover:bg-white transition ${(!cat && !subcat && !type) ? 'bg-white font-semibold' : ''}`}
+                          onMouseEnter={()=> { setHoverCat(''); setHoverSub('') }}
+                          onClick={()=>{ setCat(''); setSubcat(''); setType(''); setMenuOpen(false) }}
                         >
                           Всі категорії
                         </button>
                         {mainCategories.map(c=>{
-                          const active = String(cat) === String(c._id) && !subcat
+                          const active = String(cat) === String(c._id) && !subcat && !type
                           return (
                             <button
                               key={c._id}
                               type='button'
                               className={`w-full text-left px-4 py-3 text-base hover:bg-white transition ${active ? 'bg-white font-semibold' : ''}`}
-                              onMouseEnter={()=> setHoverCat(c._id)}
-                              onFocus={()=> setHoverCat(c._id)}
+                              onMouseEnter={()=> { setHoverCat(c._id); setHoverSub('') }}
+                              onFocus={()=> { setHoverCat(c._id); setHoverSub('') }}
                               onClick={()=> pickCategory(c._id)}
                             >
                               <div className='flex items-center justify-between'>
                                 <span className='truncate'>{c.name}</span>
-                                <span className='text-gray-400'>›</span>
                               </div>
                             </button>
                           )
                         })}
                       </div>
                     </div>
-                    <div className='bg-white'>
-                      {(() => {
-                        const target = hoverCat || cat || (mainCategories[0]?._id || '')
-                        if (!target) {
-                          return (
-                            <div className='h-full flex items-center justify-center text-sm text-gray-500'>
-                              Наведіть на категорію
+
+                    {(() => {
+                      if (!showSubsPanel) return null
+                      const targetCat = hoverCat
+                      if (!targetCat) return null
+                      const subs = hoveredSubs
+                      if (!subs.length) return null
+                      return (
+                        <div className='bg-white w-[320px] max-w-[360px] flex-shrink-0 overflow-x-hidden rounded-xl overflow-hidden ring-1 ring-gray-100'>
+                          <div
+                            className='max-h-[70vh] overflow-y-auto overflow-x-hidden'
+                            onMouseEnter={cancelHoverCloseTimers}
+                          >
+                            <div className='px-4 py-2 text-xs uppercase tracking-wide text-gray-700 border-b bg-gray-50 sticky top-0 text-center font-semibold'>
+                              Підкатегорії
                             </div>
-                          )
-                        }
-                        const subs = subcategoriesByParent(target)
-                        if (!subs.length) {
-                          return (
-                            <div className='h-full flex items-center justify-center text-sm text-gray-500'>
-                              Немає підкатегорій
-                            </div>
-                          )
-                        }
-                        return (
-                          <div className='p-3'>
-                            <div className='sticky top-0 bg-white/95 backdrop-blur px-3 py-2 text-sm font-semibold text-gray-700 border-b'>Підкатегорії</div>
-                            <div className='max-h-[600px] overflow-y-auto p-1'>
-                              {subs.map(sc=>{
-                                const active = String(subcat) === String(sc._id)
-                                return (
-                                  <button
-                                    key={sc._id}
-                                    type='button'
-                                    className={`w-full text-left px-3 py-3 text-base rounded-xl hover:bg-gray-50 transition ${active ? 'bg-gray-50 font-semibold' : ''}`}
-                                    onClick={()=> pickSubcategory(target, sc._id)}
-                                  >
-                                    {sc.name}
-                                  </button>
-                                )
-                              })}
+                            <div className='py-2 px-2'>
+                              {subs.map(sc=> (
+                                <button
+                                  key={sc._id}
+                                  type='button'
+                                  className={`group w-full text-left px-4 py-2.5 transition rounded-lg ${String(subcat)===String(sc._id) && !type ? 'bg-red-50 font-semibold ring-1 ring-red-200' : 'hover:bg-gray-50'} `}
+                                  onMouseEnter={()=> setHoverSub(sc._id)}
+                                  onFocus={()=> setHoverSub(sc._id)}
+                                  onClick={()=> pickSubcategory(targetCat, sc._id)}
+                                >
+                                  <div className='flex items-center gap-3 min-w-0'>
+                                    <span className={`h-5 w-1 rounded-full ${String(subcat)===String(sc._id) && !type ? 'bg-red-500' : 'bg-transparent group-hover:bg-gray-300'}`} />
+                                    <div className='text-[15px] leading-snug text-gray-900 truncate'>{sc.name}</div>
+                                  </div>
+                                </button>
+                              ))}
                             </div>
                           </div>
-                        )
-                      })()}
-                    </div>
+                        </div>
+                      )
+                    })()}
+
+                    {(() => {
+                      if (!showTypesPanel) return null
+                      const targetCat = hoverCat
+                      if (!targetCat) return null
+                      const targetSub = hoverSub
+                      if (!targetSub) return null
+
+                      const types = hoveredTypes
+                      if (!types.length) return null
+
+                      return (
+                        <div className='bg-white w-[320px] max-w-[360px] flex-shrink-0 overflow-x-hidden rounded-xl overflow-hidden ring-1 ring-gray-100'>
+                          <div
+                            className='max-h-[70vh] overflow-y-auto overflow-x-hidden'
+                            onMouseEnter={cancelHoverCloseTimers}
+                          >
+                            <div className='px-4 py-2 text-xs uppercase tracking-wide text-gray-700 border-b bg-gray-50 sticky top-0 text-center font-semibold'>
+                              Типи
+                            </div>
+                            <div className='py-2 px-2'>
+                              {types.map(t=> (
+                                <button
+                                  key={t._id}
+                                  type='button'
+                                  className={`group w-full text-left px-4 py-2.5 transition rounded-lg ${String(type)===String(t._id) ? 'bg-red-50 font-semibold ring-1 ring-red-200' : 'hover:bg-gray-50'} `}
+                                  onClick={()=> pickType(targetCat, targetSub, t._id)}
+                                >
+                                  <div className='flex items-center gap-3 min-w-0'>
+                                    <span className={`h-5 w-1 rounded-full ${String(type)===String(t._id) ? 'bg-red-500' : 'bg-transparent group-hover:bg-gray-300'}`} />
+                                    <div className='text-[15px] leading-snug text-gray-900 truncate'>{t.name}</div>
+                                  </div>
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                      )
+                    })()}
                   </div>
                 </div>
               )}

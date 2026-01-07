@@ -27,11 +27,12 @@ export default function AdminPanel(){
   const [showProdCreate, setShowProdCreate] = useState(false)
   const [showProdPreview, setShowProdPreview] = useState(false)
   const [previewProd, setPreviewProd] = useState(null)
-  const [prodForm, setProdForm] = useState({ name:'', price:0, discount:0, image:'', imagePublicId:'', images: [], description:'', specsPairs: [{ id: Date.now() + Math.random(), key:'', value:'' }], specsText:'', category:'', subcategory:'', sku:'', stock:0, unit:'' })
+  const [prodForm, setProdForm] = useState({ name:'', price:0, discount:0, image:'', imagePublicId:'', images: [], description:'', specsPairs: [{ id: Date.now() + Math.random(), key:'', value:'' }], specsText:'', category:'', subcategory:'', type:'', sku:'', stock:0, unit:'' })
   const [showProdList, setShowProdList] = useState(false)
   const [prodListSearch, setProdListSearch] = useState('')
   const [prodCatFilter, setProdCatFilter] = useState('')
   const [prodSubcatFilter, setProdSubcatFilter] = useState('')
+  const [prodTypeFilter, setProdTypeFilter] = useState('')
   const [prodSortMode, setProdSortMode] = useState('date_desc') // price_asc | price_desc | date_desc | date_asc | stock_asc | stock_desc
   const [prodPage, setProdPage] = useState(1)
   const [prodPerPage, setProdPerPage] = useState(10)
@@ -42,12 +43,18 @@ export default function AdminPanel(){
   const [inlineSubcatName, setInlineSubcatName] = useState('')
   const [inlineSubcatLoading, setInlineSubcatLoading] = useState(false)
   const [showInlineSubcat, setShowInlineSubcat] = useState(false)
+  const [inlineTypeName, setInlineTypeName] = useState('')
+  const [inlineTypeLoading, setInlineTypeLoading] = useState(false)
+  const [showInlineType, setShowInlineType] = useState(false)
   const [selectedCatId, setSelectedCatId] = useState('')
   const [showCatEdit, setShowCatEdit] = useState(false)
   const [showCatCreate, setShowCatCreate] = useState(false)
   const [catEditingName, setCatEditingName] = useState('')
   const [catSubName, setCatSubName] = useState('')
   const [catSubLoading, setCatSubLoading] = useState(false)
+  const [catTypeParentId, setCatTypeParentId] = useState('')
+  const [catTypeName, setCatTypeName] = useState('')
+  const [catTypeLoading, setCatTypeLoading] = useState(false)
   const [applyToProducts, setApplyToProducts] = useState(true)
   const [showCatList, setShowCatList] = useState(false)
   const [catListSearch, setCatListSearch] = useState('')
@@ -376,7 +383,7 @@ export default function AdminPanel(){
       const { specsPairs, specsText, ...rest } = prodForm
       const payload = { ...rest, specs: specsPairsToObject(specsPairs), images: normalizeImagesForSave(prodForm.images) }
       await createProduct(payload);
-      setShowProdCreate(false); setProdForm({ name:'', price:0, discount:0, image:'', imagePublicId:'', images: [], description:'', specsPairs: [newSpecRow()], specsText:'', category:'', subcategory:'', sku:'', stock:0, unit:'' });
+      setShowProdCreate(false); setProdForm({ name:'', price:0, discount:0, image:'', imagePublicId:'', images: [], description:'', specsPairs: [newSpecRow()], specsText:'', category:'', subcategory:'', type:'', sku:'', stock:0, unit:'' });
       loadAll();
       showToast('Товар успішно додано','success')
     }catch(err){
@@ -393,7 +400,7 @@ export default function AdminPanel(){
       const payload = { ...rest, specs: specsPairsToObject(specsPairs), images: normalizeImagesForSave(prodForm.images) }
       await updateProduct(selectedProdId, payload);
       setShowProdEdit(false);
-      setProdForm({ name:'', price:0, discount:0, image:'', imagePublicId:'', images: [], description:'', specsPairs: [newSpecRow()], specsText:'', category:'', subcategory:'', sku:'', stock:0, unit:'' });
+      setProdForm({ name:'', price:0, discount:0, image:'', imagePublicId:'', images: [], description:'', specsPairs: [newSpecRow()], specsText:'', category:'', subcategory:'', type:'', sku:'', stock:0, unit:'' });
       loadAll();
       showToast('Товар оновлено','success')
     }catch(err){
@@ -473,7 +480,7 @@ export default function AdminPanel(){
     try{
       const created = await createCategory({ name, parent: prodForm.category })
       setCategories(prev=> [...prev, created])
-      setProdForm(prev=> ({ ...prev, subcategory: created._id || prev.subcategory }))
+      setProdForm(prev=> ({ ...prev, subcategory: created._id || prev.subcategory, type: '' }))
       setInlineSubcatName('')
       setShowInlineSubcat(false)
       showToast('Підкатегорію створено','success')
@@ -481,6 +488,28 @@ export default function AdminPanel(){
       showToast(getErrMsg(err),'error')
     } finally {
       setInlineSubcatLoading(false)
+    }
+  }
+
+  const handleInlineCreateType = async ()=>{
+    const name = (inlineTypeName||'').trim()
+    if (!name) return
+    if (!prodForm.subcategory) {
+      showToast('Спочатку виберіть підкатегорію','error')
+      return
+    }
+    setInlineTypeLoading(true)
+    try{
+      const created = await createCategory({ name, parent: prodForm.subcategory })
+      setCategories(prev=> [...prev, created])
+      setProdForm(prev=> ({ ...prev, type: created._id || prev.type }))
+      setInlineTypeName('')
+      setShowInlineType(false)
+      showToast('Тип товару створено','success')
+    } catch(err){
+      showToast(getErrMsg(err),'error')
+    } finally {
+      setInlineTypeLoading(false)
     }
   }
 
@@ -613,7 +642,7 @@ export default function AdminPanel(){
                 </div>
                 <button
                   aria-label='Закрити'
-                  onClick={()=> setShowCatEdit(false)}
+                  onClick={()=> { setShowCatEdit(false); setCatTypeParentId(''); setCatTypeName(''); }}
                   className='w-9 h-9 rounded-xl border bg-white hover:bg-gray-50 active:scale-95 transition'
                 >
                   ✕
@@ -621,16 +650,19 @@ export default function AdminPanel(){
               </div>
             </div>
 
-            <div className='p-6 grid grid-cols-1 md:grid-cols-2 gap-5'>
+            <div className='p-6 flex flex-col gap-5'>
               <div className='border rounded-xl p-4 bg-white'>
                 <div className='text-sm font-semibold mb-3'>Основне</div>
-                <label className='text-sm text-gray-600'>Назва</label>
-                <input
-                  className='mt-1 border px-3 py-2.5 rounded-lg w-full focus:outline-none focus:ring-2 focus:ring-black/10 focus:border-gray-400'
-                  value={catEditingName}
-                  onChange={e=>setCatEditingName(e.target.value)}
-                  placeholder='Назва категорії'
-                />
+                <div className='space-y-3'>
+                  <div>
+                    <label className='text-sm text-gray-600'>Назва</label>
+                    <input
+                      className='mt-1 border px-3 py-2.5 rounded-lg w-full focus:outline-none focus:ring-2 focus:ring-black/10 focus:border-gray-400'
+                      value={catEditingName}
+                      onChange={e=>setCatEditingName(e.target.value)}
+                      placeholder='Назва категорії'
+                    />
+                  </div>
 
                 <label className='flex items-start gap-2 mt-4 text-sm'>
                   <input type='checkbox' className='mt-1' checked={applyToProducts} onChange={(e)=> setApplyToProducts(e.target.checked)} />
@@ -639,6 +671,7 @@ export default function AdminPanel(){
                     <div className='text-xs text-gray-500 mt-0.5'>Товари посилаються на категорію за ID, тому нова назва відобразиться автоматично.</div>
                   </span>
                 </label>
+                </div>
               </div>
 
               <div className='border rounded-xl p-4 bg-white'>
@@ -698,15 +731,99 @@ export default function AdminPanel(){
                   })()}
                 </div>
               </div>
+
+              <div className='border rounded-xl p-4 bg-white'>
+                <div className='text-sm font-semibold mb-1'>Типи</div>
+                <div className='text-xs text-gray-600 mb-3'>Оберіть підкатегорію цієї категорії та додайте тип товару (3-й рівень).</div>
+
+                <div className='grid gap-2 md:grid-cols-[240px_1fr] items-center mb-3'>
+                  <select
+                    className='border px-3 py-2.5 rounded-lg w-full focus:outline-none focus:ring-2 focus:ring-black/10 focus:border-gray-400'
+                    value={catTypeParentId}
+                    onChange={e=> { setCatTypeParentId(e.target.value); setCatTypeName('') }}
+                  >
+                    <option value=''>Оберіть підкатегорію</option>
+                    {(()=>{
+                      const pid = selectedCatId
+                      const getParentId = (c)=>{
+                        const p = c?.parent
+                        if (!p) return ''
+                        if (typeof p === 'string') return p
+                        if (typeof p === 'object') return p?._id || p?.id || (typeof p?.toString === 'function' ? p.toString() : '')
+                        return ''
+                      }
+                      return categories
+                        .filter(c=> String(getParentId(c)||'') === String(pid))
+                        .map(sc=> <option key={sc._id} value={sc._id}>{sc.name}</option>)
+                    })()}
+                  </select>
+
+                  <div className='flex gap-2'>
+                    <input
+                      className='border px-3 py-2.5 rounded-lg w-full focus:outline-none focus:ring-2 focus:ring-black/10 focus:border-gray-400'
+                      value={catTypeName}
+                      onChange={e=> setCatTypeName(e.target.value)}
+                      placeholder='Новий тип'
+                      disabled={catTypeLoading || !catTypeParentId}
+                    />
+                    <button
+                      type='button'
+                      className='px-4 py-2.5 rounded-lg bg-black text-white hover:bg-red-600 transition disabled:opacity-60 disabled:cursor-not-allowed'
+                      disabled={catTypeLoading || !catTypeName.trim() || !catTypeParentId}
+                      onClick={async()=>{
+                        try{
+                          const parent = catTypeParentId
+                          const name = (catTypeName||'').trim()
+                          if (!parent || !name) return
+                          setCatTypeLoading(true)
+                          await createCategory({ name, parent })
+                          setCatTypeName('')
+                          loadAll()
+                          showToast('Тип створено','success')
+                        }catch(err){
+                          showToast(getErrMsg(err),'error')
+                        }finally{
+                          setCatTypeLoading(false)
+                        }
+                      }}
+                    >
+                      {catTypeLoading ? '...' : 'Додати'}
+                    </button>
+                  </div>
+                </div>
+
+                <div className='border rounded-lg overflow-hidden'>
+                  {(()=>{
+                    const pid = catTypeParentId
+                    if (!pid) return <div className='p-3 text-sm text-gray-500'>Оберіть підкатегорію, щоб побачити типи.</div>
+                    const getParentId = (c)=>{
+                      const p = c?.parent
+                      if (!p) return ''
+                      if (typeof p === 'string') return p
+                      if (typeof p === 'object') return p?._id || p?.id || (typeof p?.toString === 'function' ? p.toString() : '')
+                      return ''
+                    }
+                    const types = categories.filter(c=> String(getParentId(c)||'') === String(pid))
+                    if (!types.length) return <div className='p-3 text-sm text-gray-500'>Типів ще немає.</div>
+                    return types.map(t=> (
+                      <div key={t._id} className='px-4 py-2.5 border-t first:border-t-0 text-sm bg-white hover:bg-gray-50'>
+                        {t.name}
+                      </div>
+                    ))
+                  })()}
+                </div>
+              </div>
             </div>
 
             <div className='px-6 py-4 border-t bg-white rounded-b-2xl flex items-center justify-end gap-2'>
-              <button onClick={()=> setShowCatEdit(false)} className='px-4 py-2.5 rounded-lg border bg-white hover:bg-gray-50 transition'>Скасувати</button>
+              <button onClick={()=> { setShowCatEdit(false); setCatTypeParentId(''); setCatTypeName(''); }} className='px-4 py-2.5 rounded-lg border bg-white hover:bg-gray-50 transition'>Скасувати</button>
               <button onClick={async()=>{
                 try{
                   if (!selectedCatId) return;
                   if (catEditingName.trim()) await updateCategory(selectedCatId, { name: catEditingName.trim() })
                   setShowCatEdit(false);
+                  setCatTypeParentId('');
+                  setCatTypeName('');
                   loadAll();
                   showToast(applyToProducts ? 'Категорію оновлено. Товари відобразять нову назву автоматично.' : 'Категорію оновлено','success')
                 }catch(err){ showToast(getErrMsg(err),'error') }
@@ -995,21 +1112,32 @@ export default function AdminPanel(){
                     <div className='space-y-3'>
                       <div className='flex gap-2 items-center'>
                         <div className='relative flex-1'>
-                          <select className='border p-2 pr-10 rounded w-full' value={prodForm.category} onChange={e=>setProdForm({...prodForm, category:e.target.value, subcategory:''})}>
+                          <select
+                            className='border p-2 pr-10 rounded w-full'
+                            value={prodForm.category}
+                            onChange={e=> setProdForm(prev=> ({ ...prev, category: e.target.value, subcategory:'', type:'' }))}
+                          >
                             <option value=''>Виберіть категорію</option>
-                            {categories.filter(c=> !c.parent).map(c=> <option key={c._id} value={c._id}>{c.name}</option>)}
+                            {(()=>{
+                              const getParentId = (c)=>{
+                                const p = c?.parent
+                                if (!p) return ''
+                                if (typeof p === 'string') return p
+                                if (typeof p === 'object') return p?._id || p?.id || (typeof p?.toString === 'function' ? p.toString() : '')
+                                return ''
+                              }
+                              return categories.filter(c=> !getParentId(c)).map(c=> (
+                                <option key={c._id} value={c._id}>{c.name}</option>
+                              ))
+                            })()}
                           </select>
-                          <span className='pointer-events-none absolute inset-y-0 right-3 flex items-center text-gray-500'>
-                            <svg xmlns='http://www.w3.org/2000/svg' className='h-4 w-4' viewBox='0 0 20 20' fill='currentColor'>
-                              <path fillRule='evenodd' d='M5.23 7.21a.75.75 0 011.06.02L10 10.94l3.71-3.71a.75.75 0 111.06 1.06l-4.24 4.24a.75.75 0 01-1.06 0L5.21 8.29a.75.75 0 01.02-1.08z' clipRule='evenodd' />
-                            </svg>
-                          </span>
                         </div>
                         <button
                           type='button'
                           onClick={()=> setShowInlineCat(v=>!v)}
                           className='w-10 h-10 inline-flex items-center justify-center border rounded bg-white hover:bg-black hover:text-white transition'
                           aria-label='Додати нову категорію'
+                          title='Додати категорію'
                         >
                           <FiPlus size={18} />
                         </button>
@@ -1020,6 +1148,7 @@ export default function AdminPanel(){
                             className='border p-2 rounded flex-1'
                             value={inlineCatName}
                             onChange={e=> setInlineCatName(e.target.value)}
+                            placeholder='Нова категорія'
                           />
                           <button
                             type='button'
@@ -1037,24 +1166,29 @@ export default function AdminPanel(){
 
                   <div className='grid gap-2 md:grid-cols-[220px_1fr] md:items-center'>
                     <div className='text-sm text-gray-700'>Підкатегорія:</div>
-                    <div className='space-y-2'>
+                    <div className='space-y-3'>
                       <div className='flex gap-2 items-center'>
                         <div className='relative flex-1'>
                           <select
                             className='border p-2 pr-10 rounded w-full'
                             value={prodForm.subcategory}
-                            onChange={e=>setProdForm({...prodForm, subcategory:e.target.value})}
+                            onChange={e=> setProdForm(prev=> ({ ...prev, subcategory: e.target.value, type:'' }))}
                             disabled={!prodForm.category}
                           >
-                            <option value=''>Всі підкатегорії</option>
-                            {categories
-                              .filter(c=> {
-                                const pid = (typeof c.parent === 'object'
-                                  ? (c.parent?._id || c.parent?.id || (typeof c.parent?.toString === 'function' ? c.parent.toString() : ''))
-                                  : c.parent)
-                                return Boolean(prodForm.category) && String(pid||'') === String(prodForm.category)
-                              })
-                              .map(c=> <option key={c._id} value={c._id}>{c.name}</option>)}
+                            <option value=''>Виберіть підкатегорію</option>
+                            {(()=>{
+                              const parentId = (prodForm.category || '').toString()
+                              const getParentId = (c)=>{
+                                const p = c?.parent
+                                if (!p) return ''
+                                if (typeof p === 'string') return p
+                                if (typeof p === 'object') return p?._id || p?.id || (typeof p?.toString === 'function' ? p.toString() : '')
+                                return ''
+                              }
+                              return categories
+                                .filter(c=> String(getParentId(c)||'') === String(parentId))
+                                .map(c=> <option key={c._id} value={c._id}>{c.name}</option>)
+                            })()}
                           </select>
                         </div>
                         <button
@@ -1068,14 +1202,13 @@ export default function AdminPanel(){
                           <FiPlus size={18} />
                         </button>
                       </div>
-
                       {showInlineSubcat && (
                         <div className='flex flex-col sm:flex-row gap-2 sm:items-center'>
                           <input
                             className='border p-2 rounded flex-1'
                             value={inlineSubcatName}
                             onChange={e=> setInlineSubcatName(e.target.value)}
-                            placeholder='Назва підкатегорії'
+                            placeholder='Нова підкатегорія'
                           />
                           <button
                             type='button'
@@ -1085,6 +1218,66 @@ export default function AdminPanel(){
                           >
                             <FiPlus size={16} />
                             <span>{inlineSubcatLoading ? 'Створення…' : 'Додати підкатегорію'}</span>
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className='grid gap-2 md:grid-cols-[220px_1fr] md:items-center'>
+                    <div className='text-sm text-gray-700'>Тип товару:</div>
+                    <div className='space-y-3'>
+                      <div className='flex gap-2 items-center'>
+                        <div className='relative flex-1'>
+                          <select
+                            className='border p-2 pr-10 rounded w-full'
+                            value={prodForm.type}
+                            onChange={e=> setProdForm(prev=> ({ ...prev, type: e.target.value }))}
+                            disabled={!prodForm.subcategory}
+                          >
+                            <option value=''>Виберіть тип</option>
+                            {(()=>{
+                              const parentId = (prodForm.subcategory || '').toString()
+                              const getParentId = (c)=>{
+                                const p = c?.parent
+                                if (!p) return ''
+                                if (typeof p === 'string') return p
+                                if (typeof p === 'object') return p?._id || p?.id || (typeof p?.toString === 'function' ? p.toString() : '')
+                                return ''
+                              }
+                              return categories
+                                .filter(c=> String(getParentId(c)||'') === String(parentId))
+                                .map(c=> <option key={c._id} value={c._id}>{c.name}</option>)
+                            })()}
+                          </select>
+                        </div>
+                        <button
+                          type='button'
+                          onClick={()=> setShowInlineType(v=>!v)}
+                          disabled={!prodForm.subcategory}
+                          className='w-10 h-10 inline-flex items-center justify-center border rounded bg-white hover:bg-black hover:text-white transition disabled:opacity-60 disabled:cursor-not-allowed'
+                          aria-label='Додати тип'
+                          title='Додати тип'
+                        >
+                          <FiPlus size={18} />
+                        </button>
+                      </div>
+                      {showInlineType && (
+                        <div className='flex flex-col sm:flex-row gap-2 sm:items-center'>
+                          <input
+                            className='border p-2 rounded flex-1'
+                            value={inlineTypeName}
+                            onChange={e=> setInlineTypeName(e.target.value)}
+                            placeholder='Новий тип'
+                          />
+                          <button
+                            type='button'
+                            onClick={handleInlineCreateType}
+                            disabled={inlineTypeLoading || !inlineTypeName.trim() || !prodForm.subcategory}
+                            className='inline-flex items-center justify-center gap-2 px-3 py-2 border rounded bg-gray-50 hover:bg-black hover:text-white transition disabled:opacity-60 disabled:cursor-not-allowed'
+                          >
+                            <FiPlus size={16} />
+                            <span>{inlineTypeLoading ? 'Створення…' : 'Додати тип'}</span>
                           </button>
                         </div>
                       )}
@@ -1560,7 +1753,7 @@ export default function AdminPanel(){
                 <div className='flex items-center gap-2'>
                   <span className='text-sm text-gray-600'>Сортувати:</span>
                   <select
-                    className='border rounded px-3 py-2 pr-10 min-w-[220px]'
+                    className='border rounded px-2 py-1.5 pr-8 text-sm min-w-[180px]'
                     value={prodSortMode}
                     onChange={e=>{ setProdSortMode(e.target.value); setProdPage(1) }}
                     disabled={loadingAll}
@@ -1573,26 +1766,33 @@ export default function AdminPanel(){
                     <option value='date_asc'>Дата (старі)</option>
                   </select>
                 </div>
-                <div className='flex items-center justify-end gap-2 flex-1 flex-wrap sm:flex-nowrap'>
+                <div className='flex items-center justify-end gap-1 flex-1 flex-wrap md:flex-nowrap'>
                   <select
-                    className='border rounded px-3 py-2 pr-10 w-full sm:w-auto min-w-[180px]'
+                    className='border rounded px-2 py-1.5 pr-8 text-sm w-full sm:w-auto min-w-[120px]'
                     value={prodCatFilter}
-                    onChange={e=>{ setProdCatFilter(e.target.value); setProdSubcatFilter(''); setProdPage(1) }}
+                    onChange={e=>{ setProdCatFilter(e.target.value); setProdSubcatFilter(''); setProdTypeFilter(''); setProdPage(1) }}
                     title='Фільтр по категорії'
                     disabled={loadingAll}
                   >
                     <option value=''>Всі категорії</option>
-                    {categories
-                      .filter(c=> !c.parent)
-                      .map(c=> (
+                    {(()=>{
+                      const getParentId = (c)=>{
+                        const p = c?.parent
+                        if (!p) return ''
+                        if (typeof p === 'string') return p
+                        if (typeof p === 'object') return p?._id || p?.id || (typeof p?.toString === 'function' ? p.toString() : '')
+                        return ''
+                      }
+                      return categories.filter(c=> !getParentId(c)).map(c=> (
                         <option key={c._id} value={c._id}>{c.name}</option>
-                      ))}
+                      ))
+                    })()}
                   </select>
 
                   <select
-                    className='border rounded px-3 py-2 pr-10 w-full sm:w-auto min-w-[200px]'
+                    className='border rounded px-2 py-1.5 pr-8 text-sm w-full sm:w-auto min-w-[140px]'
                     value={prodSubcatFilter}
-                    onChange={e=>{ setProdSubcatFilter(e.target.value); setProdPage(1) }}
+                    onChange={e=>{ setProdSubcatFilter(e.target.value); setProdTypeFilter(''); setProdPage(1) }}
                     disabled={!prodCatFilter}
                     title='Фільтр по підкатегорії'
                   >
@@ -1612,8 +1812,31 @@ export default function AdminPanel(){
                     })()}
                   </select>
 
+                  <select
+                    className='border rounded px-2 py-1.5 pr-8 text-sm w-full sm:w-auto min-w-[140px]'
+                    value={prodTypeFilter}
+                    onChange={e=>{ setProdTypeFilter(e.target.value); setProdPage(1) }}
+                    disabled={!prodSubcatFilter}
+                    title='Фільтр по типу'
+                  >
+                    <option value=''>Всі типи</option>
+                    {(()=>{
+                      const parentId = (prodSubcatFilter || '').toString()
+                      const getParentId = (c)=>{
+                        const p = c?.parent
+                        if (!p) return ''
+                        if (typeof p === 'string') return p
+                        if (typeof p === 'object') return p?._id || p?.id || (typeof p?.toString === 'function' ? p.toString() : '')
+                        return ''
+                      }
+                      return categories
+                        .filter(c=> String(getParentId(c)||'') === String(parentId))
+                        .map(c=> <option key={c._id} value={c._id}>{c.name}</option>)
+                    })()}
+                  </select>
+
                   <input
-                    className='border rounded px-3 py-2 w-full sm:w-auto max-w-[180px]'
+                    className='border rounded px-2 py-1.5 text-sm w-full sm:w-auto max-w-[140px]'
                     placeholder='Пошук...'
                     value={prodListSearch}
                     onChange={e=>{ setProdListSearch(e.target.value); setProdPage(1) }}
@@ -1646,6 +1869,7 @@ export default function AdminPanel(){
                       })()}
                       <th className='px-3 py-2 text-center'>Категорія</th>
                       <th className='px-3 py-2 text-center'>Підкатегорія</th>
+                      <th className='px-3 py-2 text-center'>Тип</th>
                       <th className='px-3 py-2 text-center'>Дії</th>
                     </tr>
                   </thead>
@@ -1654,6 +1878,7 @@ export default function AdminPanel(){
                       const term = prodListSearch.trim().toLowerCase();
                       const catId = (prodCatFilter || '').toString();
                       const subId = (prodSubcatFilter || '').toString();
+                      const typeId = (prodTypeFilter || '').toString();
                       const mode = (prodSortMode || 'date_desc').toString()
                       const sortKey = mode.split('_')[0]
                       const sortDir = mode.endsWith('_desc') ? -1 : 1
@@ -1678,6 +1903,10 @@ export default function AdminPanel(){
                         .filter(p=>{
                           if (!subId) return true;
                           return String(getId(p.subcategory)||'') === String(subId);
+                        })
+                        .filter(p=>{
+                          if (!typeId) return true;
+                          return String(getId(p.type)||'') === String(typeId);
                         })
                         .sort((a,b)=>{
                           const dir = sortDir
@@ -1727,6 +1956,7 @@ export default function AdminPanel(){
                           ) : null}
                           <td className='px-3 py-2 text-center'>{getCategoryName(p.category)}</td>
                           <td className='px-3 py-2 text-center'>{getCategoryName(p.subcategory)}</td>
+                          <td className='px-3 py-2 text-center'>{getCategoryName(p.type)}</td>
                           <td className='px-3 py-2 text-center align-middle'>
                             <div className='inline-flex flex-row items-center justify-center gap-2'>
                               <button
@@ -1770,6 +2000,7 @@ export default function AdminPanel(){
                                     specsText,
                                     category: p.category?._id || p.category || '',
                                     subcategory: p.subcategory?._id || p.subcategory || '',
+                                    type: p.type?._id || p.type || '',
                                     sku: p.sku||'',
                                     stock: p.stock||0,
                                     unit: p.unit||'',
@@ -2015,7 +2246,7 @@ export default function AdminPanel(){
                               title='Редагувати'
                               aria-label='Редагувати'
                               className='w-9 h-9 inline-flex items-center justify-center border rounded-lg hover:bg-black hover:text-white transition'
-                              onClick={(e)=>{ e.preventDefault(); e.stopPropagation(); setSelectedCatId(c._id); setCatEditingName(c.name); setCatSubName(''); setShowCatList(false); setShowCatEdit(true); }}
+                              onClick={(e)=>{ e.preventDefault(); e.stopPropagation(); setSelectedCatId(c._id); setCatEditingName(c.name); setCatSubName(''); setCatTypeParentId(''); setCatTypeName(''); setShowCatList(false); setShowCatEdit(true); }}
                             >
                               <FiEdit2 size={16} />
                             </button>
