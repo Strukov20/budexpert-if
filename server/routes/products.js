@@ -82,6 +82,61 @@ router.get("/", async (req, res) => {
   res.json(products);
 });
 
+// GET /api/products/counts
+router.get('/counts', async (req, res) => {
+  const { q, category, subcategory, type } = req.query;
+  const filter = {};
+  if (q) {
+    filter.name = { $regex: q, $options: 'i' };
+  }
+  if (category) {
+    filter.category = category;
+  }
+  if (subcategory) {
+    filter.subcategory = subcategory;
+  }
+  if (type) {
+    filter.type = type;
+  }
+
+  const faceted = await Product.aggregate([
+    { $match: filter },
+    {
+      $facet: {
+        byCategory: [
+          { $match: { category: { $exists: true, $ne: null } } },
+          { $group: { _id: '$category', count: { $sum: 1 } } },
+        ],
+        bySubcategory: [
+          { $match: { subcategory: { $exists: true, $ne: null } } },
+          { $group: { _id: '$subcategory', count: { $sum: 1 } } },
+        ],
+        byType: [
+          { $match: { type: { $exists: true, $ne: null } } },
+          { $group: { _id: '$type', count: { $sum: 1 } } },
+        ],
+      },
+    },
+  ]);
+
+  const first = (Array.isArray(faceted) && faceted[0]) ? faceted[0] : {};
+
+  const toMap = (rows) => {
+    const out = {};
+    for (const r of (Array.isArray(rows) ? rows : [])) {
+      if (!r || !r._id) continue;
+      out[String(r._id)] = Number(r.count || 0);
+    }
+    return out;
+  };
+
+  return res.json({
+    byCategory: toMap(first.byCategory),
+    bySubcategory: toMap(first.bySubcategory),
+    byType: toMap(first.byType),
+  });
+});
+
 // GET /api/products/:id
 router.get("/:id", async (req, res) => {
   const p = await Product.findById(req.params.id);

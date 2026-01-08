@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react'
-import { getProducts, getCategories } from '../api'
+import { getProducts, getCategories, getProductCounts } from '../api'
 import ProductCard from '../components/ProductCard'
 import SearchBar from '../components/SearchBar'
 import Pagination from '../components/Pagination'
@@ -14,6 +14,7 @@ export default function Home(){
   const [subcat, setSubcat] = useState('')
   const [type, setType] = useState('')
   const [search, setSearch] = useState('')
+  const [counts, setCounts] = useState({ byCategory: {}, bySubcategory: {}, byType: {} })
   const [page, setPage] = useState(1)
   const perPage = 12
   const [visibleCount, setVisibleCount] = useState(perPage)
@@ -126,7 +127,14 @@ export default function Home(){
       .finally(()=> setLoadingProducts(false))
   }
 
+  function loadCounts(){
+    getProductCounts({ q: search })
+      .then(d=> setCounts(d || { byCategory: {}, bySubcategory: {}, byType: {} }))
+      .catch(()=> setCounts({ byCategory: {}, bySubcategory: {}, byType: {} }))
+  }
+
   useEffect(()=>{ loadProducts() }, [cat, subcat, type, search])
+  useEffect(()=>{ loadCounts() }, [search])
 
   const getParentId = (c)=>{
     const p = c?.parent
@@ -157,7 +165,10 @@ export default function Home(){
   const showSubsPanel = Boolean(hoverCat) && hoveredSubs.length > 0
   const hoveredTypes = hoverSub ? typesBySubcategory(hoverSub) : []
   const showTypesPanel = Boolean(hoverSub) && hoveredTypes.length > 0
-  const menuWidth = 260 + (showSubsPanel ? 320 : 0) + (showTypesPanel ? 320 : 0)
+  const menuCatWidth = 320
+  const menuSubWidth = 360
+  const menuTypeWidth = 360
+  const menuWidth = menuCatWidth + (showSubsPanel ? menuSubWidth : 0) + (showTypesPanel ? menuTypeWidth : 0)
 
   useEffect(()=>{
     if (menuOpen) return
@@ -214,6 +225,15 @@ export default function Home(){
     setSubcat(subId)
     setType(typeId)
     setMenuOpen(false)
+  }
+
+  const catObj = categories.find(x=> String(x._id) === String(cat))
+  const subObj = categories.find(x=> String(x._id) === String(subcat))
+  const typeObj = categories.find(x=> String(x._id) === String(type))
+
+  const countFor = (id, map) => {
+    if (!id) return 0
+    return Number(map?.[String(id)] || 0)
   }
 
   const filtered = products.filter(p=> true) // server returns filtered, but keep for safety
@@ -297,203 +317,272 @@ export default function Home(){
         </div>
       </div>
 
-      <div className='grid grid-cols-1 sm:grid-cols-[220px_1fr] gap-2 mb-4'>
+      <div className='grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-2 mb-4'>
         <div className='w-full'>
-          {isMobile ? (
-            <div className='relative bg-white rounded-xl ring-1 ring-gray-200 shadow px-3 transition hover:bg-red-50/40 hover:ring-red-200'>
-              <select
-                className='h-11 pr-8 text-base w-full appearance-none no-select-arrow bg-transparent border-0 focus:ring-0 focus:outline-none'
-                value={(() => {
-                  if (type) return `type:${cat}:${subcat}:${type}`
-                  if (subcat) return `sub:${cat}:${subcat}`
-                  return cat || ''
-                })()}
-                disabled={loadingCategories}
-                onChange={e=>{
-                  const v = e.target.value
-                  if (!v) { setCat(''); setSubcat(''); setType(''); return }
-                  const parts = String(v).split(':')
-                  if (parts[0] === 'sub' && parts[1] && parts[2]) {
-                    pickSubcategory(parts[1], parts[2])
-                    return
-                  }
-                  if (parts[0] === 'type' && parts[1] && parts[2] && parts[3]) {
-                    pickType(parts[1], parts[2], parts[3])
-                    return
-                  }
-                  pickCategory(v)
-                }}
-              >
-                <option value=''>Всі категорії</option>
-                {mainCategories.map(c=> (
-                  <React.Fragment key={c._id}>
-                    <option value={c._id}>{c.name}</option>
-                    {subcategoriesByParent(c._id).map(sc=> (
-                      <React.Fragment key={sc._id}>
-                        <option value={`sub:${c._id}:${sc._id}`}>{`— ${sc.name}`}</option>
-                        {typesBySubcategory(sc._id).map(t=> (
-                          <option key={t._id} value={`type:${c._id}:${sc._id}:${t._id}`}>{`—— ${t.name}`}</option>
+          <div className='h-11 rounded-xl ring-1 ring-gray-200 shadow bg-white flex items-center transition hover:bg-red-50/30 hover:ring-red-200'>
+            <div className='w-48 sm:w-[220px] flex-shrink-0 h-full'>
+              {isMobile ? (
+                <div className='relative h-full px-3'>
+                  <select
+                    className='h-11 pr-8 text-base w-full appearance-none no-select-arrow bg-transparent border-0 focus:ring-0 focus:outline-none'
+                    value={(() => {
+                      if (type) return `type:${cat}:${subcat}:${type}`
+                      if (subcat) return `sub:${cat}:${subcat}`
+                      return cat || ''
+                    })()}
+                    disabled={loadingCategories}
+                    onChange={e=>{
+                      const v = e.target.value
+                      if (!v) { setCat(''); setSubcat(''); setType(''); return }
+                      const parts = String(v).split(':')
+                      if (parts[0] === 'sub' && parts[1] && parts[2]) {
+                        pickSubcategory(parts[1], parts[2])
+                        return
+                      }
+                      if (parts[0] === 'type' && parts[1] && parts[2] && parts[3]) {
+                        pickType(parts[1], parts[2], parts[3])
+                        return
+                      }
+                      pickCategory(v)
+                    }}
+                  >
+                    <option value=''>Всі категорії</option>
+                    {mainCategories.map(c=> (
+                      <React.Fragment key={c._id}>
+                        <option value={c._id}>{`${c.name}${countFor(c._id, counts.byCategory) ? ` (${countFor(c._id, counts.byCategory)})` : ''}`}</option>
+                        {subcategoriesByParent(c._id).map(sc=> (
+                          <React.Fragment key={sc._id}>
+                            <option value={`sub:${c._id}:${sc._id}`}>{`— ${sc.name}${countFor(sc._id, counts.bySubcategory) ? ` (${countFor(sc._id, counts.bySubcategory)})` : ''}`}</option>
+                            {typesBySubcategory(sc._id).map(t=> (
+                              <option key={t._id} value={`type:${c._id}:${sc._id}:${t._id}`}>{`—— ${t.name}${countFor(t._id, counts.byType) ? ` (${countFor(t._id, counts.byType)})` : ''}`}</option>
+                            ))}
+                          </React.Fragment>
                         ))}
                       </React.Fragment>
                     ))}
-                  </React.Fragment>
-                ))}
-              </select>
-              <span className='pointer-events-none absolute inset-y-0 right-3 flex items-center text-gray-500'>
-                <svg xmlns='http://www.w3.org/2000/svg' className='h-4 w-4' viewBox='0 0 20 20' fill='currentColor'>
-                  <path fillRule='evenodd' d='M5.23 7.21a.75.75 0 011.06.02L10 10.94l3.71-3.71a.75.75 0 111.06 1.06l-4.24 4.24a.75.75 0 01-1.06 0L5.21 8.29a.75.75 0 01.02-1.08z' clipRule='evenodd' />
-                </svg>
-              </span>
-            </div>
-          ) : (
-            <div className='relative'>
-              <button
-                type='button'
-                onClick={()=> setMenuOpen(v=>!v)}
-                disabled={loadingCategories}
-                className='w-full h-11 px-3 rounded-xl ring-1 ring-gray-200 shadow bg-white flex items-center justify-between hover:bg-red-50/40 hover:ring-red-200 transition'
-              >
-                <span className='text-base text-left truncate'>
-                  {(() => {
-                    if (!cat && !subcat && !type) return 'Всі категорії'
-                    const catObj = categories.find(x=> x._id===cat)
-                    const subObj = categories.find(x=> x._id===subcat)
-                    const typeObj = categories.find(x=> x._id===type)
-                    if (type) {
-                      return `${catObj?.name || ''} / ${subObj?.name || ''} / ${typeObj?.name || ''}`.trim() || 'Категорії'
-                    }
-                    if (subcat) {
-                      return `${catObj?.name || ''} / ${subObj?.name || ''}`.trim() || 'Категорії'
-                    }
-                    return catObj?.name || 'Категорії'
-                  })()}
-                </span>
-                <span className='text-gray-500'>▾</span>
-              </button>
-
-              {menuOpen && (
-                <div
-                  className='absolute mt-2 left-0 z-30 bg-white border rounded-2xl shadow-2xl overflow-hidden'
-                  style={{ width: menuWidth, maxWidth: '94vw' }}
-                >
-                  <div
-                    className='flex min-h-[320px] max-h-[70vh] overflow-hidden min-w-0 gap-2 p-2 bg-white'
-                    onMouseEnter={cancelHoverCloseTimers}
-                    onMouseLeave={scheduleCloseAllHover}
+                  </select>
+                  <span className='pointer-events-none absolute inset-y-0 right-3 flex items-center text-gray-500'>
+                    <svg xmlns='http://www.w3.org/2000/svg' className='h-4 w-4' viewBox='0 0 20 20' fill='currentColor'>
+                      <path fillRule='evenodd' d='M5.23 7.21a.75.75 0 011.06.02L10 10.94l3.71-3.71a.75.75 0 111.06 1.06l-4.24 4.24a.75.75 0 01-1.06 0L5.21 8.29a.75.75 0 01.02-1.08z' clipRule='evenodd' />
+                    </svg>
+                  </span>
+                </div>
+              ) : (
+                <div className='relative h-full'>
+                  <button
+                    type='button'
+                    onClick={()=> setMenuOpen(v=>!v)}
+                    disabled={loadingCategories}
+                    className='w-full h-11 px-3 bg-transparent flex items-center justify-between hover:bg-white/0 transition'
                   >
-                    <div className='bg-gray-50/60 w-[260px] flex-shrink-0 rounded-xl overflow-hidden'>
+                    <span className='text-base text-left truncate'>
+                      Всі категорії
+                    </span>
+                    <span className='text-gray-500'>▾</span>
+                  </button>
+
+                  {menuOpen && (
+                    <div
+                      className='absolute mt-2 left-0 z-30 bg-white border rounded-2xl shadow-2xl overflow-hidden'
+                      style={{ width: menuWidth, maxWidth: '94vw' }}
+                    >
                       <div
-                        className='max-h-[70vh] overflow-y-auto'
+                        className='flex min-h-[320px] max-h-[70vh] overflow-hidden min-w-0 gap-2 p-2 bg-white'
                         onMouseEnter={cancelHoverCloseTimers}
+                        onMouseLeave={scheduleCloseAllHover}
                       >
-                        <button
-                          type='button'
-                          className={`w-full text-left px-4 py-3 text-base hover:bg-white transition ${(!cat && !subcat && !type) ? 'bg-white font-semibold' : ''}`}
-                          onMouseEnter={()=> { setHoverCat(''); setHoverSub('') }}
-                          onClick={()=>{ setCat(''); setSubcat(''); setType(''); setMenuOpen(false) }}
-                        >
-                          Всі категорії
-                        </button>
-                        {mainCategories.map(c=>{
-                          const active = String(cat) === String(c._id) && !subcat && !type
-                          return (
+                        <div className='bg-gray-50/60 w-[320px] flex-shrink-0 rounded-xl overflow-hidden'>
+                          <div
+                            className='max-h-[70vh] overflow-y-auto pr-2'
+                            onMouseEnter={cancelHoverCloseTimers}
+                          >
                             <button
-                              key={c._id}
                               type='button'
-                              className={`w-full text-left px-4 py-3 text-base hover:bg-white transition ${active ? 'bg-white font-semibold' : ''}`}
-                              onMouseEnter={()=> { setHoverCat(c._id); setHoverSub('') }}
-                              onFocus={()=> { setHoverCat(c._id); setHoverSub('') }}
-                              onClick={()=> pickCategory(c._id)}
+                              className={`w-full text-left px-4 py-3 text-base hover:bg-white transition ${(!cat && !subcat && !type) ? 'bg-white font-semibold' : ''}`}
+                              onMouseEnter={()=> { setHoverCat(''); setHoverSub('') }}
+                              onClick={()=>{ setCat(''); setSubcat(''); setType(''); setMenuOpen(false) }}
                             >
-                              <div className='flex items-center justify-between'>
-                                <span className='truncate'>{c.name}</span>
-                              </div>
+                              Всі категорії
                             </button>
+                            {mainCategories.map(c=>{
+                              const active = String(cat) === String(c._id) && !subcat && !type
+                              const n = countFor(c._id, counts.byCategory)
+                              return (
+                                <button
+                                  key={c._id}
+                                  type='button'
+                                  className={`w-full text-left px-4 py-3 text-base hover:bg-white transition ${active ? 'bg-white font-semibold' : ''}`}
+                                  onMouseEnter={()=> { setHoverCat(c._id); setHoverSub('') }}
+                                  onFocus={()=> { setHoverCat(c._id); setHoverSub('') }}
+                                  onClick={()=> pickCategory(c._id)}
+                                >
+                                  <div className='flex items-center justify-between gap-3 min-w-0 pr-1'>
+                                    <span className='truncate flex-1 min-w-0'>{c.name}</span>
+                                    {n > 0 && (
+                                      <span className='ml-3 text-xs font-semibold text-gray-600 bg-gray-100 ring-1 ring-gray-200 rounded-full px-2 py-0.5'>
+                                        {n}
+                                      </span>
+                                    )}
+                                  </div>
+                                </button>
+                              )
+                            })}
+                          </div>
+                        </div>
+
+                        {(() => {
+                          if (!showSubsPanel) return null
+                          const targetCat = hoverCat
+                          if (!targetCat) return null
+                          const subs = hoveredSubs
+                          if (!subs.length) return null
+                          return (
+                            <div className='bg-white w-[360px] flex-shrink-0 overflow-x-hidden rounded-xl overflow-hidden ring-1 ring-gray-100'>
+                              <div
+                                className='max-h-[70vh] overflow-y-auto overflow-x-hidden pr-2'
+                                onMouseEnter={cancelHoverCloseTimers}
+                              >
+                                <div className='px-4 py-2 text-xs uppercase tracking-wide text-gray-700 border-b bg-gray-50 sticky top-0 text-center font-semibold'>
+                                  Підкатегорії
+                                </div>
+                                <div className='py-2 px-2'>
+                                  {subs.map(sc=> {
+                                    const n = countFor(sc._id, counts.bySubcategory)
+                                    return (
+                                      <button
+                                        key={sc._id}
+                                        type='button'
+                                        className={`group w-full text-left px-4 py-2.5 transition rounded-lg ${String(subcat)===String(sc._id) && !type ? 'bg-red-50 font-semibold ring-1 ring-red-200' : 'hover:bg-gray-50'} `}
+                                        onMouseEnter={()=> setHoverSub(sc._id)}
+                                        onFocus={()=> setHoverSub(sc._id)}
+                                        onClick={()=> pickSubcategory(targetCat, sc._id)}
+                                      >
+                                        <div className='flex items-center gap-3 min-w-0 pr-1'>
+                                          <span className={`h-5 w-1 rounded-full ${String(subcat)===String(sc._id) && !type ? 'bg-red-500' : 'bg-transparent group-hover:bg-gray-300'}`} />
+                                          <div className='text-[15px] leading-snug text-gray-900 truncate flex-1'>{sc.name}</div>
+                                          {n > 0 && (
+                                            <span className='ml-2 text-xs font-semibold text-gray-600 bg-gray-100 ring-1 ring-gray-200 rounded-full px-2 py-0.5 flex-shrink-0'>
+                                              {n}
+                                            </span>
+                                          )}
+                                        </div>
+                                      </button>
+                                    )
+                                  })}
+                                </div>
+                              </div>
+                            </div>
                           )
-                        })}
+                        })()}
+
+                        {(() => {
+                          if (!showTypesPanel) return null
+                          const targetCat = hoverCat
+                          if (!targetCat) return null
+                          const targetSub = hoverSub
+                          if (!targetSub) return null
+
+                          const types = hoveredTypes
+                          if (!types.length) return null
+
+                          return (
+                            <div className='bg-white w-[360px] flex-shrink-0 overflow-x-hidden rounded-xl overflow-hidden ring-1 ring-gray-100'>
+                              <div
+                                className='max-h-[70vh] overflow-y-auto overflow-x-hidden pr-2'
+                                onMouseEnter={cancelHoverCloseTimers}
+                              >
+                                <div className='px-4 py-2 text-xs uppercase tracking-wide text-gray-700 border-b bg-gray-50 sticky top-0 text-center font-semibold'>
+                                  Типи
+                                </div>
+                                <div className='py-2 px-2'>
+                                  {types.map(t=> {
+                                    const n = countFor(t._id, counts.byType)
+                                    return (
+                                      <button
+                                        key={t._id}
+                                        type='button'
+                                        className={`group w-full text-left px-4 py-2.5 transition rounded-lg ${String(type)===String(t._id) ? 'bg-red-50 font-semibold ring-1 ring-red-200' : 'hover:bg-gray-50'} `}
+                                        onClick={()=> pickType(targetCat, targetSub, t._id)}
+                                      >
+                                        <div className='flex items-center gap-3 min-w-0 pr-1'>
+                                          <span className={`h-5 w-1 rounded-full ${String(type)===String(t._id) ? 'bg-red-500' : 'bg-transparent group-hover:bg-gray-300'}`} />
+                                          <div className='text-[15px] leading-snug text-gray-900 truncate flex-1'>{t.name}</div>
+                                          {n > 0 && (
+                                            <span className='ml-2 text-xs font-semibold text-gray-600 bg-gray-100 ring-1 ring-gray-200 rounded-full px-2 py-0.5 flex-shrink-0'>
+                                              {n}
+                                            </span>
+                                          )}
+                                        </div>
+                                      </button>
+                                    )
+                                  })}
+                                </div>
+                              </div>
+                            </div>
+                          )
+                        })()}
                       </div>
                     </div>
-
-                    {(() => {
-                      if (!showSubsPanel) return null
-                      const targetCat = hoverCat
-                      if (!targetCat) return null
-                      const subs = hoveredSubs
-                      if (!subs.length) return null
-                      return (
-                        <div className='bg-white w-[320px] max-w-[360px] flex-shrink-0 overflow-x-hidden rounded-xl overflow-hidden ring-1 ring-gray-100'>
-                          <div
-                            className='max-h-[70vh] overflow-y-auto overflow-x-hidden'
-                            onMouseEnter={cancelHoverCloseTimers}
-                          >
-                            <div className='px-4 py-2 text-xs uppercase tracking-wide text-gray-700 border-b bg-gray-50 sticky top-0 text-center font-semibold'>
-                              Підкатегорії
-                            </div>
-                            <div className='py-2 px-2'>
-                              {subs.map(sc=> (
-                                <button
-                                  key={sc._id}
-                                  type='button'
-                                  className={`group w-full text-left px-4 py-2.5 transition rounded-lg ${String(subcat)===String(sc._id) && !type ? 'bg-red-50 font-semibold ring-1 ring-red-200' : 'hover:bg-gray-50'} `}
-                                  onMouseEnter={()=> setHoverSub(sc._id)}
-                                  onFocus={()=> setHoverSub(sc._id)}
-                                  onClick={()=> pickSubcategory(targetCat, sc._id)}
-                                >
-                                  <div className='flex items-center gap-3 min-w-0'>
-                                    <span className={`h-5 w-1 rounded-full ${String(subcat)===String(sc._id) && !type ? 'bg-red-500' : 'bg-transparent group-hover:bg-gray-300'}`} />
-                                    <div className='text-[15px] leading-snug text-gray-900 truncate'>{sc.name}</div>
-                                  </div>
-                                </button>
-                              ))}
-                            </div>
-                          </div>
-                        </div>
-                      )
-                    })()}
-
-                    {(() => {
-                      if (!showTypesPanel) return null
-                      const targetCat = hoverCat
-                      if (!targetCat) return null
-                      const targetSub = hoverSub
-                      if (!targetSub) return null
-
-                      const types = hoveredTypes
-                      if (!types.length) return null
-
-                      return (
-                        <div className='bg-white w-[320px] max-w-[360px] flex-shrink-0 overflow-x-hidden rounded-xl overflow-hidden ring-1 ring-gray-100'>
-                          <div
-                            className='max-h-[70vh] overflow-y-auto overflow-x-hidden'
-                            onMouseEnter={cancelHoverCloseTimers}
-                          >
-                            <div className='px-4 py-2 text-xs uppercase tracking-wide text-gray-700 border-b bg-gray-50 sticky top-0 text-center font-semibold'>
-                              Типи
-                            </div>
-                            <div className='py-2 px-2'>
-                              {types.map(t=> (
-                                <button
-                                  key={t._id}
-                                  type='button'
-                                  className={`group w-full text-left px-4 py-2.5 transition rounded-lg ${String(type)===String(t._id) ? 'bg-red-50 font-semibold ring-1 ring-red-200' : 'hover:bg-gray-50'} `}
-                                  onClick={()=> pickType(targetCat, targetSub, t._id)}
-                                >
-                                  <div className='flex items-center gap-3 min-w-0'>
-                                    <span className={`h-5 w-1 rounded-full ${String(type)===String(t._id) ? 'bg-red-500' : 'bg-transparent group-hover:bg-gray-300'}`} />
-                                    <div className='text-[15px] leading-snug text-gray-900 truncate'>{t.name}</div>
-                                  </div>
-                                </button>
-                              ))}
-                            </div>
-                          </div>
-                        </div>
-                      )
-                    })()}
-                  </div>
+                  )}
                 </div>
               )}
             </div>
-          )}
+
+            <div className='min-w-0 flex-1 h-full'>
+              {(cat || subcat || type) ? (
+                <div className='h-full flex items-center justify-center overflow-x-auto px-2'>
+                  <div className='flex flex-nowrap items-center text-sm sm:text-base whitespace-nowrap mx-auto'>
+                    {cat && (
+                      <button
+                        type='button'
+                        className='px-1.5 py-1 rounded-md text-gray-700 hover:text-gray-900 hover:underline transition font-medium truncate max-w-[260px]'
+                        onClick={()=> pickCategory(cat)}
+                        title={catObj?.name || 'Категорія'}
+                      >
+                        {catObj?.name || 'Категорія'}
+                      </button>
+                    )}
+
+                    {subcat && (
+                      <>
+                        <span className='px-1 text-gray-300 flex items-center' aria-hidden='true'>
+                          <svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='currentColor' className='h-4 w-4'>
+                            <path fillRule='evenodd' d='M7.21 14.77a.75.75 0 01.02-1.06L10.94 10 7.23 6.29a.75.75 0 111.06-1.06l4.24 4.24a.75.75 0 010 1.06l-4.24 4.24a.75.75 0 01-1.08-.02z' clipRule='evenodd' />
+                          </svg>
+                        </span>
+                        <button
+                          type='button'
+                          className='px-1.5 py-1 rounded-md text-gray-700 hover:text-gray-900 hover:underline transition font-medium truncate max-w-[260px]'
+                          onClick={()=> pickSubcategory(cat, subcat)}
+                          title={subObj?.name || 'Підкатегорія'}
+                        >
+                          {subObj?.name || 'Підкатегорія'}
+                        </button>
+                      </>
+                    )}
+
+                    {type && (
+                      <>
+                        <span className='px-1 text-gray-300 flex items-center' aria-hidden='true'>
+                          <svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='currentColor' className='h-4 w-4'>
+                            <path fillRule='evenodd' d='M7.21 14.77a.75.75 0 01.02-1.06L10.94 10 7.23 6.29a.75.75 0 111.06-1.06l4.24 4.24a.75.75 0 010 1.06l-4.24 4.24a.75.75 0 01-1.08-.02z' clipRule='evenodd' />
+                          </svg>
+                        </span>
+                        <span
+                          className='px-1.5 py-1 rounded-md text-primary font-semibold truncate max-w-[280px]'
+                          title={typeObj?.name || 'Тип'}
+                        >
+                          {typeObj?.name || 'Тип'}
+                        </span>
+                      </>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <div className='h-full' />
+              )}
+            </div>
+          </div>
         </div>
 
         <div className='flex items-center justify-start sm:justify-end'>

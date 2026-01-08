@@ -45,6 +45,10 @@ export async function getProducts(params) {
   const res = await api.get('/products', { params });
   return res.data;
 }
+export async function getProductCounts(params) {
+  const res = await api.get('/products/counts', { params });
+  return res.data;
+}
 export async function getProduct(id){ const r = await api.get(`/products/${id}`); return r.data; }
 export async function createProduct(payload){ const r = await api.post('/products', payload); return r.data; }
 export async function updateProduct(id,payload){ const r = await api.put(`/products/${id}`, payload); return r.data; }
