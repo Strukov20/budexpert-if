@@ -320,45 +320,24 @@ export default function Home(){
       <div className='grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-2 mb-4'>
         <div className='w-full'>
           <div className='h-11 rounded-xl ring-1 ring-gray-200 shadow bg-white flex items-center transition hover:bg-red-50/30 hover:ring-red-200'>
-            <div className='w-48 sm:w-[220px] flex-shrink-0 h-full'>
+            <div className='w-full sm:w-[220px] flex-shrink-0 h-full'>
               {isMobile ? (
                 <div className='relative h-full px-3'>
                   <select
                     className='h-11 pr-8 text-base w-full appearance-none no-select-arrow bg-transparent border-0 focus:ring-0 focus:outline-none'
-                    value={(() => {
-                      if (type) return `type:${cat}:${subcat}:${type}`
-                      if (subcat) return `sub:${cat}:${subcat}`
-                      return cat || ''
-                    })()}
+                    value={cat || ''}
                     disabled={loadingCategories}
                     onChange={e=>{
                       const v = e.target.value
                       if (!v) { setCat(''); setSubcat(''); setType(''); return }
-                      const parts = String(v).split(':')
-                      if (parts[0] === 'sub' && parts[1] && parts[2]) {
-                        pickSubcategory(parts[1], parts[2])
-                        return
-                      }
-                      if (parts[0] === 'type' && parts[1] && parts[2] && parts[3]) {
-                        pickType(parts[1], parts[2], parts[3])
-                        return
-                      }
                       pickCategory(v)
                     }}
                   >
                     <option value=''>Всі категорії</option>
                     {mainCategories.map(c=> (
-                      <React.Fragment key={c._id}>
-                        <option value={c._id}>{`${c.name}${countFor(c._id, counts.byCategory) ? ` (${countFor(c._id, counts.byCategory)})` : ''}`}</option>
-                        {subcategoriesByParent(c._id).map(sc=> (
-                          <React.Fragment key={sc._id}>
-                            <option value={`sub:${c._id}:${sc._id}`}>{`— ${sc.name}${countFor(sc._id, counts.bySubcategory) ? ` (${countFor(sc._id, counts.bySubcategory)})` : ''}`}</option>
-                            {typesBySubcategory(sc._id).map(t=> (
-                              <option key={t._id} value={`type:${c._id}:${sc._id}:${t._id}`}>{`—— ${t.name}${countFor(t._id, counts.byType) ? ` (${countFor(t._id, counts.byType)})` : ''}`}</option>
-                            ))}
-                          </React.Fragment>
-                        ))}
-                      </React.Fragment>
+                      <option key={c._id} value={c._id}>
+                        {`${c.name}${countFor(c._id, counts.byCategory) ? ` (${countFor(c._id, counts.byCategory)})` : ''}`}
+                      </option>
                     ))}
                   </select>
                   <span className='pointer-events-none absolute inset-y-0 right-3 flex items-center text-gray-500'>
@@ -528,7 +507,7 @@ export default function Home(){
               )}
             </div>
 
-            <div className='min-w-0 flex-1 h-full'>
+            <div className='min-w-0 flex-1 h-full hidden sm:block'>
               {(cat || subcat || type) ? (
                 <div className='h-full flex items-center justify-center overflow-x-auto px-2'>
                   <div className='flex flex-nowrap items-center text-sm sm:text-base whitespace-nowrap mx-auto'>
