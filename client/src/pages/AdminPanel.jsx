@@ -55,6 +55,12 @@ export default function AdminPanel(){
   const [catTypeParentId, setCatTypeParentId] = useState('')
   const [catTypeName, setCatTypeName] = useState('')
   const [catTypeLoading, setCatTypeLoading] = useState(false)
+  const [editSubId, setEditSubId] = useState('')
+  const [editSubName, setEditSubName] = useState('')
+  const [editTypeId, setEditTypeId] = useState('')
+  const [editTypeName, setEditTypeName] = useState('')
+  const [savingChildId, setSavingChildId] = useState('')
+  const [deletingChildId, setDeletingChildId] = useState('')
   const [applyToProducts, setApplyToProducts] = useState(true)
   const [showCatList, setShowCatList] = useState(false)
   const [catListSearch, setCatListSearch] = useState('')
@@ -633,7 +639,7 @@ export default function AdminPanel(){
       {/* Modal: Edit Category (active, not hidden) */}
       {showCatEdit && (
         <div className='fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4' onClick={()=> setShowCatEdit(false)}>
-          <div className='bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[92vh] overflow-auto' onClick={(e)=>e.stopPropagation()}>
+          <div className='bg-white rounded-2xl shadow-2xl w-full max-w-6xl max-h-[96vh] overflow-auto' onClick={(e)=>e.stopPropagation()}>
             <div className='px-6 py-4 border-b bg-gradient-to-b from-gray-50 to-white rounded-t-2xl'>
               <div className='flex items-start justify-between gap-3'>
                 <div>
@@ -724,8 +730,92 @@ export default function AdminPanel(){
                     const subs = categories.filter(c=> String(getParentId(c)||'') === String(pid))
                     if (!subs.length) return <div className='p-3 text-sm text-gray-500'>Підкатегорій ще немає.</div>
                     return subs.map(sc=> (
-                      <div key={sc._id} className='px-4 py-2.5 border-t first:border-t-0 text-sm bg-white hover:bg-gray-50'>
-                        {sc.name}
+                      <div key={sc._id} className='px-4 py-2.5 border-t first:border-t-0 text-sm bg-white hover:bg-gray-50 flex items-center gap-2'>
+                        {editSubId === sc._id ? (
+                          <input
+                            className='border px-2 py-1.5 rounded-md w-full focus:outline-none focus:ring-2 focus:ring-black/10 focus:border-gray-400'
+                            value={editSubName}
+                            onChange={e=> setEditSubName(e.target.value)}
+                            disabled={savingChildId === sc._id}
+                          />
+                        ) : (
+                          <span className='flex-1 min-w-0 truncate'>{sc.name}</span>
+                        )}
+
+                        {editSubId === sc._id ? (
+                          <>
+                            <button
+                              type='button'
+                              className='w-9 h-9 inline-flex items-center justify-center border rounded-lg hover:bg-gray-50 active:scale-95 transition disabled:opacity-60'
+                              disabled={savingChildId === sc._id || !editSubName.trim()}
+                              onClick={async()=>{
+                                try{
+                                  const name = (editSubName||'').trim()
+                                  if (!name) return
+                                  setSavingChildId(sc._id)
+                                  await updateCategory(sc._id, { name })
+                                  setEditSubId('')
+                                  setEditSubName('')
+                                  loadAll()
+                                  showToast('Підкатегорію оновлено','success')
+                                }catch(err){
+                                  showToast(getErrMsg(err),'error')
+                                }finally{
+                                  setSavingChildId('')
+                                }
+                              }}
+                              title='Зберегти'
+                              aria-label='Зберегти'
+                            >
+                              <FiCheckCircle />
+                            </button>
+                            <button
+                              type='button'
+                              className='w-9 h-9 inline-flex items-center justify-center border rounded-lg hover:bg-gray-50 active:scale-95 transition'
+                              onClick={()=> { setEditSubId(''); setEditSubName(''); }}
+                              title='Скасувати'
+                              aria-label='Скасувати'
+                            >
+                              <FiX />
+                            </button>
+                          </>
+                        ) : (
+                          <>
+                            <button
+                              type='button'
+                              className='w-9 h-9 inline-flex items-center justify-center border rounded-lg hover:bg-gray-50 active:scale-95 transition'
+                              onClick={()=> { setEditSubId(sc._id); setEditSubName(sc.name || ''); }}
+                              title='Редагувати'
+                              aria-label='Редагувати'
+                            >
+                              <FiEdit2 />
+                            </button>
+                            <button
+                              type='button'
+                              className='w-9 h-9 inline-flex items-center justify-center border rounded-lg hover:bg-red-50 text-red-700 active:scale-95 transition disabled:opacity-60'
+                              disabled={deletingChildId === sc._id}
+                              onClick={async()=>{
+                                if(!confirm('Видалити підкатегорію?')) return
+                                try{
+                                  setDeletingChildId(sc._id)
+                                  await deleteCategory(sc._id)
+                                  if (editSubId === sc._id) { setEditSubId(''); setEditSubName(''); }
+                                  if (catTypeParentId === sc._id) { setCatTypeParentId(''); setCatTypeName(''); }
+                                  loadAll()
+                                  showToast('Підкатегорію видалено','success')
+                                }catch(err){
+                                  showToast(getErrMsg(err),'error')
+                                }finally{
+                                  setDeletingChildId('')
+                                }
+                              }}
+                              title='Видалити'
+                              aria-label='Видалити'
+                            >
+                              <FiTrash2 />
+                            </button>
+                          </>
+                        )}
                       </div>
                     ))
                   })()}
@@ -806,8 +896,91 @@ export default function AdminPanel(){
                     const types = categories.filter(c=> String(getParentId(c)||'') === String(pid))
                     if (!types.length) return <div className='p-3 text-sm text-gray-500'>Типів ще немає.</div>
                     return types.map(t=> (
-                      <div key={t._id} className='px-4 py-2.5 border-t first:border-t-0 text-sm bg-white hover:bg-gray-50'>
-                        {t.name}
+                      <div key={t._id} className='px-4 py-2.5 border-t first:border-t-0 text-sm bg-white hover:bg-gray-50 flex items-center gap-2'>
+                        {editTypeId === t._id ? (
+                          <input
+                            className='border px-2 py-1.5 rounded-md w-full focus:outline-none focus:ring-2 focus:ring-black/10 focus:border-gray-400'
+                            value={editTypeName}
+                            onChange={e=> setEditTypeName(e.target.value)}
+                            disabled={savingChildId === t._id}
+                          />
+                        ) : (
+                          <span className='flex-1 min-w-0 truncate'>{t.name}</span>
+                        )}
+
+                        {editTypeId === t._id ? (
+                          <>
+                            <button
+                              type='button'
+                              className='w-9 h-9 inline-flex items-center justify-center border rounded-lg hover:bg-gray-50 active:scale-95 transition disabled:opacity-60'
+                              disabled={savingChildId === t._id || !editTypeName.trim()}
+                              onClick={async()=>{
+                                try{
+                                  const name = (editTypeName||'').trim()
+                                  if (!name) return
+                                  setSavingChildId(t._id)
+                                  await updateCategory(t._id, { name })
+                                  setEditTypeId('')
+                                  setEditTypeName('')
+                                  loadAll()
+                                  showToast('Тип оновлено','success')
+                                }catch(err){
+                                  showToast(getErrMsg(err),'error')
+                                }finally{
+                                  setSavingChildId('')
+                                }
+                              }}
+                              title='Зберегти'
+                              aria-label='Зберегти'
+                            >
+                              <FiCheckCircle />
+                            </button>
+                            <button
+                              type='button'
+                              className='w-9 h-9 inline-flex items-center justify-center border rounded-lg hover:bg-gray-50 active:scale-95 transition'
+                              onClick={()=> { setEditTypeId(''); setEditTypeName(''); }}
+                              title='Скасувати'
+                              aria-label='Скасувати'
+                            >
+                              <FiX />
+                            </button>
+                          </>
+                        ) : (
+                          <>
+                            <button
+                              type='button'
+                              className='w-9 h-9 inline-flex items-center justify-center border rounded-lg hover:bg-gray-50 active:scale-95 transition'
+                              onClick={()=> { setEditTypeId(t._id); setEditTypeName(t.name || ''); }}
+                              title='Редагувати'
+                              aria-label='Редагувати'
+                            >
+                              <FiEdit2 />
+                            </button>
+                            <button
+                              type='button'
+                              className='w-9 h-9 inline-flex items-center justify-center border rounded-lg hover:bg-red-50 text-red-700 active:scale-95 transition disabled:opacity-60'
+                              disabled={deletingChildId === t._id}
+                              onClick={async()=>{
+                                if(!confirm('Видалити тип?')) return
+                                try{
+                                  setDeletingChildId(t._id)
+                                  await deleteCategory(t._id)
+                                  if (editTypeId === t._id) { setEditTypeId(''); setEditTypeName(''); }
+                                  loadAll()
+                                  showToast('Тип видалено','success')
+                                }catch(err){
+                                  showToast(getErrMsg(err),'error')
+                                }finally{
+                                  setDeletingChildId('')
+                                }
+                              }}
+                              title='Видалити'
+                              aria-label='Видалити'
+                            >
+                              <FiTrash2 />
+                            </button>
+                          </>
+                        )}
                       </div>
                     ))
                   })()}
@@ -833,7 +1006,7 @@ export default function AdminPanel(){
         </div>
       )}
       {/* Toast stack */}
-      <div className='fixed top-5 right-5 z-50 flex flex-col gap-2 items-end' aria-live='polite' aria-atomic='true'>
+      <div className='fixed top-5 right-5 z-[9999] flex flex-col gap-2 items-end' aria-live='polite' aria-atomic='true'>
         {toasts.map(t => (
           <div key={t.id} className={`max-w-sm pl-5 pr-2 py-4 rounded-xl shadow-lg border text-base font-medium flex items-center gap-3 transition-all duration-300 backdrop-blur-md ${t.type==='success' ? 'bg-green-600/85 border-white/10 text-white' : 'bg-red-600/85 border-white/10 text-white'} ${t.open ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-3'}`}>
             <span className='inline-flex items-center justify-center w-6 h-6 rounded-full bg-white/20'>

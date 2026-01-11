@@ -29,6 +29,8 @@ export default function Home(){
   const [isFading, setIsFading] = useState(false)
   const timerRef = useRef(null)
   const sentinelRef = useRef(null)
+  const productsTopRef = useRef(null)
+  const didMountScrollRef = useRef(false)
 
   // SEO: title, description, LocalBusiness structured data
   useEffect(()=>{
@@ -108,6 +110,19 @@ export default function Home(){
   }
 
   useEffect(()=>{ startTimer(); return ()=> timerRef.current && clearInterval(timerRef.current) },[])
+
+  useEffect(()=>{
+    if (!productsTopRef.current) return
+    if (!didMountScrollRef.current) {
+      didMountScrollRef.current = true
+      return
+    }
+    requestAnimationFrame(()=>{
+      const el = productsTopRef.current
+      const top = (el.getBoundingClientRect?.().top || 0) + window.scrollY - 150
+      window.scrollTo({ top: Math.max(0, top), behavior: 'smooth' })
+    })
+  }, [page])
 
   const goToSlide = (i) => {
     setIsFading(true)
@@ -578,6 +593,8 @@ export default function Home(){
           </div>
         </div>
       </div>
+
+      <div ref={productsTopRef} />
 
       <div className='grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4'>
         {loadingProducts && itemsToRender.length === 0 ? (
