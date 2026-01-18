@@ -33,6 +33,7 @@ export default function AdminPanel(){
   const [prodCatFilter, setProdCatFilter] = useState('')
   const [prodSubcatFilter, setProdSubcatFilter] = useState('')
   const [prodTypeFilter, setProdTypeFilter] = useState('')
+  const [prodPhotoFilter, setProdPhotoFilter] = useState('') // '' | 'with' | 'without'
   const [prodSortMode, setProdSortMode] = useState('date_desc') // price_asc | price_desc | date_desc | date_asc | stock_asc | stock_desc
   const [prodPage, setProdPage] = useState(1)
   const [prodPerPage, setProdPerPage] = useState(10)
@@ -304,6 +305,18 @@ export default function AdminPanel(){
     const svg = `<?xml version="1.0" encoding="UTF-8"?><svg xmlns='http://www.w3.org/2000/svg' width='${w}' height='${h}' viewBox='0 0 ${w} ${h}'><rect width='100%' height='100%' fill='#f3f4f6'/><text x='50%' y='50%' dominant-baseline='middle' text-anchor='middle' font-family='Arial, Helvetica, sans-serif' font-size='10' fill='#9ca3af'>No image</text></svg>`
     return 'data:image/svg+xml;utf8,' + encodeURIComponent(svg)
   })()
+
+  const hasUploadedPhoto = (p)=>{
+    if (!p) return false
+    const primary = (p.image || '').toString().trim()
+    const imgs = Array.isArray(p.images) ? p.images : []
+    const anyFromArray = imgs.some(x=> {
+      const u = (x?.url || x?.src || '').toString().trim()
+      return u && u !== placeholderProductImg && !u.startsWith('data:image/svg+xml')
+    })
+    if (anyFromArray) return true
+    return Boolean(primary) && primary !== placeholderProductImg && !primary.startsWith('data:image/svg+xml')
+  }
 
   const normalizeImageForSave = (u)=>{
     try{
@@ -1898,7 +1911,36 @@ export default function AdminPanel(){
                 <div className='flex flex-col gap-0.5'>
                   <h4 className='font-semibold'>Усі товари</h4>
                   <span className='text-xs text-gray-500'>
-                    Всього товарів: {loadingAll ? 'Завантаження…' : products.length}
+                    Всього товарів: {loadingAll ? 'Завантаження…' : (()=>{
+                      const term = (prodListSearch || '').trim().toLowerCase()
+                      const catId = (prodCatFilter || '').toString()
+                      const photoMode = (prodPhotoFilter || '').toString()
+                      const getId = (v)=>{
+                        if (!v) return ''
+                        if (typeof v === 'string') return v
+                        if (typeof v === 'object') return v?._id || v?.id || (typeof v?.toString === 'function' ? v.toString() : '')
+                        return ''
+                      }
+                      return products
+                        .filter(p=>{
+                          if (!term) return true
+                          const name = (p.name||'').toLowerCase()
+                          const sku  = (p.sku||'').toLowerCase()
+                          return name.includes(term) || sku.includes(term)
+                        })
+                        .filter(p=>{
+                          if (!catId) return true
+                          return String(getId(p.category)||'') === String(catId)
+                        })
+                        .filter(p=>{
+                          if (!photoMode) return true
+                          const has = hasUploadedPhoto(p)
+                          if (photoMode === 'with') return has
+                          if (photoMode === 'without') return !has
+                          return true
+                        })
+                        .length
+                    })()}
                   </span>
                 </div>
                 <div className='flex items-center gap-2'>
@@ -1922,26 +1964,10 @@ export default function AdminPanel(){
                   <button aria-label='Закрити' onClick={()=> setShowProdList(false)} className='w-8 h-8 rounded-lg border hover:bg-gray-100'>✕</button>
                 </div>
               </div>
-              <div className='mb-1 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3'>
-                <div className='flex items-center gap-2'>
-                  <span className='text-sm text-gray-600'>Сортувати:</span>
+              <div className='mb-1 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 min-w-0'>
+                <div className='grid grid-cols-1 sm:grid-cols-2 gap-2 w-full min-w-0'>
                   <select
-                    className='border rounded px-2 py-1.5 pr-8 text-sm min-w-[180px]'
-                    value={prodSortMode}
-                    onChange={e=>{ setProdSortMode(e.target.value); setProdPage(1) }}
-                    disabled={loadingAll}
-                  >
-                    <option value='price_asc'>Ціна (↑)</option>
-                    <option value='price_desc'>Ціна (↓)</option>
-                    <option value='stock_asc'>Кількість (↑)</option>
-                    <option value='stock_desc'>Кількість (↓)</option>
-                    <option value='date_desc'>Дата (нові)</option>
-                    <option value='date_asc'>Дата (старі)</option>
-                  </select>
-                </div>
-                <div className='flex items-center justify-end gap-1 flex-1 flex-wrap md:flex-nowrap'>
-                  <select
-                    className='border rounded px-2 py-1.5 pr-8 text-sm w-full sm:w-auto min-w-[120px]'
+                    className='border rounded px-2 py-1.5 pr-8 text-sm w-full'
                     value={prodCatFilter}
                     onChange={e=>{ setProdCatFilter(e.target.value); setProdSubcatFilter(''); setProdTypeFilter(''); setProdPage(1) }}
                     title='Фільтр по категорії'
@@ -1962,59 +1988,32 @@ export default function AdminPanel(){
                     })()}
                   </select>
 
-                  <select
-                    className='border rounded px-2 py-1.5 pr-8 text-sm w-full sm:w-auto min-w-[140px]'
-                    value={prodSubcatFilter}
-                    onChange={e=>{ setProdSubcatFilter(e.target.value); setProdTypeFilter(''); setProdPage(1) }}
-                    disabled={!prodCatFilter}
-                    title='Фільтр по підкатегорії'
-                  >
-                    <option value=''>Всі підкатегорії</option>
-                    {(()=>{
-                      const parentId = (prodCatFilter || '').toString()
-                      const getParentId = (c)=>{
-                        const p = c?.parent
-                        if (!p) return ''
-                        if (typeof p === 'string') return p
-                        if (typeof p === 'object') return p?._id || p?.id || (typeof p?.toString === 'function' ? p.toString() : '')
-                        return ''
-                      }
-                      return categories
-                        .filter(c=> String(getParentId(c)||'') === String(parentId))
-                        .map(c=> <option key={c._id} value={c._id}>{c.name}</option>)
-                    })()}
-                  </select>
-
-                  <select
-                    className='border rounded px-2 py-1.5 pr-8 text-sm w-full sm:w-auto min-w-[140px]'
-                    value={prodTypeFilter}
-                    onChange={e=>{ setProdTypeFilter(e.target.value); setProdPage(1) }}
-                    disabled={!prodSubcatFilter}
-                    title='Фільтр по типу'
-                  >
-                    <option value=''>Всі типи</option>
-                    {(()=>{
-                      const parentId = (prodSubcatFilter || '').toString()
-                      const getParentId = (c)=>{
-                        const p = c?.parent
-                        if (!p) return ''
-                        if (typeof p === 'string') return p
-                        if (typeof p === 'object') return p?._id || p?.id || (typeof p?.toString === 'function' ? p.toString() : '')
-                        return ''
-                      }
-                      return categories
-                        .filter(c=> String(getParentId(c)||'') === String(parentId))
-                        .map(c=> <option key={c._id} value={c._id}>{c.name}</option>)
-                    })()}
-                  </select>
-
                   <input
-                    className='border rounded px-2 py-1.5 text-sm w-full sm:w-auto max-w-[140px]'
+                    className='border rounded px-2 py-1.5 text-sm w-full'
                     placeholder='Пошук...'
                     value={prodListSearch}
                     onChange={e=>{ setProdListSearch(e.target.value); setProdPage(1) }}
                     disabled={loadingAll}
                   />
+                </div>
+
+                <div className='flex justify-end'>
+                  <button
+                    type='button'
+                    className='w-full sm:w-auto sm:min-w-[180px] h-[38px] px-4 rounded-lg border text-sm hover:bg-gray-50 active:bg-gray-100 transition disabled:opacity-60'
+                    disabled={loadingAll}
+                    onClick={()=>{
+                      setProdCatFilter('')
+                      setProdSubcatFilter('')
+                      setProdTypeFilter('')
+                      setProdListSearch('')
+                      setProdPhotoFilter('')
+                      setProdSortMode('date_desc')
+                      setProdPage(1)
+                    }}
+                  >
+                    Скинути фільтри
+                  </button>
                 </div>
               </div>
               <div className={`relative ${prodFull ? 'h-[calc(100vh-220px)]' : 'max-h-[70vh]'} overflow-auto rounded-lg border`}>
@@ -2029,20 +2028,97 @@ export default function AdminPanel(){
                 <table className='min-w-full text-sm'>
                   <thead className='bg-gray-50 sticky top-0 z-10'>
                     <tr>
-                      <th className='px-3 py-2 text-center'>Фото</th>
-                      <th className='px-3 py-2 text-center'>Назва</th>
-                      <th className='px-3 py-2 text-center'>Ціна</th>
-                      <th className='px-3 py-2 text-center'>Кількість</th>
-                      {(()=>{
-                        const mode = (prodSortMode || 'date_desc').toString()
-                        const sortKey = mode.split('_')[0]
-                        return sortKey === 'date' ? (
-                          <th className='px-3 py-2 text-center'>Дата</th>
-                        ) : null
-                      })()}
+                      <th className='px-3 py-2 text-center'>
+                        <button
+                          type='button'
+                          className='inline-flex items-center justify-center gap-1 w-full px-1.5 py-1 rounded-md text-gray-700 hover:text-red-700 hover:bg-red-50 active:bg-red-100/60 focus:outline-none focus:ring-2 focus:ring-black/10 transition'
+                          title={prodPhotoFilter === 'with' ? 'З фото' : prodPhotoFilter === 'without' ? 'Без фото' : 'Всі фото'}
+                          onClick={()=>{
+                            setProdPhotoFilter(prev=>{
+                              const v = (prev || '').toString()
+                              if (!v) return 'with'
+                              if (v === 'with') return 'without'
+                              return ''
+                            })
+                            setProdPage(1)
+                          }}
+                        >
+                          Фото
+                        </button>
+                      </th>
+                      <th className='px-3 py-2 text-center'>
+                        <button
+                          type='button'
+                          className='inline-flex items-center justify-center gap-1 w-full px-1.5 py-1 rounded-md text-gray-700 hover:text-red-700 hover:bg-red-50 active:bg-red-100/60 focus:outline-none focus:ring-2 focus:ring-black/10 transition'
+                          onClick={()=>{
+                            setProdSortMode(prev=>{
+                              const p = (prev || 'date_desc').toString()
+                              const curKey = p.split('_')[0]
+                              const curDir = p.endsWith('_desc') ? 'desc' : 'asc'
+                              if (curKey === 'name') return `name_${curDir === 'asc' ? 'desc' : 'asc'}`
+                              return 'name_asc'
+                            })
+                            setProdPage(1)
+                          }}
+                        >
+                          Назва
+                        </button>
+                      </th>
+                      <th className='px-3 py-2 text-center'>
+                        <button
+                          type='button'
+                          className='inline-flex items-center justify-center gap-1 w-full px-1.5 py-1 rounded-md text-gray-700 hover:text-red-700 hover:bg-red-50 active:bg-red-100/60 focus:outline-none focus:ring-2 focus:ring-black/10 transition'
+                          onClick={()=>{
+                            setProdSortMode(prev=>{
+                              const p = (prev || 'date_desc').toString()
+                              const curKey = p.split('_')[0]
+                              const curDir = p.endsWith('_desc') ? 'desc' : 'asc'
+                              if (curKey === 'price') return `price_${curDir === 'asc' ? 'desc' : 'asc'}`
+                              return 'price_asc'
+                            })
+                            setProdPage(1)
+                          }}
+                        >
+                          Ціна
+                        </button>
+                      </th>
+                      <th className='px-3 py-2 text-center'>
+                        <button
+                          type='button'
+                          className='inline-flex items-center justify-center gap-1 w-full px-1.5 py-1 rounded-md text-gray-700 hover:text-red-700 hover:bg-red-50 active:bg-red-100/60 focus:outline-none focus:ring-2 focus:ring-black/10 transition'
+                          onClick={()=>{
+                            setProdSortMode(prev=>{
+                              const p = (prev || 'date_desc').toString()
+                              const curKey = p.split('_')[0]
+                              const curDir = p.endsWith('_desc') ? 'desc' : 'asc'
+                              if (curKey === 'stock') return `stock_${curDir === 'asc' ? 'desc' : 'asc'}`
+                              return 'stock_asc'
+                            })
+                            setProdPage(1)
+                          }}
+                        >
+                          Кількість
+                        </button>
+                      </th>
+                      <th className='px-3 py-2 text-center'>
+                        <button
+                          type='button'
+                          className='inline-flex items-center justify-center gap-1 w-full px-1.5 py-1 rounded-md text-gray-700 hover:text-red-700 hover:bg-red-50 active:bg-red-100/60 focus:outline-none focus:ring-2 focus:ring-black/10 transition'
+                          onClick={()=>{
+                            setProdSortMode(prev=>{
+                              const p = (prev || 'date_desc').toString()
+                              const curKey = p.split('_')[0]
+                              const curDir = p.endsWith('_desc') ? 'desc' : 'asc'
+                              if (curKey === 'date') return `date_${curDir === 'asc' ? 'desc' : 'asc'}`
+                              return 'date_desc'
+                            })
+                            setProdPage(1)
+                          }}
+                        >
+                          Дата
+                        </button>
+                      </th>
                       <th className='px-3 py-2 text-center'>Категорія</th>
-                      <th className='px-3 py-2 text-center'>Підкатегорія</th>
-                      <th className='px-3 py-2 text-center'>Тип</th>
                       <th className='px-3 py-2 text-center'>Дії</th>
                     </tr>
                   </thead>
@@ -2050,12 +2126,11 @@ export default function AdminPanel(){
                     {(()=>{
                       const term = prodListSearch.trim().toLowerCase();
                       const catId = (prodCatFilter || '').toString();
-                      const subId = (prodSubcatFilter || '').toString();
-                      const typeId = (prodTypeFilter || '').toString();
+                      const photoMode = (prodPhotoFilter || '').toString();
                       const mode = (prodSortMode || 'date_desc').toString()
                       const sortKey = mode.split('_')[0]
                       const sortDir = mode.endsWith('_desc') ? -1 : 1
-                      const showDateCol = sortKey === 'date'
+                      const showDateCol = true
                       const getId = (v)=>{
                         if (!v) return '';
                         if (typeof v === 'string') return v;
@@ -2074,12 +2149,11 @@ export default function AdminPanel(){
                           return String(getId(p.category)||'') === String(catId);
                         })
                         .filter(p=>{
-                          if (!subId) return true;
-                          return String(getId(p.subcategory)||'') === String(subId);
-                        })
-                        .filter(p=>{
-                          if (!typeId) return true;
-                          return String(getId(p.type)||'') === String(typeId);
+                          if (!photoMode) return true
+                          const has = hasUploadedPhoto(p)
+                          if (photoMode === 'with') return has
+                          if (photoMode === 'without') return !has
+                          return true
                         })
                         .sort((a,b)=>{
                           const dir = sortDir
@@ -2095,6 +2169,11 @@ export default function AdminPanel(){
                             const av = new Date(a.createdAt || 0).getTime()
                             const bv = new Date(b.createdAt || 0).getTime()
                             return (av - bv) * dir
+                          }
+                          if (sortKey==='name'){
+                            const av = String(a.name || '').trim()
+                            const bv = String(b.name || '').trim()
+                            return av.localeCompare(bv, 'uk', { sensitivity: 'base' }) * dir
                           }
                           // fallback: date desc
                           const av = new Date(a.createdAt || 0).getTime()
@@ -2124,12 +2203,8 @@ export default function AdminPanel(){
                             {p.stock ?? 0}
                             {p.unit ? ' ' + p.unit : ''}
                           </td>
-                          {showDateCol ? (
-                            <td className='px-3 py-2 text-center'>{fmtDateShort(p.createdAt)}</td>
-                          ) : null}
+                          <td className='px-3 py-2 text-center'>{fmtDateShort(p.createdAt)}</td>
                           <td className='px-3 py-2 text-center'>{getCategoryName(p.category)}</td>
-                          <td className='px-3 py-2 text-center'>{getCategoryName(p.subcategory)}</td>
-                          <td className='px-3 py-2 text-center'>{getCategoryName(p.type)}</td>
                           <td className='px-3 py-2 text-center align-middle'>
                             <div className='inline-flex flex-row items-center justify-center gap-2'>
                               <button
