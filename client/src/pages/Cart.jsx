@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import CheckoutForm from './Checkout'
 import { FiTruck, FiShoppingCart } from 'react-icons/fi'
 import DeliveryLeadForm from '../components/DeliveryLeadForm'
@@ -45,6 +46,7 @@ const resolveSrc = (raw) => {
 }
 
 export default function CartPage(){
+  const navigate = useNavigate()
   const [cart, setCart] = useState(() => {
     try {
       return JSON.parse(localStorage.getItem('cart')||'[]')
@@ -85,6 +87,15 @@ export default function CartPage(){
 
   return (
     <div className='container py-6'>
+      <div className='md:hidden mb-3'>
+        <button
+          type='button'
+          onClick={()=> navigate('/')}
+          className='inline-flex items-center justify-center w-full h-11 rounded-xl ring-1 ring-gray-200 bg-white text-gray-900 font-semibold uppercase tracking-wide hover:bg-red-50 hover:ring-red-200 hover:text-red-700 transition'
+        >
+          В каталог
+        </button>
+      </div>
       <h2 className='text-2xl font-semibold mb-4'>Кошик</h2>
       {cart.length===0 ? <p className='text-gray-600'>Кошик порожній</p> : (
         <div className='grid grid-cols-1 md:grid-cols-1 lg:grid-cols-3 gap-3 md:gap-4 mx-auto max-w-md md:max-w-none md:mx-0'>

@@ -4,6 +4,7 @@ import ProductCard from '../components/ProductCard'
 import SearchBar from '../components/SearchBar'
 import Pagination from '../components/Pagination'
 import DeliveryLeadForm from '../components/DeliveryLeadForm'
+import HomeBanner from '../components/HomeBanner'
 
 export default function Home(){
   const [products, setProducts] = useState([])
@@ -300,7 +301,8 @@ export default function Home(){
   }
 
   return (
-    <div className='container py-6 max-w-md mx-auto px-4 md:max-w-none md:px-0'>
+    <div className='container pt-2 pb-6 max-w-md mx-auto px-4 md:max-w-none md:px-0'>
+      <HomeBanner />
       <div className='hidden xl:block mb-6'>
         <div className={`relative overflow-hidden rounded-lg bg-neutral-900 text-white p-8 h-[200px] border border-white/5 transition-opacity duration-500 ${isFading ? 'opacity-0' : 'opacity-100'}`}>
           {/* Detached logo on the right, nearly full height */}

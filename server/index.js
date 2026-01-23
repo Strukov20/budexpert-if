@@ -12,6 +12,7 @@ import fs from "fs";
 import uploadsRoutes from "./routes/uploads.js";
 import leadsRoutes from "./routes/leads.js";
 import postRoutes from "./routes/post.js";
+import bannerRoutes from "./routes/banner.js";
 import helmet from "helmet";
 import mongoSanitize from "express-mongo-sanitize";
 import rateLimit from "express-rate-limit";
@@ -90,6 +91,7 @@ app.use("/uploads", express.static(uploadsDir));
 app.use("/api/uploads", uploadLimiter, uploadsRoutes);
 app.use("/api/leads", leadsRoutes);
 app.use("/api/post", postRoutes);
+app.use("/api/banner", bannerRoutes);
 
 
 const PORT = process.env.PORT || 5001;

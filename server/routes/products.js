@@ -3,8 +3,15 @@ import Product from "../models/Product.js";
 import requireAdmin from "../middleware/auth.js";
 import Category from "../models/Category.js";
 import { v2 as cloudinary } from "cloudinary";
+import multer from "multer";
+import * as XLSX from "xlsx";
 
 const router = express.Router();
+
+const importUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 10 * 1024 * 1024 },
+});
 
 const normalizeImagesInput = (images) => {
   if (!Array.isArray(images)) return undefined;
@@ -193,6 +200,230 @@ router.get("/export/all", requireAdmin, async (_req, res) => {
     res.send(csv);
   } catch (e) {
     res.status(500).json({ message: 'Не вдалося сформувати CSV', error: e?.message });
+  }
+});
+
+// GET /api/products/export/xlsx
+// Експорт усіх товарів у XLSX
+router.get('/export/xlsx', requireAdmin, async (_req, res) => {
+  try {
+    const items = await Product.find({})
+      .populate('category')
+      .populate('subcategory')
+      .populate('type')
+      .sort({ createdAt: -1 })
+      .lean();
+
+    const rows = (Array.isArray(items) ? items : []).map((p) => {
+      const specsObj = p?.specs ? Object.fromEntries(Object.entries(p.specs)) : {};
+      const imagesArr = Array.isArray(p?.images) ? p.images : [];
+      return {
+        _id: p?._id ? String(p._id) : '',
+        name: p?.name || '',
+        price: p?.price ?? '',
+        discount: p?.discount ?? '',
+        stock: p?.stock ?? '',
+        unit: p?.unit || '',
+        sku: p?.sku || '',
+        description: p?.description || '',
+        specs: JSON.stringify(specsObj),
+        images: JSON.stringify(imagesArr),
+        image: p?.image || '',
+        imagePublicId: p?.imagePublicId || '',
+        categoryName: p?.category?.name || '',
+        subcategoryName: p?.subcategory?.name || '',
+        typeName: p?.type?.name || '',
+        createdAt: p?.createdAt ? new Date(p.createdAt).toISOString() : '',
+        updatedAt: p?.updatedAt ? new Date(p.updatedAt).toISOString() : '',
+      };
+    });
+
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.json_to_sheet(rows, { skipHeader: false });
+    XLSX.utils.book_append_sheet(wb, ws, 'Products');
+
+    const buffer = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', 'attachment; filename="products-export.xlsx"');
+    res.send(buffer);
+  } catch (e) {
+    res.status(500).json({ message: 'Не вдалося сформувати XLSX', error: e?.message });
+  }
+});
+
+const normalizeString = (v) => {
+  if (v === null || v === undefined) return '';
+  return String(v).trim();
+};
+
+const parseNumberOrEmpty = (v) => {
+  if (v === null || v === undefined || v === '') return undefined;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : undefined;
+};
+
+const safeJsonParse = (v) => {
+  if (v === null || v === undefined) return undefined;
+  if (typeof v === 'object') return v;
+  const s = String(v).trim();
+  if (!s) return undefined;
+  try { return JSON.parse(s); } catch { return undefined; }
+};
+
+const catKey = (parentId, name) => `${parentId || 'root'}::${name}`;
+
+async function ensureCategoryByName(name, parentId, cache) {
+  const n = normalizeString(name);
+  if (!n) return '';
+  const key = catKey(parentId || '', n);
+  if (cache.has(key)) return cache.get(key);
+
+  const q = { name: n, parent: parentId || null };
+  let found = await Category.findOne(q).select('_id').lean();
+  if (!found) {
+    try {
+      const created = await Category.create(q);
+      found = created.toObject ? created.toObject() : created;
+    } catch {
+      found = await Category.findOne(q).select('_id').lean();
+    }
+  }
+  const id = found?._id ? String(found._id) : '';
+  cache.set(key, id);
+  return id;
+}
+
+// POST /api/products/import/xlsx
+// Імпорт XLSX з upsert (оновлення існуючих + створення нових)
+router.post('/import/xlsx', requireAdmin, importUpload.single('file'), async (req, res) => {
+  try {
+    if (!req.file || !req.file.buffer) {
+      return res.status(400).json({ message: 'Файл не отримано' });
+    }
+
+    const wb = XLSX.read(req.file.buffer, { type: 'buffer' });
+    const sheetName = wb.SheetNames?.[0];
+    if (!sheetName) return res.status(400).json({ message: 'XLSX порожній' });
+
+    const ws = wb.Sheets[sheetName];
+    const rows = XLSX.utils.sheet_to_json(ws, { defval: '' });
+    if (!Array.isArray(rows) || rows.length === 0) {
+      return res.status(400).json({ message: 'Немає рядків для імпорту' });
+    }
+
+    const allCats = await Category.find({}).select('_id name parent').lean();
+    const catCache = new Map();
+    for (const c of (Array.isArray(allCats) ? allCats : [])) {
+      const pid = c.parent ? String(c.parent) : '';
+      catCache.set(catKey(pid, String(c.name || '').trim()), String(c._id));
+    }
+
+    let inserted = 0;
+    let updated = 0;
+    let skipped = 0;
+
+    const ops = [];
+
+    for (const r of rows) {
+      const name = normalizeString(r.name);
+      const sku = normalizeString(r.sku);
+      const idRaw = normalizeString(r._id);
+
+      if (!name) {
+        skipped++;
+        continue;
+      }
+
+      const categoryName = normalizeString(r.categoryName);
+      const subcategoryName = normalizeString(r.subcategoryName);
+      const typeName = normalizeString(r.typeName);
+
+      const categoryId = await ensureCategoryByName(categoryName, null, catCache);
+      const subcategoryId = subcategoryName && categoryId
+        ? await ensureCategoryByName(subcategoryName, categoryId, catCache)
+        : '';
+      const typeId = typeName && subcategoryId
+        ? await ensureCategoryByName(typeName, subcategoryId, catCache)
+        : '';
+
+      let specs = r.specs;
+      if (typeof specs === 'string') {
+        const parsed = safeJsonParse(specs);
+        specs = parsed !== undefined ? parsed : parseSpecsText(specs);
+      }
+      if (specs && typeof specs === 'object' && !(specs instanceof Map) && !Array.isArray(specs)) {
+        // ok
+      } else if (specs === undefined) {
+        // ok
+      } else {
+        specs = undefined;
+      }
+
+      let images = safeJsonParse(r.images);
+      if (Array.isArray(images)) {
+        images = normalizeImagesInput(images) || [];
+      } else {
+        images = normalizeImagesInput([]) || [];
+      }
+
+      const base = {
+        name,
+        price: parseNumberOrEmpty(r.price),
+        discount: parseNumberOrEmpty(r.discount),
+        stock: parseNumberOrEmpty(r.stock),
+        unit: normalizeString(r.unit),
+        sku: sku || undefined,
+        description: normalizeString(r.description),
+        specs: specs || undefined,
+        images,
+        category: categoryId || undefined,
+        subcategory: subcategoryId || undefined,
+        type: typeId || undefined,
+      };
+
+      const { image, imagePublicId } = pickFirstImage(images);
+      base.image = image;
+      base.imagePublicId = imagePublicId;
+
+      if (idRaw) {
+        ops.push({
+          updateOne: {
+            filter: { _id: idRaw },
+            update: { $set: base },
+            upsert: false,
+          }
+        });
+      } else if (sku) {
+        ops.push({
+          updateOne: {
+            filter: { sku },
+            update: { $set: base, $setOnInsert: { sku } },
+            upsert: true,
+          }
+        });
+      } else {
+        ops.push({
+          insertOne: {
+            document: base,
+          }
+        });
+      }
+    }
+
+    if (!ops.length) {
+      return res.status(400).json({ message: 'Немає валідних рядків для імпорту' });
+    }
+
+    const result = await Product.bulkWrite(ops, { ordered: false });
+    inserted = result.insertedCount ?? 0;
+    const upserted = result.upsertedCount ?? 0;
+    const modified = result.modifiedCount ?? 0;
+    updated = modified;
+    inserted += upserted;
+
+    return res.status(200).json({ inserted, updated, skipped, count: inserted + updated });
+  } catch (e) {
+    return res.status(500).json({ message: 'Не вдалося імпортувати XLSX', error: e?.message });
   }
 });
 

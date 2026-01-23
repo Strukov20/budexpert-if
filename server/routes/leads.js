@@ -6,11 +6,27 @@ const router = express.Router()
 // Create lead
 router.post('/', async (req, res) => {
   try {
-    const { name, phone, city, street, house, datetime } = req.body
-    if (!name || !phone || !city || !street || !house || !datetime) {
+    const { type, name, phone, city, street, house, datetime } = req.body
+    const t = (type || 'delivery').toString()
+    if (!['call', 'delivery'].includes(t)) {
+      return res.status(400).json({ error: 'Invalid type' })
+    }
+    if (!name || !phone) {
       return res.status(400).json({ error: 'Missing fields' })
     }
-    const doc = await Lead.create({ name, phone, city, street, house, datetime })
+    if (t === 'delivery' && (!city || !street || !house || !datetime)) {
+      return res.status(400).json({ error: 'Missing fields' })
+    }
+
+    const doc = await Lead.create({
+      type: t,
+      name,
+      phone,
+      city: city || '',
+      street: street || '',
+      house: house || '',
+      datetime: datetime || undefined,
+    })
     res.json(doc)
   } catch (e) {
     res.status(500).json({ error: 'Failed to create lead' })
