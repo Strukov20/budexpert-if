@@ -24,6 +24,17 @@ export default function Home(){
   const productsTopRef = useRef(null)
   const didMountScrollRef = useRef(false)
 
+  const shuffle = (arr)=>{
+    const a = Array.isArray(arr) ? arr.slice() : []
+    for (let i = a.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1))
+      const tmp = a[i]
+      a[i] = a[j]
+      a[j] = tmp
+    }
+    return a
+  }
+
   // SEO: title, description, LocalBusiness structured data
   useEffect(()=>{
     document.title = 'БудЕксперт — будівельний маркет в Івано-Франківську'
@@ -71,7 +82,6 @@ export default function Home(){
       .then(d=>setCategories(d))
       .catch(()=>{})
       .finally(()=> setLoadingCategories(false))
-    loadProducts()
   },[])
 
   useEffect(()=> {
@@ -107,7 +117,11 @@ export default function Home(){
     // request server with optional params: category, q, page, perPage
     setLoadingProducts(true)
     getProducts({ category: cat, subcategory: subcat, type, q: search })
-      .then(d=>setProducts(d))
+      .then(d=>{
+        const items = Array.isArray(d?.items) ? d.items : d
+        const noFilters = !cat && !subcat && !type && !String(search || '').trim()
+        setProducts(noFilters ? shuffle(items) : items)
+      })
       .catch(()=>{})
       .finally(()=> setLoadingProducts(false))
   }
@@ -318,11 +332,11 @@ export default function Home(){
 
                     {menuOpen && (
                       <div
-                        className='absolute mt-2 left-0 z-40 bg-white border rounded-2xl shadow-2xl overflow-y-hidden p-3'
+                        className='absolute mt-2 left-0 z-40 bg-white border rounded-2xl shadow-2xl overflow-hidden p-3 h-[70vh] min-h-[360px]'
                         style={{ width: `min(${menuDesiredWidthPx}px, calc(100vw - 2rem))` }}
                       >
                         <div
-                          className={`grid min-h-[320px] max-h-[70vh] min-w-0 gap-3 bg-white ${showTypesPanel ? 'grid-cols-3' : (showSubsPanel ? 'grid-cols-2' : 'grid-cols-1')}`}
+                          className={`grid min-h-0 h-full min-w-0 gap-3 bg-white overflow-hidden ${showTypesPanel ? 'grid-cols-3' : (showSubsPanel ? 'grid-cols-2' : 'grid-cols-1')}`}
                           onMouseEnter={cancelHoverCloseTimers}
                           onMouseLeave={scheduleCloseAllHover}
                         >
@@ -331,9 +345,10 @@ export default function Home(){
                               Категорії
                             </div>
                             <div
-                              className='min-h-0 flex-1 overflow-y-scroll p-2'
+                              className='min-h-0 flex-1 overflow-y-auto overscroll-contain p-2'
                               style={{ scrollbarGutter: 'stable' }}
                               onMouseEnter={cancelHoverCloseTimers}
+                              onWheel={(e)=>{ e.preventDefault(); e.stopPropagation(); e.currentTarget.scrollTop += e.deltaY }}
                             >
                               <button
                                 type='button'
@@ -375,9 +390,10 @@ export default function Home(){
                                 Підкатегорії
                               </div>
                               <div
-                                className='min-h-0 flex-1 overflow-y-scroll overflow-x-hidden p-2'
+                                className='min-h-0 flex-1 overflow-y-auto overscroll-contain overflow-x-hidden p-2'
                                 style={{ scrollbarGutter: 'stable' }}
                                 onMouseEnter={cancelHoverCloseTimers}
+                                onWheel={(e)=>{ e.preventDefault(); e.stopPropagation(); e.currentTarget.scrollTop += e.deltaY }}
                               >
                                   {(() => {
                                     const targetCat = effectiveCat
@@ -423,8 +439,9 @@ export default function Home(){
                                 Типи
                               </div>
                               <div
-                                className='min-h-0 flex-1 overflow-y-scroll overflow-x-hidden p-2'
+                                className='min-h-0 flex-1 overflow-y-auto overscroll-contain overflow-x-hidden p-2'
                                 style={{ scrollbarGutter: 'stable' }}
+                                onWheel={(e)=>{ e.preventDefault(); e.stopPropagation(); e.currentTarget.scrollTop += e.deltaY }}
                               >
                                   {(() => {
                                     const targetCat = effectiveCat
