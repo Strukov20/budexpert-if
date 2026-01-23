@@ -120,6 +120,7 @@ export default function DeliveryLeadForm({ variant }){
     if (hasErrors) return
     try {
       await createLead({
+        type: 'delivery',
         name: name.trim(),
         phone: phone.replace(/\s+/g, ''),
         city: city.trim(),

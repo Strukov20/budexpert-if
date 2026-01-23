@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { getProducts, createProduct, updateProduct, deleteProduct, getCategories, createCategory, getOrders, deleteOrder, uploadImage, updateCategory, deleteCategory, reassignCategories, updateOrder, getLeads, updateLead, bulkCreateProducts, deleteAllProducts, exportProductsCsv } from '../api'
+import { getProducts, createProduct, updateProduct, deleteProduct, getCategories, createCategory, getOrders, deleteOrder, uploadImage, updateCategory, deleteCategory, reassignCategories, updateOrder, getLeads, updateLead, bulkCreateProducts, deleteAllProducts, exportProductsCsv, exportProductsXlsx, importProductsXlsx, getBanner, updateBanner } from '../api'
 import { FiEdit2, FiPlus, FiX, FiCheckCircle, FiAlertTriangle, FiEye, FiTrash2, FiRefreshCcw, FiMaximize2, FiMinimize2, FiSearch, FiDownload } from 'react-icons/fi'
 import ProductCard from '../components/ProductCard'
 
@@ -10,6 +10,10 @@ export default function AdminPanel(){
   const [categories, setCategories] = useState([])
   const [orders, setOrders] = useState([])
   const [leads, setLeads] = useState([])
+  const [bannerImages, setBannerImages] = useState([])
+  const [bannerOpen, setBannerOpen] = useState(false)
+  const [bannerSaving, setBannerSaving] = useState(false)
+  const [bannerUploading, setBannerUploading] = useState(false)
   const [loadingAll, setLoadingAll] = useState(false)
   const [savingProduct, setSavingProduct] = useState(false)
   const [deletingProductId, setDeletingProductId] = useState('')
@@ -74,6 +78,7 @@ export default function AdminPanel(){
   const [uploading, setUploading] = useState(false)
   const [toasts, setToasts] = useState([]) // {id, open, type, message}
   const importInputRef = useRef(null)
+  const importXlsxInputRef = useRef(null)
 
   const [imgModalOpen, setImgModalOpen] = useState(false)
   const [imgModalIndex, setImgModalIndex] = useState(0)
@@ -96,6 +101,67 @@ export default function AdminPanel(){
     setTimeout(()=> closeToast(id), 10000)
   }
 
+  async function loadBanner(){
+    try{
+      const d = await getBanner()
+      const imgs = Array.isArray(d?.images) ? d.images : []
+      setBannerImages(imgs)
+    } catch {
+      // ignore
+    }
+  }
+
+  async function handleBannerFileChange(e){
+    const files = Array.from(e.target.files || [])
+    if(!files.length) return
+    setBannerUploading(true)
+    try{
+      const uploaded = []
+      for (const f of files) {
+        const { url, filename } = await uploadImage(f)
+        uploaded.push({ url, publicId: filename || '' })
+      }
+      setBannerImages(prev => ([...prev, ...uploaded]))
+    } finally {
+      setBannerUploading(false)
+      e.target.value = ''
+    }
+  }
+
+  const removeBannerImageAt = (idx)=>{
+    setBannerImages(prev => {
+      const next = Array.isArray(prev) ? [...prev] : []
+      next.splice(idx, 1)
+      return next
+    })
+  }
+
+  const moveBannerImage = (fromIdx, toIdx)=>{
+    setBannerImages(prev => {
+      const next = Array.isArray(prev) ? [...prev] : []
+      if (fromIdx < 0 || fromIdx >= next.length) return prev
+      if (toIdx < 0 || toIdx >= next.length) return prev
+      const [picked] = next.splice(fromIdx, 1)
+      next.splice(toIdx, 0, picked)
+      return next
+    })
+  }
+
+  async function saveBanner(){
+    if (bannerSaving) return
+    setBannerSaving(true)
+    try{
+      const res = await updateBanner({ images: bannerImages })
+      setBannerImages(Array.isArray(res?.images) ? res.images : [])
+      showToast('Баннер збережено','success')
+      setBannerOpen(false)
+    } catch(err){
+      showToast(getErrMsg(err),'error')
+    } finally {
+      setBannerSaving(false)
+    }
+  }
+
   async function handleExportCsv(){
     try{
       const res = await exportProductsCsv();
@@ -104,6 +170,23 @@ export default function AdminPanel(){
       const a = document.createElement('a');
       a.href = url;
       a.download = 'products-export.csv';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+    }catch(err){
+      showToast(getErrMsg(err),'error');
+    }
+  }
+
+  async function handleExportXlsx(){
+    try{
+      const res = await exportProductsXlsx();
+      const blob = new Blob([res.data], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'products-export.xlsx';
       document.body.appendChild(a);
       a.click();
       a.remove();
@@ -140,6 +223,10 @@ export default function AdminPanel(){
 
   async function handleImportClick(){
     importInputRef.current?.click()
+  }
+
+  async function handleImportXlsxClick(){
+    importXlsxInputRef.current?.click()
   }
 
   async function handleImportFile(e){
@@ -196,6 +283,23 @@ export default function AdminPanel(){
       showToast(getErrMsg(err),'error')
     } finally {
       if (importInputRef.current) importInputRef.current.value = ''
+    }
+  }
+
+  async function handleImportXlsxFile(e){
+    const file = e.target.files?.[0]
+    if(!file) return
+    try{
+      const res = await importProductsXlsx(file)
+      const inserted = Number(res?.inserted ?? 0)
+      const updated = Number(res?.updated ?? 0)
+      const skipped = Number(res?.skipped ?? 0)
+      showToast(`XLSX імпорт: додано ${inserted}, оновлено ${updated}, пропущено ${skipped}`,'success')
+      loadAll()
+    } catch(err){
+      showToast(getErrMsg(err),'error')
+    } finally {
+      if (importXlsxInputRef.current) importXlsxInputRef.current.value = ''
     }
   }
 
@@ -367,11 +471,12 @@ export default function AdminPanel(){
   async function loadAll(){
     setLoadingAll(true)
     try {
-      const [pRes, cRes, oRes, lRes] = await Promise.allSettled([
+      const [pRes, cRes, oRes, lRes, bRes] = await Promise.allSettled([
         getProducts(),
         getCategories(),
         getOrders(),
         getLeads(),
+        getBanner(),
       ])
 
       if (pRes.status === 'fulfilled') {
@@ -382,6 +487,10 @@ export default function AdminPanel(){
       if (cRes.status === 'fulfilled') setCategories(cRes.value)
       if (oRes.status === 'fulfilled') setOrders(oRes.value)
       if (lRes.status === 'fulfilled') setLeads(lRes.value)
+      if (bRes.status === 'fulfilled') {
+        const imgs = Array.isArray(bRes.value?.images) ? bRes.value.images : []
+        setBannerImages(imgs)
+      }
     } finally {
       setLoadingAll(false)
     }
@@ -595,13 +704,116 @@ export default function AdminPanel(){
       {/* Адмін-панель заголовок і кнопка виходу — переміщено вгору */}
       <div className='flex items-center justify-between mb-4'>
         <h2 className='text-2xl font-semibold'>Адмін-панель</h2>
-        <button
-          onClick={()=>{ localStorage.removeItem('admin_token'); navigate('/admin/login', { replace:true }) }}
-          className='px-4 py-2 rounded-lg bg-red-600 text-white shadow ring-1 ring-red-700/30 hover:bg-red-700 hover:shadow-lg transition-all duration-200 active:scale-95 hover:animate-pulse'
-        >
-          Вийти
-        </button>
+        <div className='flex items-center gap-2'>
+          <button
+            type='button'
+            onClick={()=>{ setBannerOpen(true); loadBanner(); }}
+            className='px-4 py-2 rounded-lg bg-white text-gray-900 shadow ring-1 ring-gray-200 hover:bg-gray-50 hover:ring-gray-300 transition-all duration-200 active:scale-95'
+            title='Керування баннером на головній'
+          >
+            Баннер
+          </button>
+          <button
+            type='button'
+            onClick={()=> navigate('/')}
+            className='px-4 py-2 rounded-lg bg-white text-gray-900 shadow ring-1 ring-gray-200 hover:bg-gray-50 hover:ring-gray-300 transition-all duration-200 active:scale-95'
+          >
+            Каталог
+          </button>
+          <button
+            onClick={()=>{ localStorage.removeItem('admin_token'); navigate('/admin/login', { replace:true }) }}
+            className='px-4 py-2 rounded-lg bg-red-600 text-white shadow ring-1 ring-red-700/30 hover:bg-red-700 hover:shadow-lg transition-all duration-200 active:scale-95 hover:animate-pulse'
+          >
+            Вийти
+          </button>
+        </div>
       </div>
+
+      {bannerOpen && (
+        <div className='fixed inset-0 z-[90] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4' onClick={()=>setBannerOpen(false)}>
+          <div className='bg-white rounded-2xl shadow-2xl w-full max-w-4xl p-5' onClick={(e)=>e.stopPropagation()}>
+            <div className='flex items-center justify-between mb-3'>
+              <h4 className='font-semibold'>Баннер (головна сторінка)</h4>
+              <button aria-label='Закрити' onClick={()=> setBannerOpen(false)} className='w-8 h-8 rounded-lg border'>✕</button>
+            </div>
+
+            <div className='grid gap-4'>
+              <div className='flex items-center justify-between gap-3 flex-wrap'>
+                <label className='inline-flex items-center justify-center gap-2 px-3 py-2 border rounded cursor-pointer'>
+                  <input type='file' accept='image/*' multiple className='hidden' onChange={handleBannerFileChange} />
+                  <span>{bannerUploading ? 'Завантаження…' : 'Імпортувати картинки'}</span>
+                </label>
+                <div className='text-sm text-gray-600'>
+                  {Array.isArray(bannerImages) ? bannerImages.length : 0} шт.
+                </div>
+              </div>
+
+              {Array.isArray(bannerImages) && bannerImages.length > 0 ? (
+                <div className='grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3'>
+                  {bannerImages.map((img, idx)=>(
+                    <div key={(img?.publicId||img?.url||idx) + '_' + idx} className='relative border rounded-xl p-2 bg-white'>
+                      <img
+                        src={resolveImageUrl(img?.url)}
+                        alt='banner'
+                        className='w-full h-24 object-contain rounded bg-gray-50'
+                        referrerPolicy='no-referrer'
+                      />
+                      <div className='mt-2 flex items-center justify-between gap-2'>
+                        <div className='flex items-center gap-1'>
+                          <button
+                            type='button'
+                            className='px-2 py-1 border rounded text-sm disabled:opacity-40'
+                            onClick={()=> moveBannerImage(idx, idx-1)}
+                            disabled={idx===0}
+                            title='Вгору'
+                          >
+                            ↑
+                          </button>
+                          <button
+                            type='button'
+                            className='px-2 py-1 border rounded text-sm disabled:opacity-40'
+                            onClick={()=> moveBannerImage(idx, idx+1)}
+                            disabled={idx===bannerImages.length-1}
+                            title='Вниз'
+                          >
+                            ↓
+                          </button>
+                        </div>
+                        <button
+                          type='button'
+                          className='px-2 py-1 border rounded text-sm hover:bg-gray-50'
+                          onClick={()=> removeBannerImageAt(idx)}
+                          title='Видалити'
+                        >
+                          <FiX size={14} />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className='text-sm text-gray-600 border rounded-xl p-4 bg-gray-50'>
+                  Немає картинок. Додайте кілька зображень для баннера.
+                </div>
+              )}
+
+              <div className='flex items-center justify-end gap-2'>
+                <button type='button' className='px-4 py-2 border rounded-lg' onClick={()=> setBannerOpen(false)}>
+                  Скасувати
+                </button>
+                <button
+                  type='button'
+                  className='px-4 py-2 rounded-lg bg-gray-900 text-white disabled:opacity-60'
+                  onClick={saveBanner}
+                  disabled={bannerSaving || bannerUploading}
+                >
+                  {bannerSaving ? 'Збереження…' : 'Зберегти'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {imgModalOpen && (
         <div className='fixed inset-0 z-[80] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4' onClick={()=>setImgModalOpen(false)}>
@@ -1040,7 +1252,7 @@ export default function AdminPanel(){
       {/* Заявки на доставку */}
       <div className={`${leadsFull ? 'fixed inset-0 z-50 bg-white p-4 overflow-auto' : 'mt-6 mb-6'}`}>
         <div className='flex items-center justify-between mb-2'>
-          <h3 className='text-lg font-semibold'>Заявки доставки</h3>
+          <h3 className='text-lg font-semibold'>Заявки (доставка / дзвінок)</h3>
           <button
             className='w-10 h-10 inline-flex items-center justify-center border rounded hover:bg-gray-50 active:scale-95'
             onClick={()=> setLeadsFull(v=>!v)}
@@ -1072,6 +1284,7 @@ export default function AdminPanel(){
             <table className='min-w-full text-sm'>
               <thead className='bg-gray-50 sticky top-0 z-10'>
                 <tr>
+                  <th className='text-center px-3 py-2'>Тип</th>
                   <th className='text-center px-3 py-2'>Імʼя</th>
                   <th className='text-center px-3 py-2'>Телефон</th>
                   <th className='text-center px-3 py-2'>Місто</th>
@@ -1096,6 +1309,15 @@ export default function AdminPanel(){
                   .sort((a,b)=> new Date(b.createdAt||b.datetime||0).getTime() - new Date(a.createdAt||a.datetime||0).getTime())
                   .map(l => (
                   <tr key={l._id} className='h-12 border-t odd:bg-gray-50/40 hover:bg-gray-50 transition-colors'>
+                    <td className='px-3 py-2 text-center'>
+                      <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold border ${
+                        (l.type||'delivery')==='call'
+                          ? 'bg-violet-100 text-violet-800 border-violet-200'
+                          : 'bg-emerald-100 text-emerald-800 border-emerald-200'
+                      }`}>
+                        {(l.type||'delivery')==='call' ? 'Дзвінок' : 'Доставка'}
+                      </span>
+                    </td>
                     <td className='px-3 py-2 text-center'>{l.name}</td>
                     <td className='px-3 py-2 text-center'>{l.phone}</td>
                     <td className='px-3 py-2 text-center'>{l.city}</td>
@@ -1162,6 +1384,22 @@ export default function AdminPanel(){
               </button>
               <button
                 type='button'
+                onClick={handleExportXlsx}
+                className='inline-flex items-center gap-2 px-3 py-2 border rounded hover:bg-black hover:text-white transition'
+              >
+                <FiDownload size={18} />
+                <span>Експорт XLSX</span>
+              </button>
+              <button
+                type='button'
+                onClick={handleImportXlsxClick}
+                className='inline-flex items-center gap-2 px-3 py-2 border rounded hover:bg-black hover:text-white transition'
+              >
+                <FiPlus size={18} />
+                <span>Імпорт XLSX</span>
+              </button>
+              <button
+                type='button'
                 onClick={handleDeleteAllProducts}
                 className='inline-flex items-center justify-center w-10 h-10 border rounded text-red-600 hover:bg-red-600 hover:text-white transition'
                 title='Видалити всі товари'
@@ -1190,6 +1428,7 @@ export default function AdminPanel(){
           </div>
           <div className='flex gap-2 items-center justify-center flex-wrap'>
             <input ref={importInputRef} type='file' accept='.csv,.json,text/csv,application/json' className='hidden' onChange={handleImportFile} />
+            <input ref={importXlsxInputRef} type='file' accept='.xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' className='hidden' onChange={handleImportXlsxFile} />
           </div>
 
           {/* Modal: Edit Product */}

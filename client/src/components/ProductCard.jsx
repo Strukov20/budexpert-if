@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { FiShoppingCart, FiChevronLeft, FiChevronRight } from 'react-icons/fi'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
@@ -9,11 +9,37 @@ export default function ProductCard({p, onAdd}){
   const [activeTab, setActiveTab] = useState('description')
   const [qty, setQty] = useState(0)
   const [activeImg, setActiveImg] = useState(0)
+  const [isDescTruncated, setIsDescTruncated] = useState(false)
+  const descRef = useRef(null)
   const fmt = new Intl.NumberFormat('uk-UA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
   const hasDescription = Boolean((p?.description || '').toString().trim())
   const descriptionPreviewFallback = 'Опис в процесі добавлення...'
   const descriptionModalFallbackLine1 = 'Опис в процесі добавлення, незабаром все буде!'
   const descriptionModalFallbackLine2 = 'Дякуємо за розуміння!'
+
+  const descriptionPreviewText = hasDescription
+    ? (p.description || '')
+        .toString()
+        .replace(/\r\n/g, '\n')
+        .replace(/\s+/g, ' ')
+        .trim()
+    : descriptionPreviewFallback
+
+  useLayoutEffect(() => {
+    const el = descRef.current
+    if (!el) return
+    const check = () => {
+      const node = descRef.current
+      if (!node) return
+      setIsDescTruncated(node.scrollHeight > node.clientHeight + 1)
+    }
+    const raf = requestAnimationFrame(check)
+    window.addEventListener('resize', check)
+    return () => {
+      cancelAnimationFrame(raf)
+      window.removeEventListener('resize', check)
+    }
+  }, [p._id, descriptionPreviewText])
 
   const images = Array.isArray(p?.images) && p.images.length
     ? p.images
@@ -189,23 +215,27 @@ export default function ProductCard({p, onAdd}){
           <div className="mt-0.5 text-[11px] md:text-xs text-gray-500">Артикул: {p.sku}</div>
         )}
         <div
-          className="text-xs md:text-sm text-gray-600 flex-1 mt-1 cursor-pointer prose prose-[0.85rem] md:prose-sm max-w-none leading-snug prose-p:my-0 prose-ul:my-0 prose-ol:my-0"
-          style={{ display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}
+          ref={descRef}
+          className="text-xs md:text-sm text-gray-600 mt-1 cursor-pointer leading-[1.35] pb-[2px] relative pr-8"
+          style={{ overflow: 'hidden', lineHeight: 1.35, maxHeight: 'calc(1.35em * 3)', wordBreak: 'break-word' }}
           title="Натисни, щоб побачити повний опис"
           onClick={()=>setOpen(true)}
         >
-          {hasDescription ? (
-            <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeSanitize]}>
-              {p.description}
-            </ReactMarkdown>
-          ) : (
-            <span>{descriptionPreviewFallback}</span>
+          <span>{descriptionPreviewText}</span>
+          {isDescTruncated && (
+            <span
+              aria-hidden="true"
+              className="absolute bottom-0 right-0 pl-6 text-gray-500 bg-gradient-to-l from-white via-white/90 to-transparent"
+            >
+              ...
+            </span>
           )}
         </div>
+        <div className="flex-1" />
         <div className="mt-1 text-[11px] md:text-xs text-gray-500 opacity-0 group-hover:opacity-100 group-hover:text-black group-hover:underline decoration-dotted transition duration-200 select-none">
           Натисни, щоб побачити повний опис
         </div>
-        <div className="mt-2 md:mt-3 flex items-center justify-between">
+        <div className="pt-2 md:pt-3 flex items-center justify-between">
           <div className="flex flex-col items-start">
             {hasDiscount ? (
               <>
