@@ -43,6 +43,16 @@ export default function Services(){
   const [brandIndex, setBrandIndex] = useState(0)
   const [paused, setPaused] = useState(false)
 
+  const slides = [
+    { before: 'Будівельний маркет', after: ' — все для ремонту та будівництва', subtitle: 'Швидка доставка, гарантія якості та широкий асортимент.' },
+    { before: 'Профінструменти та витратні матеріали від', after: '', subtitle: 'Знижки для постійних клієнтів і майстрів.' },
+    { before: 'Офіційна гарантія і підтримка від', after: '', subtitle: 'Тільки перевірені бренди та сервіси.' },
+    { before: 'Доставка по всій Україні з', after: '', subtitle: 'Нова пошта, Укрпошта, кур’єр — як зручно вам.' },
+  ]
+  const [slide, setSlide] = useState(0)
+  const [isFading, setIsFading] = useState(false)
+  const timerRef = useRef(null)
+
   const visibleMd = 3
   const logoFallback = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="80" height="80"><rect width="100%" height="100%" fill="%23f3f4f6"/><text x="50%" y="54%" dominant-baseline="middle" text-anchor="middle" font-family="Arial" font-size="14" fill="%239ca3af">logo</text></svg>'
 
@@ -74,6 +84,28 @@ export default function Services(){
     return ()=> clearInterval(id)
   }, [paused, brandIndex])
 
+  function startTimer(){
+    if (timerRef.current) clearInterval(timerRef.current)
+    timerRef.current = setInterval(()=>{
+      setIsFading(true)
+      setTimeout(()=>{
+        setSlide(s => (s + 1) % slides.length)
+        setIsFading(false)
+      }, 500)
+    }, 15000)
+  }
+
+  useEffect(()=>{ startTimer(); return ()=> timerRef.current && clearInterval(timerRef.current) },[])
+
+  const goToSlide = (i) => {
+    setIsFading(true)
+    setTimeout(()=>{
+      setSlide(i)
+      setIsFading(false)
+    }, 300)
+    startTimer()
+  }
+
   // Фіксована ширина елемента = (контейнер - gaps)/3, щоб рівно 3 були у фокусі
   useEffect(()=>{
     const resize = ()=>{
@@ -104,6 +136,37 @@ export default function Services(){
         <h1 className='text-3xl md:text-4xl font-bold'>Безкоштовна доставка будматеріалів у межах міста від 5000 ₴</h1>
         <p className='text-gray-600 mt-2'>Швидко (2–4 години), зручно та надійно. Якісні матеріали від перевірених брендів.</p>
       </header>
+
+      <div className='hidden xl:block'>
+        <div className={`relative overflow-hidden rounded-lg bg-neutral-900 text-white p-8 h-[200px] border border-white/5 transition-opacity duration-500 ${isFading ? 'opacity-0' : 'opacity-100'}`}>
+          {/* Detached logo on the right, nearly full height */}
+          <div className='absolute right-4 top-4 bottom-4 w-[280px] flex items-center justify-center pointer-events-none'>
+            <img src='/logo.png' alt='BudExpert' className='h-[85%] w-auto max-h-full object-contain opacity-95 ring-1 ring-white/30 rounded-md' />
+          </div>
+
+          {/* Text content with padding-right to avoid overlap */}
+          <div className='mt-2 pr-[18rem]'>
+            <h1 className='text-4xl font-semibold'>
+              {slides[slide].before}
+              <span className='text-primary'> БудЕксперт</span>
+              {slides[slide].after}
+            </h1>
+            <p className='text-gray-300 mt-3'>{slides[slide].subtitle}</p>
+          </div>
+
+          {/* Dots inside carousel */}
+          <div className='absolute left-1/2 -translate-x-1/2 bottom-4 flex gap-2'>
+            {slides.map((_, i) => (
+              <button
+                key={i}
+                onClick={()=> goToSlide(i)}
+                className={`h-2 w-2 rounded-full ${i===slide ? 'bg-primary' : 'bg-gray-500'}`}
+                aria-label={`Слайд ${i+1}`}
+              />
+            ))}
+          </div>
+        </div>
+      </div>
 
       {/* УТП/переваги доставки */}
       <section id='delivery-usps' className='grid md:grid-cols-3 gap-4'>

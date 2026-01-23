@@ -20,15 +20,6 @@ export default function Home(){
   const perPage = 12
   const [visibleCount, setVisibleCount] = useState(perPage)
   const [isMobile, setIsMobile] = useState(false)
-  const slides = [
-    { before: 'Будівельний маркет', after: ' — все для ремонту та будівництва', subtitle: 'Швидка доставка, гарантія якості та широкий асортимент.' },
-    { before: 'Профінструменти та витратні матеріали від', after: '', subtitle: 'Знижки для постійних клієнтів і майстрів.' },
-    { before: 'Офіційна гарантія і підтримка від', after: '', subtitle: 'Тільки перевірені бренди та сервіси.' },
-    { before: 'Доставка по всій Україні з', after: '', subtitle: 'Нова пошта, Укрпошта, кур’єр — як зручно вам.' },
-  ]
-  const [slide, setSlide] = useState(0)
-  const [isFading, setIsFading] = useState(false)
-  const timerRef = useRef(null)
   const sentinelRef = useRef(null)
   const productsTopRef = useRef(null)
   const didMountScrollRef = useRef(false)
@@ -99,19 +90,6 @@ export default function Home(){
     return () => window.removeEventListener('resize', checkMobile)
   },[])
 
-  function startTimer(){
-    if (timerRef.current) clearInterval(timerRef.current)
-    timerRef.current = setInterval(()=>{
-      setIsFading(true)
-      setTimeout(()=>{
-        setSlide(s => (s + 1) % slides.length)
-        setIsFading(false)
-      }, 500)
-    }, 15000)
-  }
-
-  useEffect(()=>{ startTimer(); return ()=> timerRef.current && clearInterval(timerRef.current) },[])
-
   useEffect(()=>{
     if (!productsTopRef.current) return
     if (!didMountScrollRef.current) {
@@ -124,15 +102,6 @@ export default function Home(){
       window.scrollTo({ top: Math.max(0, top), behavior: 'smooth' })
     })
   }, [page])
-
-  const goToSlide = (i) => {
-    setIsFading(true)
-    setTimeout(()=>{
-      setSlide(i)
-      setIsFading(false)
-    }, 300)
-    startTimer()
-  }
 
   function loadProducts(){
     // request server with optional params: category, q, page, perPage
@@ -303,37 +272,6 @@ export default function Home(){
   return (
     <div className='container pt-2 pb-6 max-w-md mx-auto px-4 md:max-w-none md:px-0'>
       <HomeBanner />
-      <div className='hidden xl:block mb-6'>
-        <div className={`relative overflow-hidden rounded-lg bg-neutral-900 text-white p-8 h-[200px] border border-white/5 transition-opacity duration-500 ${isFading ? 'opacity-0' : 'opacity-100'}`}>
-          {/* Detached logo on the right, nearly full height */}
-          <div className='absolute inset-y-4 right-4 flex items-center justify-center pointer-events-none'>
-            <img src='/logo.png' alt='BudExpert' className='h-[85%] w-auto max-h-full object-contain opacity-95 ring-1 ring-white/30 rounded-md' />
-          </div>
-
-          {/* Text content with padding-right to avoid overlap */}
-          <div className='mt-2 pr-[18rem]'>
-            <h1 className='text-4xl font-semibold'>
-              {slides[slide].before}
-              <span className='text-primary'> БудЕксперт</span>
-              {slides[slide].after}
-            </h1>
-            <p className='text-gray-300 mt-3'>{slides[slide].subtitle}</p>
-          </div>
-
-          {/* Dots inside carousel */}
-          <div className='absolute left-1/2 -translate-x-1/2 bottom-4 flex gap-2'>
-            {slides.map((_, i) => (
-              <button
-                key={i}
-                onClick={()=> goToSlide(i)}
-                className={`h-2 w-2 rounded-full ${i===slide ? 'bg-primary' : 'bg-gray-500'}`}
-                aria-label={`Слайд ${i+1}`}
-              />
-            ))}
-          </div>
-        </div>
-      </div>
-
       <div className='grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-2 mb-4'>
         <div className='w-full'>
           <div className='flex flex-col sm:flex-row gap-2'>

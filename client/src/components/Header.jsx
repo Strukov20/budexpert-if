@@ -289,10 +289,10 @@ export default function Header() {
 
               <button
                 type="button"
-                className="inline-flex items-center justify-center h-11 px-3 lg:px-5 rounded-xl ring-1 ring-gray-200 bg-white text-gray-900 font-semibold text-[12px] lg:text-sm uppercase tracking-wide hover:bg-red-50 hover:ring-red-200 hover:text-red-700 transition whitespace-nowrap"
-                onClick={() => navigate(isServicesPage ? '/' : '/services')}
+                className="inline-flex items-center justify-center h-11 px-4 lg:px-5 rounded-xl bg-red-600 text-white font-semibold text-[12px] lg:text-sm tracking-wide shadow-md hover:shadow-lg hover:bg-red-700 transition whitespace-nowrap"
+                onClick={() => navigate('/services')}
               >
-                {isServicesPage ? 'Каталог' : 'Про нас'}
+                Блог
               </button>
 
               <div
@@ -376,10 +376,10 @@ export default function Header() {
               <div className="flex items-center justify-center gap-2 min-w-0">
                 <button
                   type="button"
-                  className="inline-flex items-center justify-center h-10 px-3 rounded-xl ring-1 ring-gray-200 bg-white text-gray-900 font-semibold text-[11px] uppercase tracking-wide hover:bg-red-50 hover:ring-red-200 hover:text-red-700 transition whitespace-nowrap"
+                  className={`inline-flex items-center justify-center h-10 px-3 rounded-xl font-semibold text-[11px] tracking-wide shadow-md transition whitespace-nowrap ${isServicesPage ? 'border border-gray-200 bg-white text-gray-900 hover:shadow-lg hover:bg-red-50 hover:border-red-200 hover:text-red-700' : 'bg-red-600 text-white hover:shadow-lg hover:bg-red-700'}`}
                   onClick={() => navigate(isServicesPage ? '/' : '/services')}
                 >
-                  {isServicesPage ? 'Каталог' : 'Про нас'}
+                  {isServicesPage ? 'Каталог' : 'Блог'}
                 </button>
 
                 <button
