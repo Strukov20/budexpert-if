@@ -96,7 +96,7 @@ export default function Footer(){
               <FiTruck className="mt-0.5 text-gray-400 w-6 h-6" />
               <div>
                 <div className="font-medium text-gray-200">Доставка</div>
-                <div className="text-gray-400 text-xs md:text-sm">Безкоштовна доставка від 5000 ₴ по місту. Відправка по Україні службами доставки.</div>
+                <div className="text-gray-400 text-xs md:text-sm">Безкоштовна доставка від 5000 грн по Франківську. Відправка по Україні службами доставки.</div>
               </div>
             </li>
           </ul>
