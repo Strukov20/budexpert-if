@@ -200,12 +200,12 @@ export default function Header() {
             >
               🚚
             </button>
-            <span className="truncate">Безкоштовна доставка від 5000 ₴</span>
+            <span className="truncate">Безкоштовна доставка від 5000 грн по Франківську</span>
           </div>
 
           <div className="hidden md:grid grid-cols-[auto_1fr] grid-rows-2 gap-x-6 gap-y-1.5 px-3 md:px-5 py-2.5 items-center">
-            <div className="row-span-2 flex items-center gap-2 md:gap-3 cursor-pointer shrink-0" onClick={() => navigate("/") }>
-              <img src="/logo.png" alt="БудЕксперт" className="w-16 h-16 md:w-24 md:h-24 object-contain rounded-lg" />
+            <div className="row-span-2 flex items-center gap-2 md:gap-3 cursor-pointer shrink-0 -ml-2 md:-ml-3 -my-1 md:-my-2" onClick={() => navigate("/") }>
+              <img src="/logo.png" alt="БудЕксперт" className="w-24 h-24 md:w-32 md:h-32 object-contain rounded-lg" />
             </div>
 
             <div className="col-start-2 row-start-1 w-full min-w-0">
@@ -215,7 +215,7 @@ export default function Header() {
                     <div className="w-44 lg:w-48 flex justify-center">
                       <a
                         href={`tel:${SHOP_PHONE}`}
-                        className="inline-flex items-center gap-2 text-[10px] lg:text-[11px] text-gray-800 hover:text-red-600 transition whitespace-nowrap"
+                        className="inline-flex items-center gap-2 text-sm lg:text-base text-gray-800 hover:text-red-600 transition whitespace-nowrap"
                       >
                         <FiPhoneCall className="w-4 h-4" />
                         <span className="font-semibold">{SHOP_PHONE}</span>
@@ -358,7 +358,7 @@ export default function Header() {
               <div className="flex flex-col items-center justify-center gap-1 min-w-0">
                 <a
                   href={`tel:${SHOP_PHONE}`}
-                  className="inline-flex items-center gap-2 text-xs font-semibold text-gray-900 hover:text-red-600 transition whitespace-nowrap"
+                  className="inline-flex items-center gap-2 text-lg font-semibold text-gray-900 hover:text-red-600 transition whitespace-nowrap"
                 >
                   <FiPhoneCall className="w-4 h-4" />
                   <span>{SHOP_PHONE}</span>
