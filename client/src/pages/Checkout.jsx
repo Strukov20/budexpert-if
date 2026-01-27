@@ -172,17 +172,17 @@ export default function Checkout(){
             <div className='w-full max-w-xs md:max-w-md'>
               <ol className='flex items-center justify-between text-[11px] md:text-xs text-gray-700'>
                 <li className='flex flex-col items-center gap-1 flex-1'>
-                  <div className='flex items-center justify-center w-7 h-7 rounded-full bg-black text-white text-[11px] font-semibold shrink-0 transition-colors'>1</div>
+                  <div className='flex items-center justify-center w-8 h-8 md:w-9 md:h-9 rounded-full bg-black text-white text-sm md:text-base font-semibold shrink-0 transition-colors'>1</div>
                   <span className='hidden sm:inline whitespace-nowrap'>Кошик</span>
                 </li>
                 <li className='flex flex-col items-center gap-1 flex-1'>
-                  <div className={`flex items-center justify-center w-7 h-7 rounded-full text-[11px] font-semibold shrink-0 transition-colors ${showThanks ? 'bg-black text-white' : 'bg-red-600 text-white'}`}>
+                  <div className={`flex items-center justify-center w-8 h-8 md:w-9 md:h-9 rounded-full text-sm md:text-base font-semibold shrink-0 transition-colors ${showThanks ? 'bg-black text-white' : 'bg-red-600 text-white'}`}>
                     2
                   </div>
                   <span className='hidden sm:inline whitespace-nowrap'>Дані та доставка</span>
                 </li>
                 <li className='flex flex-col items-center gap-1 flex-1'>
-                  <div className={`flex items-center justify-center w-7 h-7 rounded-full text-[11px] font-semibold shrink-0 transition-colors ${showThanks ? 'bg-black text-white' : 'bg-gray-200 text-gray-500'}`}>
+                  <div className={`flex items-center justify-center w-8 h-8 md:w-9 md:h-9 rounded-full text-sm md:text-base font-semibold shrink-0 transition-colors ${showThanks ? 'bg-black text-white' : 'bg-gray-200 text-gray-500'}`}>
                     3
                   </div>
                   <span className='hidden sm:inline whitespace-nowrap'>Підтвердження</span>
@@ -193,30 +193,42 @@ export default function Checkout(){
 
           <form onSubmit={handleSubmit} className='grid grid-cols-1 md:grid-cols-2 gap-3'>
         <div className='md:col-span-2 mb-2'>
-          <div className='flex rounded-full bg-gray-100 p-1 text-xs md:text-sm font-medium'>
+          <div className='flex flex-col sm:flex-row gap-2 sm:gap-0 rounded-2xl sm:rounded-full bg-gray-50/70 sm:bg-gray-100 p-2 sm:p-1 ring-1 ring-gray-200/80 sm:ring-0 shadow-sm sm:shadow-none text-xs md:text-sm font-medium'>
             <label
-              className={`flex-1 inline-flex items-center justify-center rounded-full cursor-pointer select-none px-3 py-1.5 transition
-                ${method==='delivery' ? 'bg-black text-white shadow-sm' : 'text-gray-800 hover:bg-white/60'}`}
+              className={`flex-1 inline-flex items-center justify-center text-center cursor-pointer select-none transition px-3 py-2.5 sm:py-1.5 rounded-xl sm:rounded-full ring-1 sm:ring-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500/40 active:scale-[0.99] sm:active:scale-100
+                ${method==='delivery' ? 'bg-black text-white ring-black/20 shadow-md' : 'bg-white text-gray-900 ring-gray-200 shadow-sm'}
+                sm:${method==='delivery' ? 'bg-black text-white shadow-sm' : 'bg-transparent text-gray-800 hover:bg-white/60'}`}
               title='Доставка по місту'
             >
               <input type='radio' name='method' value='delivery' checked={method==='delivery'} onChange={()=> setMethod('delivery')} className='hidden' />
-              <span>Доставка по місту</span>
+              <span className='inline-flex items-center justify-center gap-2 w-full'>
+                <span className='sm:hidden text-base leading-none' aria-hidden='true'>🚚</span>
+                <span className='text-center'>Доставка по місту</span>
+              </span>
             </label>
             <label
-              className={`flex-1 inline-flex items-center justify-center rounded-full cursor-pointer select-none px-3 py-1.5 transition
-                ${method==='post' ? 'bg-black text-white shadow-sm' : 'text-gray-800 hover:bg-white/60'}`}
+              className={`flex-1 inline-flex items-center justify-center text-center cursor-pointer select-none transition px-3 py-2.5 sm:py-1.5 rounded-xl sm:rounded-full ring-1 sm:ring-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500/40 active:scale-[0.99] sm:active:scale-100
+                ${method==='post' ? 'bg-black text-white ring-black/20 shadow-md' : 'bg-white text-gray-900 ring-gray-200 shadow-sm'}
+                sm:${method==='post' ? 'bg-black text-white shadow-sm' : 'bg-transparent text-gray-800 hover:bg-white/60'}`}
               title='Доставка на пошту'
             >
               <input type='radio' name='method' value='post' checked={method==='post'} onChange={()=> setMethod('post')} className='hidden' />
-              <span>Доставка на пошту</span>
+              <span className='inline-flex items-center justify-center gap-2 w-full'>
+                <span className='sm:hidden text-base leading-none' aria-hidden='true'>📦</span>
+                <span className='text-center'>Доставка на пошту</span>
+              </span>
             </label>
             <label
-              className={`flex-1 inline-flex items-center justify-center rounded-full cursor-pointer select-none px-3 py-1.5 transition
-                ${method==='pickup' ? 'bg-black text-white shadow-sm' : 'text-gray-800 hover:bg-white/60'}`}
+              className={`flex-1 inline-flex items-center justify-center text-center cursor-pointer select-none transition px-3 py-2.5 sm:py-1.5 rounded-xl sm:rounded-full ring-1 sm:ring-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500/40 active:scale-[0.99] sm:active:scale-100
+                ${method==='pickup' ? 'bg-black text-white ring-black/20 shadow-md' : 'bg-white text-gray-900 ring-gray-200 shadow-sm'}
+                sm:${method==='pickup' ? 'bg-black text-white shadow-sm' : 'bg-transparent text-gray-800 hover:bg-white/60'}`}
               title='Самовивіз'
             >
               <input type='radio' name='method' value='pickup' checked={method==='pickup'} onChange={()=> setMethod('pickup')} className='hidden' />
-              <span>Самовивіз</span>
+              <span className='inline-flex items-center justify-center gap-2 w-full'>
+                <span className='sm:hidden text-base leading-none' aria-hidden='true'>🏬</span>
+                <span className='text-center'>Самовивіз</span>
+              </span>
             </label>
           </div>
         </div>
