@@ -1,8 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import CheckoutForm from './Checkout'
-import { FiTruck, FiShoppingCart } from 'react-icons/fi'
-import DeliveryLeadForm from '../components/DeliveryLeadForm'
+import { FiShoppingCart } from 'react-icons/fi'
 import { FiX, FiTrash2 } from 'react-icons/fi'
 
 // Локальні плейсхолдери (без зовнішніх запитів)
@@ -96,10 +94,12 @@ export default function CartPage(){
           В каталог
         </button>
       </div>
-      <h2 className='text-2xl font-semibold mb-4'>Кошик</h2>
+      <h2 className='mb-4 text-center text-2xl md:text-3xl font-bold tracking-wide text-gray-900'>
+        Кошик
+        <span className='block mx-auto mt-2 h-0.5 w-14 bg-red-600/80 rounded-full' />
+      </h2>
       {cart.length===0 ? <p className='text-gray-600'>Кошик порожній</p> : (
-        <div className='grid grid-cols-1 md:grid-cols-1 lg:grid-cols-3 gap-3 md:gap-4 mx-auto max-w-md md:max-w-none md:mx-0'>
-          <div className='space-y-2 md:col-span-1 lg:col-span-2'>
+        <div className='space-y-2 w-full lg:w-4/5 mx-auto'>
             <div className={`${cart.length>7 ? 'max-h-[60vh] md:max-h-[520px] overflow-y-auto pr-1 space-y-2' : 'space-y-2'}`}>
               {cart.map(i=> (
                 <div key={i._id} className='p-3 bg-white rounded shadow flex flex-col sm:flex-row sm:flex-wrap md:flex-nowrap sm:items-center justify-between gap-3'>
@@ -145,10 +145,6 @@ export default function CartPage(){
                 </button>
               </div>
             </div>
-          </div>
-          <div className='w-full max-w-md mx-auto md:max-w-none md:mx-0'>
-            <DeliveryLeadForm variant='stack' />
-          </div>
         </div>
       )}
 
