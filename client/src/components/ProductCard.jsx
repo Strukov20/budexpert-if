@@ -1,10 +1,10 @@
-import React, { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { FiShoppingCart, FiChevronLeft, FiChevronRight } from 'react-icons/fi'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import rehypeSanitize from 'rehype-sanitize'
 
-export default function ProductCard({p, onAdd}){
+export default function ProductCard({p, onAdd, categories}){
   const [open, setOpen] = useState(false)
   const [activeTab, setActiveTab] = useState('description')
   const [qty, setQty] = useState(0)
@@ -184,6 +184,27 @@ export default function ProductCard({p, onAdd}){
     if (!hasGallery) return
     setActiveImg((i) => (i + 1) % images.length)
   }
+
+  const catName = useMemo(()=> {
+    const list = Array.isArray(categories) ? categories : []
+    const id = p?.category
+    const found = list.find(c => String(c?._id) === String(id))
+    return (found?.name || '').toString()
+  }, [categories, p?.category])
+
+  const subcatName = useMemo(()=> {
+    const list = Array.isArray(categories) ? categories : []
+    const id = p?.subcategory
+    const found = list.find(c => String(c?._id) === String(id))
+    return (found?.name || '').toString()
+  }, [categories, p?.subcategory])
+
+  const typeName = useMemo(()=> {
+    const list = Array.isArray(categories) ? categories : []
+    const id = p?.type
+    const found = list.find(c => String(c?._id) === String(id))
+    return (found?.name || '').toString()
+  }, [categories, p?.type])
 
   return (
     <>
@@ -367,7 +388,27 @@ export default function ProductCard({p, onAdd}){
               {p.sku && (
                 <div className="text-sm text-gray-500 mb-1">Артикул: {p.sku}</div>
               )}
-
+              {(catName || subcatName || typeName) && (
+                <div className="mt-2 text-xs md:text-sm text-gray-600">
+                  <span className="inline-flex items-center gap-1.5 flex-wrap">
+                    {catName && (
+                      <span className="font-semibold text-gray-800">{catName}</span>
+                    )}
+                    {subcatName && (
+                      <>
+                        <span className="text-gray-300">/</span>
+                        <span className="font-semibold text-gray-800">{subcatName}</span>
+                      </>
+                    )}
+                    {typeName && (
+                      <>
+                        <span className="text-gray-300">/</span>
+                        <span className="font-semibold text-gray-800">{typeName}</span>
+                      </>
+                    )}
+                  </span>
+                </div>
+              )}
               <div className="mt-4">
                 <div className="inline-flex items-center gap-2 border rounded-xl p-1 bg-gray-50">
                   <button
