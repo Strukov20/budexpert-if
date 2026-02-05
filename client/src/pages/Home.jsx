@@ -18,6 +18,7 @@ export default function Home(){
   const [subcat, setSubcat] = useState('')
   const [type, setType] = useState('')
   const [search, setSearch] = useState('')
+  const [debouncedSearch, setDebouncedSearch] = useState('')
   const [counts, setCounts] = useState({ byCategory: {}, bySubcategory: {}, byType: {} })
   const [page, setPage] = useState(1)
   const perPage = 12
@@ -41,6 +42,14 @@ export default function Home(){
     const next = readQueryQ(location.search)
     setSearch(prev => (prev === next ? prev : next))
   }, [location.search])
+
+  // Debounce search to avoid firing catalog requests on every keystroke.
+  useEffect(()=>{
+    const t = setTimeout(()=>{
+      setDebouncedSearch(String(search || ''))
+    }, 600)
+    return ()=> clearTimeout(t)
+  }, [search])
 
   const legacyToSlugRaw = useMemo(()=> (name)=> {
     const raw = (name || '').toString().trim()
@@ -151,7 +160,7 @@ export default function Home(){
   useEffect(()=> {
     setPage(1)
     setVisibleCount(perPage)
-  }, [cat, subcat, type, search])
+  }, [cat, subcat, type, debouncedSearch])
 
   // Визначення мобільного режиму
   useEffect(()=>{
@@ -180,8 +189,17 @@ export default function Home(){
   function loadProducts(){
     // request server with optional params: category, q, page, perPage
     setLoadingProducts(true)
-    getProducts({ category: cat, subcategory: subcat, type, q: search })
+    if (loadProducts.abortRef?.current) {
+      try { loadProducts.abortRef.current.abort() } catch {}
+      loadProducts.abortRef.current = null
+    }
+    const controller = new AbortController()
+    loadProducts.abortRef = loadProducts.abortRef || { current: null }
+    loadProducts.abortRef.current = controller
+
+    getProducts({ category: cat, subcategory: subcat, type, q: debouncedSearch }, { signal: controller.signal })
       .then(d=>{
+        if (controller.signal.aborted) return
         const items = Array.isArray(d?.items) ? d.items : d
         const noFilters = !cat && !subcat && !type && !String(search || '').trim()
         setProducts(noFilters ? shuffle(items) : items)
@@ -191,7 +209,15 @@ export default function Home(){
   }
 
   function loadCounts(){
-    getProductCounts({ q: search })
+    if (loadCounts.abortRef?.current) {
+      try { loadCounts.abortRef.current.abort() } catch {}
+      loadCounts.abortRef.current = null
+    }
+    const controller = new AbortController()
+    loadCounts.abortRef = loadCounts.abortRef || { current: null }
+    loadCounts.abortRef.current = controller
+
+    getProductCounts({ q: debouncedSearch }, { signal: controller.signal })
       .then(d=> setCounts(d || { byCategory: {}, bySubcategory: {}, byType: {} }))
       .catch(()=> setCounts({ byCategory: {}, bySubcategory: {}, byType: {} }))
   }
@@ -202,8 +228,8 @@ export default function Home(){
     // before making products request, otherwise we'll briefly load "all" and then replace.
     if ((parentSlug || childSlug || typeSlug) && !urlSyncDoneRef.current) return
     loadProducts()
-  }, [cat, subcat, type, search, parentSlug, childSlug, typeSlug])
-  useEffect(()=>{ loadCounts() }, [search])
+  }, [cat, subcat, type, debouncedSearch, parentSlug, childSlug, typeSlug])
+  useEffect(()=>{ loadCounts() }, [debouncedSearch])
 
   const getParentId = (c)=>{
     const p = c?.parent
