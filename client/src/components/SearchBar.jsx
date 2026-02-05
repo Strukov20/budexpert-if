@@ -11,6 +11,7 @@ export default function SearchBar({value, onChange}){
   const dropdownRef = useRef(null)
   const lastReqIdRef = useRef(0)
   const debounceRef = useRef(null)
+  const abortRef = useRef(null)
   const [dropdownRect, setDropdownRect] = useState({ left: 0, top: 0, width: 0 })
 
   useEffect(()=>{
@@ -18,6 +19,10 @@ export default function SearchBar({value, onChange}){
     if (debounceRef.current) {
       clearTimeout(debounceRef.current)
       debounceRef.current = null
+    }
+    if (abortRef.current) {
+      try { abortRef.current.abort() } catch {}
+      abortRef.current = null
     }
     if (v.length < 2) {
       // Cancel any in-flight suggestion responses
@@ -30,26 +35,37 @@ export default function SearchBar({value, onChange}){
 
     debounceRef.current = setTimeout(async ()=>{
       const reqId = ++lastReqIdRef.current
+      const controller = new AbortController()
+      abortRef.current = controller
       setLoading(true)
       try {
-        const res = await getProductSuggestions(v)
+        const res = await getProductSuggestions(v, { signal: controller.signal })
         if (lastReqIdRef.current !== reqId) return
         const next = Array.isArray(res) ? res : []
         setItems(next)
         setOpen(next.length > 0)
       } catch {
         if (lastReqIdRef.current !== reqId) return
-        setItems([])
-        setOpen(false)
+        // Ignore abort errors (user typed something else)
+        const aborted = controller?.signal?.aborted
+        if (!aborted) {
+          setItems([])
+          setOpen(false)
+        }
       } finally {
+        if (abortRef.current === controller) abortRef.current = null
         if (lastReqIdRef.current === reqId) setLoading(false)
       }
-    }, 250)
+    }, 450)
 
     return () => {
       if (debounceRef.current) {
         clearTimeout(debounceRef.current)
         debounceRef.current = null
+      }
+      if (abortRef.current) {
+        try { abortRef.current.abort() } catch {}
+        abortRef.current = null
       }
     }
   }, [value])
