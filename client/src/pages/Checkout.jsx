@@ -142,6 +142,32 @@ export default function Checkout(){
     try{
       setLoading(true)
       await createOrder(payload);
+
+      try {
+        const orderId = `local_${Date.now()}`
+        const items = (cart || []).map((c, idx) => ({
+          item_id: c?._id ? String(c._id) : undefined,
+          item_name: c?.name ? String(c.name) : undefined,
+          item_variant: c?.sku ? String(c.sku) : undefined,
+          index: idx,
+          quantity: Number(c?.quantity || 1) || 1,
+          price: Number(c?.price || 0) || 0,
+        }))
+        window.dataLayer = window.dataLayer || []
+        window.dataLayer.push({ ecommerce: null })
+        window.dataLayer.push({
+          event: 'purchase',
+          ecommerce: {
+            transaction_id: orderId,
+            currency: 'UAH',
+            value: Number(cartTotal || 0) || 0,
+            items,
+          },
+        })
+      } catch (e) {
+        console.error(e)
+      }
+
       // Очистити кошик, оновити хедер, показати модалку
       localStorage.removeItem('cart');
       setCart([]);

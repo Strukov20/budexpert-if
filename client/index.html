@@ -7,6 +7,21 @@
   <meta name="description" content="БудЕксперт — будівельний маркет в Івано-Франківську. Все для ремонту та будівництва з доставкою по місту та області." />
   <meta name="theme-color" content="#dc2626" />
 
+  <script>
+    (function(){
+      var id = '%VITE_GTM_ID%';
+      if (!id || id.indexOf('GTM-') !== 0) return;
+      window.dataLayer = window.dataLayer || [];
+      window.dataLayer.push({ 'gtm.start': new Date().getTime(), event: 'gtm.js' });
+      var f = document.getElementsByTagName('script')[0];
+      var j = document.createElement('script');
+      var dl = 'dataLayer' != 'dataLayer' ? '&l=' + 'dataLayer' : '';
+      j.async = true;
+      j.src = 'https://www.googletagmanager.com/gtm.js?id=' + id + dl;
+      f.parentNode.insertBefore(j, f);
+    })();
+  </script>
+
   <!-- Open Graph -->
   <meta property="og:type" content="website" />
   <meta property="og:title" content="БудЕксперт — будівельний маркет" />
@@ -23,6 +38,9 @@
   <link rel="icon" href="/src/assets/favicon.svg" />
 </head>
 <body>
+  <noscript>
+    <iframe src="https://www.googletagmanager.com/ns.html?id=%VITE_GTM_ID%" height="0" width="0" style="display:none;visibility:hidden"></iframe>
+  </noscript>
   <div id="root"></div>
   <script type="module" src="/src/main.jsx"></script>
 </body>

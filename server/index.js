@@ -17,9 +17,12 @@ import helmet from "helmet";
 import mongoSanitize from "express-mongo-sanitize";
 import rateLimit from "express-rate-limit";
 import Category from "./models/Category.js";
-
+import { fileURLToPath } from "url";
 
 dotenv.config();
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const projectRoot = path.resolve(__dirname, "..");
 const app = express();
 // Avoid 304 Not Modified for API JSON responses (axios expects a body)
 app.set('etag', false);
@@ -55,6 +58,23 @@ const authLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 100 });
 const uploadLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 200 });
 
 const MONGO_URI = process.env.MONGO_URI || "mongodb://localhost:27017/shop";
+const NODE_ENV = process.env.NODE_ENV || "development";
+const TEST_ENV = process.env.TEST_ENV || "";
+const isTestMode = NODE_ENV === "test" || TEST_ENV === "test";
+const allowRemoteDbInTest = String(process.env.ALLOW_REMOTE_DB_IN_TEST || "").toLowerCase() === "true";
+
+if (isTestMode && !allowRemoteDbInTest) {
+  const uri = String(MONGO_URI || "");
+  const isRemote = /mongodb\+srv:\/\//i.test(uri) || /@/i.test(uri);
+  const looksLikeProdDb = /budexpert(?!_test)/i.test(uri);
+  if (isRemote || looksLikeProdDb) {
+    throw new Error(
+      `[SAFETY] Refusing to start server in test mode with a non-test MongoDB URI. ` +
+      `Set MONGO_URI to a local test DB (e.g. mongodb://127.0.0.1:27017/budexpert_test). ` +
+      `If you really need remote, set ALLOW_REMOTE_DB_IN_TEST=true explicitly.`
+    );
+  }
+}
 console.log("[BOOT] process.env.MONGO_URI =", process.env.MONGO_URI);
 console.log("[BOOT] Using MONGO_URI =", MONGO_URI);
 
@@ -85,7 +105,7 @@ app.use("/api/orders", ordersRouter);
 app.use("/api/categories", categoryRoutes);
 app.use("/api/auth", authLimiter, authRoutes);
 // статика для завантажених файлів
-const uploadsDir = path.join(process.cwd(), "server", "uploads");
+const uploadsDir = path.join(projectRoot, "server", "uploads");
 if (!fs.existsSync(uploadsDir)) { fs.mkdirSync(uploadsDir, { recursive: true }); }
 app.use("/uploads", express.static(uploadsDir));
 app.use("/api/uploads", uploadLimiter, uploadsRoutes);
@@ -93,6 +113,15 @@ app.use("/api/leads", leadsRoutes);
 app.use("/api/post", postRoutes);
 app.use("/api/banner", bannerRoutes);
 
+// Serve client (Vite build) in production with SPA fallback
+const clientDistDir = path.join(projectRoot, "client", "dist");
+if (fs.existsSync(clientDistDir)) {
+  app.use(express.static(clientDistDir));
+  app.get("*", (req, res, next) => {
+    if (req.path.startsWith("/api") || req.path.startsWith("/uploads")) return next();
+    return res.sendFile(path.join(clientDistDir, "index.html"));
+  });
+}
 
 const PORT = process.env.PORT || 5001;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));

@@ -215,6 +215,12 @@ export default function Header() {
                     <div className="w-44 lg:w-48 flex justify-center">
                       <a
                         href={`tel:${SHOP_PHONE}`}
+                        onClick={() => {
+                          try {
+                            window.dataLayer = window.dataLayer || []
+                            window.dataLayer.push({ event: 'click_phone', phone_number: SHOP_PHONE, location: 'header_desktop' })
+                          } catch {}
+                        }}
                         className="inline-flex items-center gap-2 text-sm lg:text-base text-gray-800 hover:text-red-600 transition whitespace-nowrap"
                       >
                         <FiPhoneCall className="w-4 h-4" />
@@ -358,6 +364,12 @@ export default function Header() {
               <div className="flex flex-col items-center justify-center gap-1 min-w-0">
                 <a
                   href={`tel:${SHOP_PHONE}`}
+                  onClick={() => {
+                    try {
+                      window.dataLayer = window.dataLayer || []
+                      window.dataLayer.push({ event: 'click_phone', phone_number: SHOP_PHONE, location: 'header_mobile' })
+                    } catch {}
+                  }}
                   className="inline-flex items-center gap-2 text-lg font-semibold text-gray-900 hover:text-red-600 transition whitespace-nowrap"
                 >
                   <FiPhoneCall className="w-4 h-4" />

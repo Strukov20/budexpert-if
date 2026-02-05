@@ -3,7 +3,8 @@
   "type": "module",
   "scripts": {
     "start": "node index.js",
-    "dev": "nodemon index.js"
+    "dev": "nodemon index.js",
+    "seed:products": "node scripts/seed-products.js"
   },
   "dependencies": {
     "cloudinary": "^2.8.0",
