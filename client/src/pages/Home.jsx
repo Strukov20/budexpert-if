@@ -10,7 +10,7 @@ import HomeBanner from '../components/HomeBanner'
 export default function Home(){
   const navigate = useNavigate()
   const location = useLocation()
-  const { parentSlug, childSlug } = useParams()
+  const { parentSlug, childSlug, typeSlug } = useParams()
   const [products, setProducts] = useState([])
   const [categories, setCategories] = useState([])
   const [loadingCategories, setLoadingCategories] = useState(false)
@@ -28,12 +28,11 @@ export default function Home(){
   const productsTopRef = useRef(null)
   const didMountScrollRef = useRef(false)
 
-  const legacyToSlug = useMemo(()=> (name)=> {
+  const legacyToSlugRaw = useMemo(()=> (name)=> {
     const raw = (name || '').toString().trim()
-    const compact = raw
+    return raw
       .replace(/\s+/g, '')
       .replace(/[^0-9A-Za-zА-Яа-яІЇЄҐієїґ\-]/g, '')
-    return encodeURIComponent(compact)
   }, [])
 
   const toSlug = useMemo(()=> (name)=> {
@@ -55,26 +54,25 @@ export default function Home(){
       .replace(/[^a-z0-9\-]/g, '')
       .replace(/^-+|-+$/g, '')
 
-    return encodeURIComponent(slug)
+    return slug
   }, [])
 
   const slugEq = useMemo(()=> (name, slug)=> {
     if (!slug) return false
     try {
-      const dec = decodeURIComponent(slug)
-      const normalized = encodeURIComponent(dec).toLowerCase()
+      const normalized = decodeURIComponent(slug).toLowerCase()
       return (
         String(toSlug(name)).toLowerCase() === normalized ||
-        String(legacyToSlug(name)).toLowerCase() === normalized
+        String(legacyToSlugRaw(name)).toLowerCase() === normalized
       )
     } catch {
       const normalized = String(slug).toLowerCase()
       return (
         String(toSlug(name)).toLowerCase() === normalized ||
-        String(legacyToSlug(name)).toLowerCase() === normalized
+        String(legacyToSlugRaw(name)).toLowerCase() === normalized
       )
     }
-  }, [toSlug, legacyToSlug])
+  }, [toSlug, legacyToSlugRaw])
 
   const shuffle = (arr)=>{
     const a = Array.isArray(arr) ? arr.slice() : []
@@ -184,7 +182,13 @@ export default function Home(){
       .catch(()=> setCounts({ byCategory: {}, bySubcategory: {}, byType: {} }))
   }
 
-  useEffect(()=>{ loadProducts() }, [cat, subcat, type, search])
+  const urlSyncDoneRef = useRef(false)
+  useEffect(()=>{
+    // If user directly opened a SEO URL, wait until we have applied URL params to state
+    // before making products request, otherwise we'll briefly load "all" and then replace.
+    if ((parentSlug || childSlug || typeSlug) && !urlSyncDoneRef.current) return
+    loadProducts()
+  }, [cat, subcat, type, search, parentSlug, childSlug, typeSlug])
   useEffect(()=>{ loadCounts() }, [search])
 
   const getParentId = (c)=>{
@@ -287,7 +291,7 @@ export default function Home(){
   useEffect(()=>{
     if (!categories.length) return
 
-    const urlKey = `${parentSlug || ''}/${childSlug || ''}`
+    const urlKey = `${parentSlug || ''}/${childSlug || ''}/${typeSlug || ''}`
     if (lastUrlKeyRef.current === urlKey) return
     lastUrlKeyRef.current = urlKey
 
@@ -296,6 +300,7 @@ export default function Home(){
       setCat(prev => (prev ? '' : prev))
       setSubcat(prev => (prev ? '' : prev))
       setType(prev => (prev ? '' : prev))
+      urlSyncDoneRef.current = true
       return
     }
 
@@ -305,6 +310,7 @@ export default function Home(){
       setCat(prev => (prev ? '' : prev))
       setSubcat(prev => (prev ? '' : prev))
       setType(prev => (prev ? '' : prev))
+      urlSyncDoneRef.current = true
       return
     }
 
@@ -313,6 +319,7 @@ export default function Home(){
       setCat(prev => (String(prev) === String(parent._id) ? prev : parent._id))
       setSubcat(prev => (prev ? '' : prev))
       setType(prev => (prev ? '' : prev))
+      urlSyncDoneRef.current = true
       return
     }
 
@@ -320,11 +327,16 @@ export default function Home(){
     const child = subs.find(sc=> slugEq(sc?.name, childSlug))
     const nextCat = parent._id
     const nextSub = child?._id || ''
+    const types = nextSub ? typesBySubcategory(nextSub) : []
+    const matchedType = typeSlug ? types.find(t=> slugEq(t?.name, typeSlug)) : null
+    const nextType = matchedType?._id || ''
+
     applyingUrlToStateRef.current = true
     setCat(prev => (String(prev) === String(nextCat) ? prev : nextCat))
     setSubcat(prev => (String(prev) === String(nextSub) ? prev : nextSub))
-    setType(prev => (prev ? '' : prev))
-  }, [categories, parentSlug, childSlug, mainCategories, slugEq])
+    setType(prev => (String(prev) === String(nextType) ? prev : nextType))
+    urlSyncDoneRef.current = true
+  }, [categories, parentSlug, childSlug, typeSlug, mainCategories, slugEq])
 
   const lastNavKeyRef = useRef('')
   useEffect(()=>{
@@ -337,9 +349,23 @@ export default function Home(){
 
     const catObjLocal = categories.find(x=> String(x._id) === String(cat))
     const subObjLocal = categories.find(x=> String(x._id) === String(subcat))
+    const typeObjLocal = categories.find(x=> String(x._id) === String(type))
+
+    // If state contains IDs that are not present in categories (transient data mismatch),
+    // do not force navigation to '/', because that clears URL params and resets filters.
+    if (cat && !catObjLocal) return
+
     const desiredPath = !catObjLocal
       ? '/'
-      : (subObjLocal ? `/${toSlug(catObjLocal.name)}/${toSlug(subObjLocal.name)}` : `/${toSlug(catObjLocal.name)}`)
+      : (
+        subObjLocal
+          ? (
+            typeObjLocal
+              ? `/${encodeURIComponent(toSlug(catObjLocal.name))}/${encodeURIComponent(toSlug(subObjLocal.name))}/${encodeURIComponent(toSlug(typeObjLocal.name))}`
+              : `/${encodeURIComponent(toSlug(catObjLocal.name))}/${encodeURIComponent(toSlug(subObjLocal.name))}`
+          )
+          : `/${encodeURIComponent(toSlug(catObjLocal.name))}`
+      )
 
     const desiredKey = desiredPath
     if (lastNavKeyRef.current === desiredKey) return
@@ -350,7 +376,7 @@ export default function Home(){
 
     lastNavKeyRef.current = desiredKey
     navigate(desiredPath, { replace: true })
-  }, [cat, subcat, categories, toSlug, navigate, location.pathname])
+  }, [cat, subcat, type, categories, toSlug, navigate, location.pathname])
 
   const catObj = categories.find(x=> String(x._id) === String(cat))
   const subObj = categories.find(x=> String(x._id) === String(subcat))
