@@ -27,6 +27,10 @@ export default function Home(){
   const sentinelRef = useRef(null)
   const productsTopRef = useRef(null)
   const didMountScrollRef = useRef(false)
+  const productsReqIdRef = useRef(0)
+  const countsReqIdRef = useRef(0)
+  const productsAbortRef = useRef(null)
+  const countsAbortRef = useRef(null)
 
   const readQueryQ = (s) => {
     try {
@@ -188,38 +192,55 @@ export default function Home(){
 
   function loadProducts(){
     // request server with optional params: category, q, page, perPage
-    setLoadingProducts(true)
-    if (loadProducts.abortRef?.current) {
-      try { loadProducts.abortRef.current.abort() } catch {}
-      loadProducts.abortRef.current = null
+    const reqId = ++productsReqIdRef.current
+
+    if (productsAbortRef.current) {
+      try { productsAbortRef.current.abort() } catch {}
+      productsAbortRef.current = null
     }
     const controller = new AbortController()
-    loadProducts.abortRef = loadProducts.abortRef || { current: null }
-    loadProducts.abortRef.current = controller
+    productsAbortRef.current = controller
 
+    setLoadingProducts(true)
     getProducts({ category: cat, subcategory: subcat, type, q: debouncedSearch }, { signal: controller.signal })
       .then(d=>{
         if (controller.signal.aborted) return
+        if (productsReqIdRef.current !== reqId) return
         const items = Array.isArray(d?.items) ? d.items : d
-        const noFilters = !cat && !subcat && !type && !String(search || '').trim()
+        const noFilters = !cat && !subcat && !type && !String(debouncedSearch || '').trim()
         setProducts(noFilters ? shuffle(items) : items)
       })
       .catch(()=>{})
-      .finally(()=> setLoadingProducts(false))
+      .finally(()=>{
+        if (productsAbortRef.current === controller) productsAbortRef.current = null
+        if (productsReqIdRef.current === reqId) setLoadingProducts(false)
+      })
   }
 
   function loadCounts(){
-    if (loadCounts.abortRef?.current) {
-      try { loadCounts.abortRef.current.abort() } catch {}
-      loadCounts.abortRef.current = null
+    const reqId = ++countsReqIdRef.current
+
+    if (countsAbortRef.current) {
+      try { countsAbortRef.current.abort() } catch {}
+      countsAbortRef.current = null
     }
     const controller = new AbortController()
-    loadCounts.abortRef = loadCounts.abortRef || { current: null }
-    loadCounts.abortRef.current = controller
+    countsAbortRef.current = controller
 
     getProductCounts({ q: debouncedSearch }, { signal: controller.signal })
-      .then(d=> setCounts(d || { byCategory: {}, bySubcategory: {}, byType: {} }))
-      .catch(()=> setCounts({ byCategory: {}, bySubcategory: {}, byType: {} }))
+      .then(d=>{
+        if (controller.signal.aborted) return
+        if (countsReqIdRef.current !== reqId) return
+        setCounts(d || { byCategory: {}, bySubcategory: {}, byType: {} })
+      })
+      .catch(()=>{
+        if (controller.signal.aborted) return
+        if (countsReqIdRef.current !== reqId) return
+        setCounts({ byCategory: {}, bySubcategory: {}, byType: {} })
+      })
+      .finally(()=>{
+        if (countsAbortRef.current === controller) countsAbortRef.current = null
+      })
   }
 
   const urlSyncDoneRef = useRef(false)
