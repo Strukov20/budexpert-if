@@ -45,6 +45,15 @@ export async function getProducts(params) {
   const res = await api.get('/products', { params });
   return res.data;
 }
+
+export async function getProductSuggestions(q) {
+  const query = (q || '').toString().trim();
+  if (!query) return [];
+  const res = await api.get('/products', { params: { q: query, page: 1, limit: 5 } });
+  const data = res.data;
+  const items = Array.isArray(data?.items) ? data.items : (Array.isArray(data) ? data : []);
+  return items;
+}
 export async function getProductCounts(params) {
   const res = await api.get('/products/counts', { params });
   return res.data;

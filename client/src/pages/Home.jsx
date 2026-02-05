@@ -28,6 +28,21 @@ export default function Home(){
   const productsTopRef = useRef(null)
   const didMountScrollRef = useRef(false)
 
+  const readQueryQ = (s) => {
+    try {
+      const params = new URLSearchParams(s || '')
+      return (params.get('q') || '').toString()
+    } catch {
+      return ''
+    }
+  }
+
+  // Keep local search state in sync with URL (?q=...), so Header search works.
+  useEffect(()=>{
+    const next = readQueryQ(location.search)
+    setSearch(prev => (prev === next ? prev : next))
+  }, [location.search])
+
   const legacyToSlugRaw = useMemo(()=> (name)=> {
     const raw = (name || '').toString().trim()
     return raw
@@ -367,16 +382,24 @@ export default function Home(){
           : `/${encodeURIComponent(toSlug(catObjLocal.name))}`
       )
 
-    const desiredKey = desiredPath
+    let params
+    try { params = new URLSearchParams(location.search || '') } catch { params = new URLSearchParams() }
+    const qVal = String(search || '').trim()
+    if (qVal) params.set('q', qVal)
+    else params.delete('q')
+    const qs = params.toString()
+    const desiredFullPath = desiredPath + (qs ? `?${qs}` : '')
+
+    const desiredKey = desiredFullPath
     if (lastNavKeyRef.current === desiredKey) return
-    if (location.pathname === desiredPath) {
+    if ((location.pathname + (location.search || '')) === desiredFullPath) {
       lastNavKeyRef.current = desiredKey
       return
     }
 
     lastNavKeyRef.current = desiredKey
-    navigate(desiredPath, { replace: true })
-  }, [cat, subcat, type, categories, toSlug, navigate, location.pathname])
+    navigate(desiredFullPath, { replace: true })
+  }, [cat, subcat, type, search, categories, toSlug, navigate, location.pathname, location.search])
 
   const catObj = categories.find(x=> String(x._id) === String(cat))
   const subObj = categories.find(x=> String(x._id) === String(subcat))

@@ -65,6 +65,35 @@ export default function Header() {
   const SHOP_PHONE = '+380980095577'
   const SHOP_ADDRESS = 'вул. Білозіра 8'
 
+  const readQueryQ = (s) => {
+    try {
+      const params = new URLSearchParams(s || '')
+      return (params.get('q') || '').toString()
+    } catch {
+      return ''
+    }
+  }
+
+  useEffect(()=>{
+    const next = readQueryQ(location.search)
+    setSearch(prev => (prev === next ? prev : next))
+  }, [location.search])
+
+  const setQueryQ = (value) => {
+    const next = (value || '').toString()
+    setSearch(next)
+
+    let params
+    try { params = new URLSearchParams(location.search || '') } catch { params = new URLSearchParams() }
+
+    if (next) params.set('q', next)
+    else params.delete('q')
+
+    const qs = params.toString()
+    const target = (location.pathname === '/' ? '/' : '/') + (qs ? `?${qs}` : '')
+    navigate(target, { replace: location.pathname === '/' })
+  }
+
   const normalizeUaPhone = (v) => {
     const digits = (v || '').replace(/\D/g, '')
     let local = ''
@@ -290,7 +319,7 @@ export default function Header() {
               </button>
 
               <div className="flex-1 min-w-0">
-                <SearchBar value={search} onChange={setSearch} />
+                <SearchBar value={search} onChange={setQueryQ} />
               </div>
 
               <button
