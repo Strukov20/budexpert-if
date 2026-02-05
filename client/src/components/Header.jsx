@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { FiShoppingCart, FiGrid, FiMapPin, FiPhoneCall } from 'react-icons/fi';
 import { FaInstagram, FaTelegramPlane, FaTiktok } from 'react-icons/fa';
@@ -79,20 +79,38 @@ export default function Header() {
     setSearch(prev => (prev === next ? prev : next))
   }, [location.search])
 
+  const qNavTimerRef = useRef(null)
+
   const setQueryQ = (value) => {
     const next = (value || '').toString()
     setSearch(next)
 
-    let params
-    try { params = new URLSearchParams(location.search || '') } catch { params = new URLSearchParams() }
+    if (qNavTimerRef.current) {
+      clearTimeout(qNavTimerRef.current)
+      qNavTimerRef.current = null
+    }
 
-    if (next) params.set('q', next)
-    else params.delete('q')
+    qNavTimerRef.current = setTimeout(()=>{
+      let params
+      try { params = new URLSearchParams(location.search || '') } catch { params = new URLSearchParams() }
 
-    const qs = params.toString()
-    const target = (location.pathname === '/' ? '/' : '/') + (qs ? `?${qs}` : '')
-    navigate(target, { replace: location.pathname === '/' })
+      if (next) params.set('q', next)
+      else params.delete('q')
+
+      const qs = params.toString()
+      const target = (location.pathname === '/' ? '/' : '/') + (qs ? `?${qs}` : '')
+      navigate(target, { replace: location.pathname === '/' })
+    }, 300)
   }
+
+  useEffect(()=>{
+    return ()=>{
+      if (qNavTimerRef.current) {
+        clearTimeout(qNavTimerRef.current)
+        qNavTimerRef.current = null
+      }
+    }
+  }, [])
 
   const normalizeUaPhone = (v) => {
     const digits = (v || '').replace(/\D/g, '')
