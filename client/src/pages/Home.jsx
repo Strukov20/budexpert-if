@@ -28,7 +28,7 @@ export default function Home(){
   const productsTopRef = useRef(null)
   const didMountScrollRef = useRef(false)
 
-  const toSlug = useMemo(()=> (name)=> {
+  const legacyToSlug = useMemo(()=> (name)=> {
     const raw = (name || '').toString().trim()
     const compact = raw
       .replace(/\s+/g, '')
@@ -36,15 +36,45 @@ export default function Home(){
     return encodeURIComponent(compact)
   }, [])
 
+  const toSlug = useMemo(()=> (name)=> {
+    const raw = (name || '').toString().trim().toLowerCase()
+    const map = {
+      'а':'a','б':'b','в':'v','г':'h','ґ':'g','д':'d','е':'e','є':'ye','ж':'zh','з':'z','и':'y','і':'i','ї':'yi','й':'y',
+      'к':'k','л':'l','м':'m','н':'n','о':'o','п':'p','р':'r','с':'s','т':'t','у':'u','ф':'f','х':'kh','ц':'ts','ч':'ch',
+      'ш':'sh','щ':'shch','ю':'yu','я':'ya','ь':'',"'":'', '’':'', 'ʼ':'', '`':'',
+    }
+
+    const translit = raw
+      .split('')
+      .map(ch => (Object.prototype.hasOwnProperty.call(map, ch) ? map[ch] : ch))
+      .join('')
+
+    const slug = translit
+      .replace(/\s+/g, '-')
+      .replace(/-+/g, '-')
+      .replace(/[^a-z0-9\-]/g, '')
+      .replace(/^-+|-+$/g, '')
+
+    return encodeURIComponent(slug)
+  }, [])
+
   const slugEq = useMemo(()=> (name, slug)=> {
     if (!slug) return false
     try {
       const dec = decodeURIComponent(slug)
-      return String(toSlug(name)).toLowerCase() === encodeURIComponent(dec).toLowerCase()
+      const normalized = encodeURIComponent(dec).toLowerCase()
+      return (
+        String(toSlug(name)).toLowerCase() === normalized ||
+        String(legacyToSlug(name)).toLowerCase() === normalized
+      )
     } catch {
-      return String(toSlug(name)).toLowerCase() === String(slug).toLowerCase()
+      const normalized = String(slug).toLowerCase()
+      return (
+        String(toSlug(name)).toLowerCase() === normalized ||
+        String(legacyToSlug(name)).toLowerCase() === normalized
+      )
     }
-  }, [toSlug])
+  }, [toSlug, legacyToSlug])
 
   const shuffle = (arr)=>{
     const a = Array.isArray(arr) ? arr.slice() : []
@@ -251,6 +281,7 @@ export default function Home(){
     setMenuOpen(false)
   }
 
+  const applyingUrlToStateRef = useRef(false)
   const lastUrlKeyRef = useRef('')
 
   useEffect(()=>{
@@ -261,37 +292,48 @@ export default function Home(){
     lastUrlKeyRef.current = urlKey
 
     if (!parentSlug) {
-      setCat('')
-      setSubcat('')
-      setType('')
+      applyingUrlToStateRef.current = true
+      setCat(prev => (prev ? '' : prev))
+      setSubcat(prev => (prev ? '' : prev))
+      setType(prev => (prev ? '' : prev))
       return
     }
 
     const parent = mainCategories.find(c=> slugEq(c?.name, parentSlug))
     if (!parent?._id) {
-      setCat('')
-      setSubcat('')
-      setType('')
+      applyingUrlToStateRef.current = true
+      setCat(prev => (prev ? '' : prev))
+      setSubcat(prev => (prev ? '' : prev))
+      setType(prev => (prev ? '' : prev))
       return
     }
 
     if (!childSlug) {
-      setCat(parent._id)
-      setSubcat('')
-      setType('')
+      applyingUrlToStateRef.current = true
+      setCat(prev => (String(prev) === String(parent._id) ? prev : parent._id))
+      setSubcat(prev => (prev ? '' : prev))
+      setType(prev => (prev ? '' : prev))
       return
     }
 
     const subs = subcategoriesByParent(parent._id)
     const child = subs.find(sc=> slugEq(sc?.name, childSlug))
-    setCat(parent._id)
-    setSubcat(child?._id || '')
-    setType('')
+    const nextCat = parent._id
+    const nextSub = child?._id || ''
+    applyingUrlToStateRef.current = true
+    setCat(prev => (String(prev) === String(nextCat) ? prev : nextCat))
+    setSubcat(prev => (String(prev) === String(nextSub) ? prev : nextSub))
+    setType(prev => (prev ? '' : prev))
   }, [categories, parentSlug, childSlug, mainCategories, slugEq])
 
   const lastNavKeyRef = useRef('')
   useEffect(()=>{
     if (!categories.length) return
+
+    if (applyingUrlToStateRef.current) {
+      applyingUrlToStateRef.current = false
+      return
+    }
 
     const catObjLocal = categories.find(x=> String(x._id) === String(cat))
     const subObjLocal = categories.find(x=> String(x._id) === String(subcat))
