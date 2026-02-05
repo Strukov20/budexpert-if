@@ -46,10 +46,13 @@ export async function getProducts(params) {
   return res.data;
 }
 
-export async function getProductSuggestions(q) {
+export async function getProductSuggestions(q, options = {}) {
   const query = (q || '').toString().trim();
   if (!query) return [];
-  const res = await api.get('/products', { params: { q: query, page: 1, limit: 5 } });
+  const res = await api.get(
+    '/products',
+    { params: { q: query, page: 1, limit: 5 }, signal: options?.signal }
+  );
   const data = res.data;
   const items = Array.isArray(data?.items) ? data.items : (Array.isArray(data) ? data : []);
   return items;
