@@ -91,6 +91,9 @@ export default function Header() {
     }
 
     qNavTimerRef.current = setTimeout(()=>{
+      const currentQ = readQueryQ(location.search)
+      if (String(currentQ) === String(next)) return
+
       let params
       try { params = new URLSearchParams(location.search || '') } catch { params = new URLSearchParams() }
 
@@ -100,7 +103,7 @@ export default function Header() {
       const qs = params.toString()
       const target = (location.pathname === '/' ? '/' : '/') + (qs ? `?${qs}` : '')
       navigate(target, { replace: location.pathname === '/' })
-    }, 300)
+    }, 700)
   }
 
   useEffect(()=>{
