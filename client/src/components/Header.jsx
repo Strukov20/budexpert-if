@@ -79,6 +79,27 @@ export default function Header() {
     setSearch(prev => (prev === next ? prev : next))
   }, [location.search])
 
+  useEffect(()=>{
+    let navType = ''
+    try {
+      const nav = performance.getEntriesByType?.('navigation')
+      navType = (nav && nav[0] && nav[0].type) ? String(nav[0].type) : ''
+    } catch {}
+
+    if (navType !== 'reload') return
+
+    const currentQ = readQueryQ(location.search)
+    if (!currentQ) return
+
+    let params
+    try { params = new URLSearchParams(location.search || '') } catch { params = new URLSearchParams() }
+    params.delete('q')
+    const qs = params.toString()
+    const target = location.pathname + (qs ? `?${qs}` : '')
+    setSearch('')
+    navigate(target, { replace: true })
+  }, [])
+
   const qNavTimerRef = useRef(null)
 
   const navigateWithQImmediate = (next) => {
