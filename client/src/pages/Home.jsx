@@ -165,7 +165,10 @@ export default function Home(){
     return ''
   }
 
-  const mainCategories = categories.filter(c=> !getParentId(c))
+  const mainCategories = useMemo(
+    ()=> categories.filter(c=> !getParentId(c)),
+    [categories]
+  )
   const subcategoriesByParent = (parentId)=> categories.filter(c=> {
     const pid = getParentId(c)
     return pid && String(pid) === String(parentId||'')
