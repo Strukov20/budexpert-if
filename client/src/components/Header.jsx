@@ -81,6 +81,26 @@ export default function Header() {
 
   const qNavTimerRef = useRef(null)
 
+  const navigateWithQImmediate = (next) => {
+    const v = (next || '').toString()
+    setSearch(v)
+
+    if (qNavTimerRef.current) {
+      clearTimeout(qNavTimerRef.current)
+      qNavTimerRef.current = null
+    }
+
+    let params
+    try { params = new URLSearchParams(location.search || '') } catch { params = new URLSearchParams() }
+
+    if (v) params.set('q', v)
+    else params.delete('q')
+
+    const qs = params.toString()
+    const target = (location.pathname === '/' ? '/' : '/') + (qs ? `?${qs}` : '')
+    navigate(target, { replace: location.pathname === '/' })
+  }
+
   const setQueryQ = (value) => {
     const next = (value || '').toString()
     setSearch(next)
@@ -340,7 +360,7 @@ export default function Header() {
               </button>
 
               <div className="flex-1 min-w-0">
-                <SearchBar value={search} onChange={setQueryQ} />
+                <SearchBar value={search} onChange={setQueryQ} onSelect={navigateWithQImmediate} />
               </div>
 
               <button

@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { getProductSuggestions } from '../api'
 
-export default function SearchBar({value, onChange}){
+export default function SearchBar({value, onChange, onSelect}){
   const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState(false)
   const [items, setItems] = useState([])
@@ -109,7 +109,8 @@ export default function SearchBar({value, onChange}){
 
   const selectItem = (name)=>{
     const next = (name || '').toString()
-    onChange(next)
+    if (typeof onSelect === 'function') onSelect(next)
+    else onChange(next)
     setOpen(false)
   }
 
