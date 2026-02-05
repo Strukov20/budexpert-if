@@ -8,6 +8,8 @@ import * as XLSX from "xlsx";
 
 const router = express.Router();
 
+const escapeRegExp = (s) => String(s || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
 const importUpload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 10 * 1024 * 1024 },
@@ -63,7 +65,7 @@ router.get("/", async (req, res) => {
   const { q, category, subcategory, type } = req.query;
   const filter = {};
   if (q) {
-    filter.name = { $regex: q, $options: 'i' };
+    filter.name = { $regex: escapeRegExp(q), $options: 'i' };
   }
   if (category) {
     filter.category = category;
@@ -94,7 +96,7 @@ router.get('/counts', async (req, res) => {
   const { q, category, subcategory, type } = req.query;
   const filter = {};
   if (q) {
-    filter.name = { $regex: q, $options: 'i' };
+    filter.name = { $regex: escapeRegExp(q), $options: 'i' };
   }
   if (category) {
     filter.category = category;
