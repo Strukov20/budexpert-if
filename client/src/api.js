@@ -41,8 +41,8 @@ export async function uploadImage(file){
   return r.data; // { url, filename }
 }
 
-export async function getProducts(params) {
-  const res = await api.get('/products', { params });
+export async function getProducts(params, options = {}) {
+  const res = await api.get('/products', { params, signal: options?.signal });
   return res.data;
 }
 
@@ -57,8 +57,8 @@ export async function getProductSuggestions(q, options = {}) {
   const items = Array.isArray(data?.items) ? data.items : (Array.isArray(data) ? data : []);
   return items;
 }
-export async function getProductCounts(params) {
-  const res = await api.get('/products/counts', { params });
+export async function getProductCounts(params, options = {}) {
+  const res = await api.get('/products/counts', { params, signal: options?.signal });
   return res.data;
 }
 export async function getProduct(id){ const r = await api.get(`/products/${id}`); return r.data; }

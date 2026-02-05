@@ -24,7 +24,7 @@ export default function SearchBar({value, onChange}){
       try { abortRef.current.abort() } catch {}
       abortRef.current = null
     }
-    if (v.length < 2) {
+    if (v.length < 3) {
       // Cancel any in-flight suggestion responses
       lastReqIdRef.current += 1
       setItems(prev => (prev.length ? [] : prev))
@@ -56,7 +56,7 @@ export default function SearchBar({value, onChange}){
         if (abortRef.current === controller) abortRef.current = null
         if (lastReqIdRef.current === reqId) setLoading(false)
       }
-    }, 450)
+    }, 800)
 
     return () => {
       if (debounceRef.current) {
