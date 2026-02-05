@@ -1,4 +1,5 @@
-import React, { useEffect, useRef, useState } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { getProductSuggestions } from '../api'
 
 export default function SearchBar({value, onChange}){
@@ -6,8 +7,11 @@ export default function SearchBar({value, onChange}){
   const [loading, setLoading] = useState(false)
   const [items, setItems] = useState([])
   const rootRef = useRef(null)
+  const inputRef = useRef(null)
+  const dropdownRef = useRef(null)
   const lastReqIdRef = useRef(0)
   const debounceRef = useRef(null)
+  const [dropdownRect, setDropdownRect] = useState({ left: 0, top: 0, width: 0 })
 
   useEffect(()=>{
     const v = (value || '').toString().trim()
@@ -16,9 +20,11 @@ export default function SearchBar({value, onChange}){
       debounceRef.current = null
     }
     if (v.length < 2) {
-      setItems([])
-      setOpen(false)
-      setLoading(false)
+      // Cancel any in-flight suggestion responses
+      lastReqIdRef.current += 1
+      setItems(prev => (prev.length ? [] : prev))
+      setOpen(prev => (prev ? false : prev))
+      setLoading(prev => (prev ? false : prev))
       return
     }
 
@@ -53,17 +59,75 @@ export default function SearchBar({value, onChange}){
       const el = rootRef.current
       if (!el) return
       if (el.contains(e.target)) return
+      const dd = dropdownRef.current
+      if (dd && dd.contains(e.target)) return
       setOpen(false)
     }
     document.addEventListener('mousedown', onDocDown)
     return () => document.removeEventListener('mousedown', onDocDown)
   }, [])
 
+  const recomputeRect = ()=>{
+    const input = inputRef.current
+    if (!input) return
+    const r = input.getBoundingClientRect()
+    setDropdownRect(prev => {
+      const next = { left: r.left, top: r.bottom, width: r.width }
+      if (prev.left === next.left && prev.top === next.top && prev.width === next.width) return prev
+      return next
+    })
+  }
+
+  useEffect(()=>{
+    if (!open) return
+    recomputeRect()
+    const onScroll = ()=> recomputeRect()
+    const onResize = ()=> recomputeRect()
+    window.addEventListener('scroll', onScroll, true)
+    window.addEventListener('resize', onResize)
+    return ()=>{
+      window.removeEventListener('scroll', onScroll, true)
+      window.removeEventListener('resize', onResize)
+    }
+  }, [open])
+
   const selectItem = (name)=>{
     const next = (name || '').toString()
     onChange(next)
     setOpen(false)
   }
+
+  const dropdownEl = useMemo(()=>{
+    if (!open) return null
+    return (
+      <div
+        ref={dropdownRef}
+        className='fixed z-[10000] bg-white rounded-xl ring-1 ring-gray-200 shadow-lg overflow-hidden'
+        style={{ left: dropdownRect.left, top: dropdownRect.top + 8, width: dropdownRect.width }}
+      >
+        <div className='max-h-72 overflow-auto'>
+          {loading ? (
+            <div className='px-4 py-3 text-sm text-gray-500'>Завантаження…</div>
+          ) : (
+            items.map((p)=> (
+              <button
+                key={p?._id || p?.name}
+                type='button'
+                className='w-full text-left px-4 py-2.5 hover:bg-red-50 hover:text-red-700 transition text-sm'
+                onMouseDown={(e)=>{
+                  e.preventDefault()
+                  e.stopPropagation()
+                  selectItem(p?.name || '')
+                }}
+              >
+                {p?.name || ''}
+              </button>
+            ))
+          )}
+        </div>
+      </div>
+    )
+  }, [open, dropdownRect.left, dropdownRect.top, dropdownRect.width, loading, items])
 
   return (
     <div ref={rootRef} className='relative bg-white rounded-xl ring-1 ring-gray-200 shadow px-3'>
@@ -74,9 +138,10 @@ export default function SearchBar({value, onChange}){
         </svg>
       </span>
       <input
+        ref={inputRef}
         value={value}
         onChange={e=>onChange(e.target.value)}
-        onFocus={()=> { if (items.length > 0) setOpen(true) }}
+        onFocus={()=> { if (items.length > 0) { recomputeRect(); setOpen(true) } }}
         placeholder='Пошук товарів...'
         className='h-11 w-full bg-transparent border-0 pl-9 pr-9 text-base focus:ring-0 focus:outline-none'
       />
@@ -94,26 +159,7 @@ export default function SearchBar({value, onChange}){
         </button>
       )}
 
-      {open && (
-        <div className='absolute left-0 right-0 top-full mt-2 z-50 bg-white rounded-xl ring-1 ring-gray-200 shadow-lg overflow-hidden'>
-          <div className='max-h-72 overflow-auto'>
-            {loading ? (
-              <div className='px-4 py-3 text-sm text-gray-500'>Завантаження…</div>
-            ) : (
-              items.map((p)=> (
-                <button
-                  key={p?._id || p?.name}
-                  type='button'
-                  className='w-full text-left px-4 py-2.5 hover:bg-red-50 hover:text-red-700 transition text-sm'
-                  onClick={()=> selectItem(p?.name || '')}
-                >
-                  {p?.name || ''}
-                </button>
-              ))
-            )}
-          </div>
-        </div>
-      )}
+      {typeof document !== 'undefined' && dropdownEl ? createPortal(dropdownEl, document.body) : null}
     </div>
   )
 }

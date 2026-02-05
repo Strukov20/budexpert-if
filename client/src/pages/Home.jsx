@@ -2,7 +2,6 @@ import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import { getProducts, getCategories, getProductCounts } from '../api'
 import ProductCard from '../components/ProductCard'
-import SearchBar from '../components/SearchBar'
 import Pagination from '../components/Pagination'
 import DeliveryLeadForm from '../components/DeliveryLeadForm'
 import HomeBanner from '../components/HomeBanner'
@@ -719,11 +718,7 @@ export default function Home(){
           </div>
         </div>
 
-        <div className='flex items-center justify-start sm:justify-end'>
-          <div className='w-full sm:w-56 md:w-64'>
-            <SearchBar value={search} onChange={setSearch} />
-          </div>
-        </div>
+        <div className='flex items-center justify-start sm:justify-end' />
       </div>
 
       <div ref={productsTopRef} />
@@ -737,7 +732,7 @@ export default function Home(){
             </div>
           </div>
         ) : (
-          itemsToRender.map(p=> <ProductCard key={p._id} p={p} onAdd={addToCart} />)
+          itemsToRender.map(p=> <ProductCard key={p._id} p={p} onAdd={addToCart} categories={categories} />)
         )}
       </div>
 
