@@ -1,4 +1,5 @@
-import React, { useEffect, useRef, useState } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
+import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import { getProducts, getCategories, getProductCounts } from '../api'
 import ProductCard from '../components/ProductCard'
 import SearchBar from '../components/SearchBar'
@@ -7,6 +8,9 @@ import DeliveryLeadForm from '../components/DeliveryLeadForm'
 import HomeBanner from '../components/HomeBanner'
 
 export default function Home(){
+  const navigate = useNavigate()
+  const location = useLocation()
+  const { parentSlug, childSlug } = useParams()
   const [products, setProducts] = useState([])
   const [categories, setCategories] = useState([])
   const [loadingCategories, setLoadingCategories] = useState(false)
@@ -23,6 +27,24 @@ export default function Home(){
   const sentinelRef = useRef(null)
   const productsTopRef = useRef(null)
   const didMountScrollRef = useRef(false)
+
+  const toSlug = useMemo(()=> (name)=> {
+    const raw = (name || '').toString().trim()
+    const compact = raw
+      .replace(/\s+/g, '')
+      .replace(/[^0-9A-Za-zА-Яа-яІЇЄҐієїґ\-]/g, '')
+    return encodeURIComponent(compact)
+  }, [])
+
+  const slugEq = useMemo(()=> (name, slug)=> {
+    if (!slug) return false
+    try {
+      const dec = decodeURIComponent(slug)
+      return String(toSlug(name)).toLowerCase() === encodeURIComponent(dec).toLowerCase()
+    } catch {
+      return String(toSlug(name)).toLowerCase() === String(slug).toLowerCase()
+    }
+  }, [toSlug])
 
   const shuffle = (arr)=>{
     const a = Array.isArray(arr) ? arr.slice() : []
@@ -225,6 +247,65 @@ export default function Home(){
     setType(typeId)
     setMenuOpen(false)
   }
+
+  const lastUrlKeyRef = useRef('')
+
+  useEffect(()=>{
+    if (!categories.length) return
+
+    const urlKey = `${parentSlug || ''}/${childSlug || ''}`
+    if (lastUrlKeyRef.current === urlKey) return
+    lastUrlKeyRef.current = urlKey
+
+    if (!parentSlug) {
+      setCat('')
+      setSubcat('')
+      setType('')
+      return
+    }
+
+    const parent = mainCategories.find(c=> slugEq(c?.name, parentSlug))
+    if (!parent?._id) {
+      setCat('')
+      setSubcat('')
+      setType('')
+      return
+    }
+
+    if (!childSlug) {
+      setCat(parent._id)
+      setSubcat('')
+      setType('')
+      return
+    }
+
+    const subs = subcategoriesByParent(parent._id)
+    const child = subs.find(sc=> slugEq(sc?.name, childSlug))
+    setCat(parent._id)
+    setSubcat(child?._id || '')
+    setType('')
+  }, [categories, parentSlug, childSlug, mainCategories, slugEq])
+
+  const lastNavKeyRef = useRef('')
+  useEffect(()=>{
+    if (!categories.length) return
+
+    const catObjLocal = categories.find(x=> String(x._id) === String(cat))
+    const subObjLocal = categories.find(x=> String(x._id) === String(subcat))
+    const desiredPath = !catObjLocal
+      ? '/'
+      : (subObjLocal ? `/${toSlug(catObjLocal.name)}/${toSlug(subObjLocal.name)}` : `/${toSlug(catObjLocal.name)}`)
+
+    const desiredKey = desiredPath
+    if (lastNavKeyRef.current === desiredKey) return
+    if (location.pathname === desiredPath) {
+      lastNavKeyRef.current = desiredKey
+      return
+    }
+
+    lastNavKeyRef.current = desiredKey
+    navigate(desiredPath, { replace: true })
+  }, [cat, subcat, categories, toSlug, navigate, location.pathname])
 
   const catObj = categories.find(x=> String(x._id) === String(cat))
   const subObj = categories.find(x=> String(x._id) === String(subcat))

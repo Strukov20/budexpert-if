@@ -109,7 +109,18 @@ export default function Footer(){
             <ul className="space-y-2 text-xs md:text-sm">
               <li className="flex items-center gap-2">
                 <FiPhone className="text-gray-400" />
-                <a href="tel:+380980095577" className="hover:text-white transition-colors cursor-pointer">098 009 5577</a>
+                <a
+                  href="tel:+380980095577"
+                  onClick={() => {
+                    try {
+                      window.dataLayer = window.dataLayer || []
+                      window.dataLayer.push({ event: 'click_phone', phone_number: '+380980095577', location: 'footer' })
+                    } catch {}
+                  }}
+                  className="hover:text-white transition-colors cursor-pointer"
+                >
+                  098 009 5577
+                </a>
               </li>
               <li className="flex items-center gap-2">
                 <FiMail className="text-gray-400" />

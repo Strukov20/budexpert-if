@@ -28,6 +28,8 @@ export default function App(){
           <Route path='/checkout' element={<Checkout />} />
           <Route path='/admin/login' element={<AdminLogin />} />
           <Route path='/admin' element={<RequireAdmin><Admin /></RequireAdmin>} />
+          <Route path='/:parentSlug' element={<Home />} />
+          <Route path='/:parentSlug/:childSlug' element={<Home />} />
         </Routes>
       </main>
       <Footer />

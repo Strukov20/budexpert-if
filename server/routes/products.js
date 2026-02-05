@@ -741,6 +741,16 @@ router.delete("/", requireAdmin, async (req, res) => {
     if (confirm !== 'true') {
       return res.status(400).json({ message: "Для масового видалення додайте ?confirm=true" });
     }
+
+    const adminPassExpected = process.env.ADMIN_PASS || '';
+    const adminPassProvided =
+      (req.headers['x-admin-pass'] || req.headers['x-admin-password'] || req.headers['x-admin-passphrase'] || '').toString() ||
+      (req.body && (req.body.adminPass || req.body.password || req.body.adminPassword) ? String(req.body.adminPass || req.body.password || req.body.adminPassword) : '');
+
+    if (!adminPassExpected || adminPassProvided !== adminPassExpected) {
+      return res.status(403).json({ message: 'Потрібне підтвердження паролем адміністратора' });
+    }
+
     const result = await Product.deleteMany({});
     return res.json({ ok: true, deletedCount: result?.deletedCount || 0 });
   } catch (e) {

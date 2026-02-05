@@ -2,15 +2,28 @@
   "private": true,
   "scripts": {
     "predev": "npm --prefix server i && npm --prefix client i",
+    "pretest": "TEST_ENV=test MONGO_URI=mongodb://127.0.0.1:27017/budexpert_test npm --prefix server run seed:products",
+    "pretest:api": "TEST_ENV=test MONGO_URI=mongodb://127.0.0.1:27017/budexpert_test npm --prefix server run seed:products",
+    "seed:test": "TEST_ENV=test MONGO_URI=mongodb://127.0.0.1:27017/budexpert_test npm --prefix server run seed:products",
+    "mongo:test:up": "docker start budexpert-mongo-test || docker run --name budexpert-mongo-test -d -p 27017:27017 -v budexpert_mongo_test_data:/data/db mongo:7",
+    "mongo:test:down": "docker stop budexpert-mongo-test || true",
+    "mongo:test:rm": "docker rm -f budexpert-mongo-test || true",
+    "mongo:test:logs": "docker logs -f --tail=100 budexpert-mongo-test",
+    "mongo:test:ps": "docker ps --filter name=budexpert-mongo-test",
     "dev": "concurrently -n server,client -c green,cyan \"npm --prefix server run dev\" \"npm --prefix client run dev\"",
+    "dev:test": "npm run mongo:test:up && npm run seed:test && concurrently -n server,client -c green,cyan \"TEST_ENV=test MONGO_URI=mongodb://127.0.0.1:27017/budexpert_test PORT=5001 npm --prefix server run dev\" \"npm --prefix client run dev\"",
     "server:dev": "npm --prefix server run dev",
     "client:dev": "npm --prefix client run dev",
     "server:start": "npm --prefix server start",
     "client:build": "npm --prefix client run build",
-    "client:preview": "npm --prefix client run preview"
+    "client:preview": "npm --prefix client run preview",
+    "test": "npm run test:api",
+    "test:api": "npx playwright test --project=api",
+    "test:api:docker": "npm run mongo:test:up && npm run test:api"
   },
   "devDependencies": {
     "@vitejs/plugin-react": "^5.1.0",
+    "@playwright/test": "^1.49.0",
     "concurrently": "^9.0.0"
   },
   "dependencies": {
