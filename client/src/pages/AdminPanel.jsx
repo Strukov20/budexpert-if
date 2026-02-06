@@ -1,6 +1,29 @@
 import React, { useEffect, useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { getProducts, createProduct, updateProduct, deleteProduct, getCategories, createCategory, getOrders, deleteOrder, uploadImage, updateCategory, deleteCategory, reassignCategories, updateOrder, getLeads, updateLead, bulkCreateProducts, deleteAllProducts, exportProductsCsv, exportProductsXlsx, importProductsXlsx, getBanner, updateBanner } from '../api'
+import {
+  getProducts,
+  createProduct,
+  updateProduct,
+  deleteProduct,
+  deleteAllProducts,
+  createCategory, 
+  getOrders, 
+  deleteOrder, 
+  uploadImage, 
+  updateCategory, 
+  deleteCategory, 
+  reassignCategories, 
+  updateOrder, 
+  getLeads, 
+  updateLead, 
+  deleteLead, // <--- added import
+  bulkCreateProducts, 
+  exportProductsCsv, 
+  exportProductsXlsx, 
+  importProductsXlsx, 
+  getBanner, 
+  updateBanner 
+} from '../api'
 import { FiEdit2, FiPlus, FiX, FiCheckCircle, FiAlertTriangle, FiEye, FiTrash2, FiRefreshCcw, FiMaximize2, FiMinimize2, FiSearch, FiDownload } from 'react-icons/fi'
 import ProductCard from '../components/ProductCard'
 
@@ -18,6 +41,7 @@ export default function AdminPanel(){
   const [savingProduct, setSavingProduct] = useState(false)
   const [deletingProductId, setDeletingProductId] = useState('')
   const [deletingAllProductsLoading, setDeletingAllProductsLoading] = useState(false)
+  const [deletingLeadId, setDeletingLeadId] = useState('')
   const [leadsFull, setLeadsFull] = useState(false)
   const [ordersFull, setOrdersFull] = useState(false)
   const [prodFull, setProdFull] = useState(false)
@@ -502,6 +526,21 @@ export default function AdminPanel(){
   const LEAD_STATUS_KEYS = ['new','in_progress','done','cancelled']
   const updateLeadStatus = async (id, status)=>{
     try{ const u = await updateLead(id, { status }); setLeads(prev=> prev.map(x=> x._id===id ? u : x)) }catch{ /* no-op */ }
+  }
+
+  const handleDeleteLead = async id => {
+    if (deletingLeadId) return
+    if (!confirm('Видалити заявку?')) return
+    setDeletingLeadId(id)
+    try {
+      await deleteLead(id)
+      setLeads(prev => prev.filter(x => x._id !== id))
+      showToast('Заявку видалено','success')
+    } catch (err) {
+      showToast(getErrMsg(err),'error')
+    } finally {
+      setDeletingLeadId('')
+    }
   }
 
   const handleCreateProduct = async ()=>{
@@ -1292,60 +1331,85 @@ export default function AdminPanel(){
                   <th className='text-center px-3 py-2'>Статус</th>
                   <th className='text-center px-3 py-2'>Бажана дата</th>
                   <th className='text-center px-3 py-2'>Створено</th>
+                  <th className='text-center px-3 py-2'>Дії</th>
                 </tr>
               </thead>
               <tbody>
-                {leads
-                  .filter(l=>{
-                    const s = (leadSearch||'').trim().toLowerCase()
-                    const okS = !s || [l.name,l.phone,l.city,l.street,l.house].map(x=> (x||'').toString().toLowerCase()).some(v=> v.includes(s))
-                    if(!okS) return false
-                    const cAt = new Date(l.createdAt||l.datetime||0).getTime()
-                    const fromOk = !leadFrom || cAt >= new Date(leadFrom+'T00:00:00').getTime()
-                    const toOk = !leadTo || cAt <= new Date(leadTo+'T23:59:59').getTime()
-                    const byStatus = !leadStatusFilter || (l.status||'new')===leadStatusFilter
-                    return fromOk && toOk && byStatus
+                {(()=>{
+                  const list = leads
+                    .filter(l=>{
+                      const s = (leadSearch||'').trim().toLowerCase()
+                      const okS = !s || [l.name,l.phone,l.city,l.street,l.house].map(x=> (x||'').toString().toLowerCase()).some(v=> v.includes(s))
+                      if(!okS) return false
+                      const cAt = new Date(l.createdAt||l.datetime||0).getTime()
+                      const fromOk = !leadFrom || cAt >= new Date(leadFrom+'T00:00:00').getTime()
+                      const toOk = !leadTo || cAt <= new Date(leadTo+'T23:59:59').getTime()
+                      const byStatus = !leadStatusFilter || (l.status||'new')===leadStatusFilter
+                      return fromOk && toOk && byStatus
+                    })
+                    .sort((a,b)=> new Date(b.createdAt||b.datetime||0).getTime() - new Date(a.createdAt||a.datetime||0).getTime())
+
+                  if (list.length === 0) {
+                    return (
+                      <tr>
+                        <td colSpan='9' className='px-3 py-6 text-center text-gray-500'>Немає активних заявок</td>
+                      </tr>
+                    )
+                  }
+
+                  return list.map(l => {
+                    return (
+                      <tr key={l._id} className='h-12 border-t odd:bg-gray-50/40 hover:bg-gray-50 transition-colors'>
+                        <td className='px-3 py-2 text-center'>
+                          <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold border ${
+                            (l.type||'delivery')==='call'
+                              ? 'bg-violet-100 text-violet-800 border-violet-200'
+                              : 'bg-emerald-100 text-emerald-800 border-emerald-200'
+                          }`}>
+                            {(l.type||'delivery')==='call' ? 'Дзвінок' : 'Доставка'}
+                          </span>
+                        </td>
+                        <td className='px-3 py-2 text-center'>{l.name}</td>
+                        <td className='px-3 py-2 text-center'>{l.phone}</td>
+                        <td className='px-3 py-2 text-center'>{l.city}</td>
+                        <td className='px-3 py-2 text-center'>{[l.street, l.house].filter(Boolean).join(', ')}</td>
+                        <td className='px-3 py-2 text-center'>
+                          <select
+                            className={`border rounded px-2 pr-8 py-1 text-sm font-medium cursor-pointer
+                              ${ (l.status||'new')==='new' ? 'bg-yellow-100 text-yellow-800 border-yellow-200'
+                                : (l.status||'new')==='in_progress' ? 'bg-sky-100 text-sky-800 border-sky-200'
+                                : (l.status||'new')==='done' ? 'bg-green-100 text-green-800 border-green-200'
+                                : 'bg-red-100 text-red-800 border-red-200' }`}
+                            value={l.status||'new'}
+                            onChange={(e)=> updateLeadStatus(l._id, e.target.value)}
+                            title={LEAD_STATUS[l.status||'new']}
+                            aria-label='Статус заявки'
+                          >
+                            {LEAD_STATUS_KEYS.map(k=> <option key={k} value={k}>{LEAD_STATUS[k]}</option>)}
+                          </select>
+                        </td>
+                        <td className='px-3 py-2 text-center'>{fmtDateShort(l.datetime)}</td>
+                        <td className='px-3 py-2 text-center'>{fmtDateShort(l.createdAt)}</td>
+                        <td className='px-3 py-2 text-center'>
+                          <button
+                            type='button'
+                            className='inline-flex items-center justify-center w-9 h-9 border rounded-lg text-red-600 hover:bg-red-600 hover:text-white transition disabled:opacity-60 disabled:cursor-not-allowed'
+                            disabled={Boolean(deletingLeadId)}
+                            onClick={()=> handleDeleteLead(l._id)}
+                            title='Видалити'
+                            aria-label='Видалити'
+                          >
+                            {deletingLeadId === l._id ? (
+                              <span className='w-4 h-4 rounded-full border-2 border-red-300 border-t-red-600 animate-spin' />
+                            ) : (
+                              <FiTrash2 size={16} />
+                            )}
+                          </button>
+                        </td>
+                      </tr>
+                    )
                   })
-                  .sort((a,b)=> new Date(b.createdAt||b.datetime||0).getTime() - new Date(a.createdAt||a.datetime||0).getTime())
-                  .map(l => (
-                  <tr key={l._id} className='h-12 border-t odd:bg-gray-50/40 hover:bg-gray-50 transition-colors'>
-                    <td className='px-3 py-2 text-center'>
-                      <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold border ${
-                        (l.type||'delivery')==='call'
-                          ? 'bg-violet-100 text-violet-800 border-violet-200'
-                          : 'bg-emerald-100 text-emerald-800 border-emerald-200'
-                      }`}>
-                        {(l.type||'delivery')==='call' ? 'Дзвінок' : 'Доставка'}
-                      </span>
-                    </td>
-                    <td className='px-3 py-2 text-center'>{l.name}</td>
-                    <td className='px-3 py-2 text-center'>{l.phone}</td>
-                    <td className='px-3 py-2 text-center'>{l.city}</td>
-                    <td className='px-3 py-2 text-center'>{[l.street, l.house].filter(Boolean).join(', ')}</td>
-                    <td className='px-3 py-2 text-center'>
-                      <select
-                        className={`border rounded px-2 pr-8 py-1 text-sm font-medium cursor-pointer
-                          ${ (l.status||'new')==='new' ? 'bg-yellow-100 text-yellow-800 border-yellow-200'
-                            : (l.status||'new')==='in_progress' ? 'bg-sky-100 text-sky-800 border-sky-200'
-                            : (l.status||'new')==='done' ? 'bg-green-100 text-green-800 border-green-200'
-                            : 'bg-red-100 text-red-800 border-red-200' }`}
-                        value={l.status||'new'}
-                        onChange={(e)=> updateLeadStatus(l._id, e.target.value)}
-                        title={LEAD_STATUS[l.status||'new']}
-                        aria-label='Статус заявки'
-                      >
-                        {LEAD_STATUS_KEYS.map(k=> <option key={k} value={k}>{LEAD_STATUS[k]}</option>)}
-                      </select>
-                    </td>
-                    <td className='px-3 py-2 text-center'>{fmtDateShort(l.datetime)}</td>
-                    <td className='px-3 py-2 text-center'>{fmtDateShort(l.createdAt)}</td>
-                  </tr>
-                ))}
-                {leads.length === 0 && (
-                  <tr>
-                    <td colSpan='6' className='px-3 py-6 text-center text-gray-500'>Заявок поки немає</td>
-                  </tr>
-                )}
+                })()}
               </tbody>
             </table>
           </div>
@@ -2835,6 +2899,14 @@ export default function AdminPanel(){
                     return true
                   }
                   const list = orders.filter(matches).sort((a,b)=> new Date(b.createdAt||0) - new Date(a.createdAt||0))
+                  if (list.length === 0) {
+                    return (
+                      <tr>
+                        <td colSpan='7' className='px-3 py-6 text-center text-gray-500'>Немає активних замовлень</td>
+                      </tr>
+                    )
+                  }
+
                   return list.map(o=> (
                     <tr key={o._id} className='h-12 border-t odd:bg-gray-50/40 hover:bg-gray-50 transition-colors'>
                       <td className='px-3 py-2 font-mono text-xs'>{o._id}</td>

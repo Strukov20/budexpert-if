@@ -1,5 +1,6 @@
 import express from 'express'
 import Lead from '../models/Lead.js'
+import requireAdmin from '../middleware/auth.js'
 
 const router = express.Router()
 
@@ -70,6 +71,18 @@ router.put('/:id', async (req, res) => {
     res.json(doc)
   } catch (e) {
     res.status(500).json({ error: 'Failed to update lead' })
+  }
+})
+
+// Delete lead (admin only)
+router.delete('/:id', requireAdmin, async (req, res) => {
+  try {
+    const { id } = req.params
+    const doc = await Lead.findByIdAndDelete(id)
+    if (!doc) return res.status(404).json({ error: 'Not found' })
+    res.json({ ok: true })
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to delete lead' })
   }
 })
 
