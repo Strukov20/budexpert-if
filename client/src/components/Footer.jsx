@@ -56,6 +56,7 @@ export default function Footer(){
             <li><a href="/" className="hover:text-white transition-colors cursor-pointer">Каталог товарів</a></li>
             <li><a href="/services" className="hover:text-white transition-colors cursor-pointer">Послуги</a></li>
             <li><a href="/cart" className="hover:text-white transition-colors cursor-pointer">Кошик</a></li>
+            <li><a href="/returns" className="hover:text-white transition-colors cursor-pointer">Умови повернення</a></li>
           </ul>
         </div>
 
@@ -165,6 +166,8 @@ export default function Footer(){
             <a href="#" className="hover:text-white transition-colors cursor-pointer">Політика конфіденційності</a>
             <span className="opacity-30">|</span>
             <a href="#" className="hover:text-white transition-colors cursor-pointer">Умови користування</a>
+            <span className="opacity-30">|</span>
+            <a href="/returns" className="hover:text-white transition-colors cursor-pointer">Повернення та обмін</a>
           </div>
         </div>
       </div>
