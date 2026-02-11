@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { getProduct } from '../api'
 import ReactMarkdown from 'react-markdown'
@@ -11,6 +11,9 @@ export default function ProductPage(){
   const [p, setP] = useState(null)
   const [err, setErr] = useState('')
   const [activeTab, setActiveTab] = useState('description')
+  const [isDescExpanded, setIsDescExpanded] = useState(false)
+  const [canExpandDesc, setCanExpandDesc] = useState(false)
+  const descRef = useRef(null)
 
   const resolveImageUrl = useMemo(()=> (u)=>{
     const v = (u || '').toString().trim()
@@ -57,6 +60,30 @@ export default function ProductPage(){
       .finally(()=>{ if(alive) setLoading(false) })
     return ()=>{ alive = false }
   }, [id])
+
+  useEffect(()=>{
+    setIsDescExpanded(false)
+  }, [id])
+
+  useLayoutEffect(()=>{
+    const el = descRef.current
+    if (!el) return
+    if (activeTab !== 'description') {
+      setCanExpandDesc(false)
+      return
+    }
+    const check = ()=>{
+      const node = descRef.current
+      if (!node) return
+      setCanExpandDesc(node.scrollHeight > node.clientHeight + 1)
+    }
+    const raf = requestAnimationFrame(check)
+    window.addEventListener('resize', check)
+    return ()=>{
+      cancelAnimationFrame(raf)
+      window.removeEventListener('resize', check)
+    }
+  }, [activeTab, p?._id, p?.description, isDescExpanded])
 
   if (loading) {
     return (
@@ -144,10 +171,33 @@ export default function ProductPage(){
             {activeTab === 'description' ? (
               <div className='mt-3'>
                 {hasDescription ? (
-                  <div className='prose prose-sm md:prose-base max-w-none'>
-                    <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeSanitize]}>
-                      {p.description}
-                    </ReactMarkdown>
+                  <div>
+                    <div
+                      ref={descRef}
+                      className='prose prose-sm md:prose-base max-w-none'
+                      style={
+                        isDescExpanded
+                          ? undefined
+                          : {
+                              overflow: 'hidden',
+                              lineHeight: 1.5,
+                              maxHeight: 'calc(1.5em * 5)'
+                            }
+                      }
+                    >
+                      <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeSanitize]}>
+                        {p.description}
+                      </ReactMarkdown>
+                    </div>
+                    {canExpandDesc ? (
+                      <button
+                        type='button'
+                        className='mt-3 text-sm font-semibold underline decoration-dotted hover:text-black'
+                        onClick={()=> setIsDescExpanded((v)=> !v)}
+                      >
+                        {isDescExpanded ? 'Згорнути' : 'Показати повністю'}
+                      </button>
+                    ) : null}
                   </div>
                 ) : (
                   <div className='rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-base text-gray-700 text-center'>
