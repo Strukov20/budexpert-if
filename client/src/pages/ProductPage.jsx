@@ -75,6 +75,7 @@ export default function ProductPage(){
     const check = ()=>{
       const node = descRef.current
       if (!node) return
+      if (isDescExpanded) return
       setCanExpandDesc(node.scrollHeight > node.clientHeight + 1)
     }
     const raf = requestAnimationFrame(check)
@@ -189,7 +190,7 @@ export default function ProductPage(){
                         {p.description}
                       </ReactMarkdown>
                     </div>
-                    {canExpandDesc ? (
+                    {(isDescExpanded || canExpandDesc) ? (
                       <button
                         type='button'
                         className='mt-3 text-sm font-semibold underline decoration-dotted hover:text-black'
