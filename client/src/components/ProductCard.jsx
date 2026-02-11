@@ -1,10 +1,12 @@
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { FiShoppingCart, FiChevronLeft, FiChevronRight } from 'react-icons/fi'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import rehypeSanitize from 'rehype-sanitize'
 
 export default function ProductCard({p, onAdd, categories}){
+  const navigate = useNavigate()
   const [open, setOpen] = useState(false)
   const [activeTab, setActiveTab] = useState('description')
   const [qty, setQty] = useState(0)
@@ -206,10 +208,15 @@ export default function ProductCard({p, onAdd, categories}){
     return (found?.name || '').toString()
   }, [categories, p?.type])
 
+  const goToProduct = ()=> {
+    if (!p?._id) return
+    navigate(`/p/${p._id}`)
+  }
+
   return (
     <>
       <div className="card group p-3 md:p-4 flex flex-col border border-gray-100 rounded-lg shadow-sm hover:shadow-md transition">
-        <div className="relative bg-gray-50 border rounded-lg shadow-sm p-2 cursor-zoom-in" onClick={()=>setOpen(true)}>
+        <div className="relative bg-gray-50 border rounded-lg shadow-sm p-2 cursor-pointer" onClick={goToProduct}>
           <img
             src={cardSrc}
             onError={(e)=>{ e.currentTarget.onerror=null; e.currentTarget.src=placeholderSm; }}
@@ -231,7 +238,7 @@ export default function ProductCard({p, onAdd, categories}){
             </div>
           )}
         </div>
-        <h3 className="mt-2 md:mt-3 font-semibold text-sm md:text-base cursor-pointer" onClick={()=>setOpen(true)}>{p.name}</h3>
+        <h3 className="mt-2 md:mt-3 font-semibold text-sm md:text-base cursor-pointer" onClick={goToProduct}>{p.name}</h3>
         {p.sku && (
           <div className="mt-0.5 text-[11px] md:text-xs text-gray-500">Артикул: {p.sku}</div>
         )}
@@ -240,7 +247,7 @@ export default function ProductCard({p, onAdd, categories}){
           className="text-xs md:text-sm text-gray-600 mt-1 cursor-pointer leading-[1.35] pb-[2px] relative pr-8"
           style={{ overflow: 'hidden', lineHeight: 1.35, maxHeight: 'calc(1.35em * 3)', wordBreak: 'break-word' }}
           title="Натисни, щоб побачити повний опис"
-          onClick={()=>setOpen(true)}
+          onClick={goToProduct}
         >
           <span>{descriptionPreviewText}</span>
           {isDescTruncated && (
@@ -256,6 +263,13 @@ export default function ProductCard({p, onAdd, categories}){
         <div className="mt-1 text-[11px] md:text-xs text-gray-500 opacity-0 group-hover:opacity-100 group-hover:text-black group-hover:underline decoration-dotted transition duration-200 select-none">
           Натисни, щоб побачити повний опис
         </div>
+        <button
+          type="button"
+          className="mt-2 text-xs md:text-sm text-gray-700 underline decoration-dotted hover:text-black self-start"
+          onClick={(e)=>{ e.preventDefault(); e.stopPropagation(); setOpen(true) }}
+        >
+          Швидкий перегляд
+        </button>
         <div className="pt-2 md:pt-3 flex items-center justify-between">
           <div className="flex flex-col items-start">
             {hasDiscount ? (
