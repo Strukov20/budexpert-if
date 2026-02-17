@@ -597,6 +597,18 @@ export default function Home(){
                       <div className='px-2.5 py-1 rounded-full bg-red-600 text-white text-[10px] md:text-xs font-extrabold shadow'>
                         ТОВАР ТИЖНЯ
                       </div>
+                      {(() => {
+                        const raw = typeof p?.discount === 'number'
+                          ? p.discount
+                          : Number(((p?.discount ?? '') + '').replace('%', '').trim() || 0) || 0
+                        const d = Math.min(100, Math.max(0, raw))
+                        if (d <= 0) return null
+                        return (
+                          <div className='inline-flex self-start px-2.5 py-1 rounded-full bg-red-600 text-white text-[10px] md:text-xs font-extrabold shadow'>
+                            -{d}%
+                          </div>
+                        )
+                      })()}
                     </div>
                     <ProductCard p={p} onAdd={addToCart} categories={categories} hideBadges />
                   </div>

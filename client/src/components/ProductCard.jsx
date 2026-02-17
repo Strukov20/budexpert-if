@@ -287,17 +287,17 @@ export default function ProductCard({p, onAdd, categories, hideBadges}){
         <div className="pt-2 md:pt-3 flex items-center justify-between">
           <div className="flex flex-col items-start">
             {hasDiscount ? (
-              <>
-                <div className="text-xs md:text-sm text-gray-400 line-through">
-                  {fmt.format(p.price)} ₴
-                </div>
-                <div className="font-bold text-base md:text-xl text-red-600">
-                  {fmt.format(finalPrice)} ₴
-                </div>
-              </>
+              <div className="text-xs md:text-sm text-gray-400 line-through">
+                {fmt.format(p.price)} ₴
+              </div>
             ) : (
-              <div className="font-bold text-base md:text-xl">{fmt.format(p.price)} ₴</div>
+              <div className="text-xs md:text-sm text-gray-400 line-through opacity-0" aria-hidden="true">
+                {fmt.format(p.price)} ₴
+              </div>
             )}
+            <div className={"font-bold text-base md:text-xl " + (hasDiscount ? 'text-red-600' : '')}>
+              {fmt.format(hasDiscount ? finalPrice : p.price)} ₴
+            </div>
           </div>
           {/* Мобільні: кнопка "+", яка стає галочкою, якщо товар вже в кошику */}
           <button
