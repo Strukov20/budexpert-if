@@ -62,7 +62,7 @@ const pickFirstImage = (imagesArr) => {
 
 // GET /api/products
 router.get("/", async (req, res) => {
-  const { q, category, subcategory, type } = req.query;
+  const { q, category, subcategory, type, productOfWeek } = req.query;
   const filter = {};
   if (q) {
     filter.name = { $regex: escapeRegExp(q), $options: 'i' };
@@ -75,6 +75,14 @@ router.get("/", async (req, res) => {
   }
   if (type) {
     filter.type = type;
+  }
+
+  if (productOfWeek !== undefined && productOfWeek !== null && String(productOfWeek).trim() !== '') {
+    const v = String(productOfWeek).trim().toLowerCase()
+    const truthy = v === '1' || v === 'true' || v === 'yes' || v === 'on'
+    const falsy = v === '0' || v === 'false' || v === 'no' || v === 'off'
+    if (truthy) filter.productOfWeek = true
+    if (falsy) filter.productOfWeek = false
   }
   // Optional pagination
   const page = parseInt(req.query.page, 10);
@@ -205,6 +213,41 @@ router.get("/export/all", requireAdmin, async (_req, res) => {
   }
 });
 
+// POST /api/products/sync/sku
+// Синхронізація каталогу по SKU після імпорту:
+// - проставляє stock=0 ТІЛЬКИ для товарів з заповненим sku, яких немає у списку skus
+// Body: { skus: string[], dryRun?: boolean }
+router.post('/sync/sku', requireAdmin, async (req, res) => {
+  try {
+    const dryRun = Boolean(req.body?.dryRun);
+    const raw = req.body?.skus;
+    if (!Array.isArray(raw)) {
+      return res.status(400).json({ message: 'Очікується поле skus: string[]' });
+    }
+
+    const keep = Array.from(new Set(raw.map(s => String(s || '').trim()).filter(Boolean)));
+    if (keep.length === 0) {
+      return res.status(400).json({ message: 'Список SKU порожній — синхронізацію видалення скасовано' });
+    }
+
+    const filter = {
+      sku: { $exists: true, $ne: '' },
+      $and: [{ sku: { $nin: keep } }]
+    };
+
+    const toMarkCount = await Product.countDocuments(filter);
+    if (dryRun) {
+      return res.json({ ok: true, dryRun: true, toMarkCount, markedCount: 0 });
+    }
+
+    const result = await Product.updateMany(filter, { $set: { stock: 0, discount: 0 } });
+    const markedCount = result?.modifiedCount ?? result?.nModified ?? 0;
+    return res.json({ ok: true, dryRun: false, toMarkCount, markedCount });
+  } catch (e) {
+    return res.status(500).json({ message: 'Не вдалося синхронізувати товари по SKU', error: e?.message });
+  }
+});
+
 // GET /api/products/export/xlsx
 // Експорт усіх товарів у XLSX
 router.get('/export/xlsx', requireAdmin, async (_req, res) => {
@@ -324,12 +367,16 @@ router.post('/import/xlsx', requireAdmin, importUpload.single('file'), async (re
     let updated = 0;
     let skipped = 0;
 
+    const keepSkuSet = new Set();
+
     const ops = [];
 
     for (const r of rows) {
       const name = normalizeString(r.name);
       const sku = normalizeString(r.sku);
       const idRaw = normalizeString(r._id);
+
+      if (sku) keepSkuSet.add(sku);
 
       if (!name) {
         skipped++;
@@ -423,7 +470,7 @@ router.post('/import/xlsx', requireAdmin, importUpload.single('file'), async (re
     updated = modified;
     inserted += upserted;
 
-    return res.status(200).json({ inserted, updated, skipped, count: inserted + updated });
+    return res.status(200).json({ inserted, updated, skipped, count: inserted + updated, skus: Array.from(keepSkuSet) });
   } catch (e) {
     return res.status(500).json({ message: 'Не вдалося імпортувати XLSX', error: e?.message });
   }
@@ -517,6 +564,8 @@ router.post("/bulk", requireAdmin, async (req, res) => {
     const withSku = docs.filter(d => d.sku);
     const withoutSku = docs.filter(d => !d.sku);
 
+    const keepSkuSet = new Set(withSku.map(d => String(d.sku || '').trim()).filter(Boolean));
+
     let insertedCount = 0;
     let updatedCount = 0;
     let skipped = 0;
@@ -594,7 +643,7 @@ router.post("/bulk", requireAdmin, async (req, res) => {
     }
 
     const totalCount = insertedCount + updatedCount;
-    return res.status(200).json({ count: totalCount, inserted: insertedCount, updated: updatedCount, skipped });
+    return res.status(200).json({ count: totalCount, inserted: insertedCount, updated: updatedCount, skipped, skus: Array.from(keepSkuSet) });
   } catch (err) {
     // Якщо були часткові вставки при ordered:false
     if (err && err.insertedDocs) {

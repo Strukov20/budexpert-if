@@ -14,6 +14,7 @@ import {
   updateCategory, 
   deleteCategory, 
   reassignCategories, 
+  syncProductsBySku,
   updateOrder, 
   getLeads, 
   updateLead, 
@@ -56,7 +57,7 @@ export default function AdminPanel(){
   const [showProdCreate, setShowProdCreate] = useState(false)
   const [showProdPreview, setShowProdPreview] = useState(false)
   const [previewProd, setPreviewProd] = useState(null)
-  const [prodForm, setProdForm] = useState({ name:'', price:0, discount:0, image:'', imagePublicId:'', images: [], description:'', specsPairs: [{ id: Date.now() + Math.random(), key:'', value:'' }], specsText:'', category:'', subcategory:'', type:'', sku:'', stock:0, unit:'' })
+  const [prodForm, setProdForm] = useState({ name:'', price:0, discount:0, image:'', imagePublicId:'', images: [], description:'', specsPairs: [{ id: Date.now() + Math.random(), key:'', value:'' }], specsText:'', category:'', subcategory:'', type:'', sku:'', stock:0, unit:'', productOfWeek: false })
   const [showProdList, setShowProdList] = useState(false)
   const [prodListSearch, setProdListSearch] = useState('')
   const [prodCatFilter, setProdCatFilter] = useState('')
@@ -303,6 +304,31 @@ export default function AdminPanel(){
       if(items.length===0){ showToast('Файл порожній або невірний формат','error'); return }
       const res = await bulkCreateProducts(items)
       showToast(`Імпортовано товарів: ${res.count||items.length}`,'success')
+
+      // 3) SKU sync: проставити stock=0 для товарів з SKU, яких немає у файлі
+      try {
+        const keepSkus = Array.from(new Set(
+          (Array.isArray(res?.skus) ? res.skus : items.map(x=> x?.sku))
+            .map(s=> (s||'').toString().trim())
+            .filter(Boolean)
+        ))
+
+        if (keepSkus.length > 0) {
+          const preview = await syncProductsBySku({ skus: keepSkus, dryRun: true })
+          const toMarkCount = Number(preview?.toMarkCount ?? 0)
+          if (toMarkCount > 0) {
+            const ok = confirm(`Імпорт завершено. Знайдено ${toMarkCount} товар(ів) з SKU, яких немає у файлі. Проставити кількість = 0 (немає в наявності) та знижку = 0?`)
+            if (ok) {
+              const delRes = await syncProductsBySku({ skus: keepSkus, dryRun: false })
+              const markedCount = Number(delRes?.markedCount ?? 0)
+              showToast(`Синхронізація SKU: кількість=0 і знижка=0 для ${markedCount}`,'success')
+            }
+          }
+        }
+      } catch (err) {
+        showToast(getErrMsg(err),'error')
+      }
+
       loadAll()
     } catch(err){
       showToast(getErrMsg(err),'error')
@@ -320,6 +346,31 @@ export default function AdminPanel(){
       const updated = Number(res?.updated ?? 0)
       const skipped = Number(res?.skipped ?? 0)
       showToast(`XLSX імпорт: додано ${inserted}, оновлено ${updated}, пропущено ${skipped}`,'success')
+
+      // 3) SKU sync: проставити stock=0 для товарів з SKU, яких немає у XLSX
+      try {
+        const keepSkus = Array.from(new Set(
+          (Array.isArray(res?.skus) ? res.skus : [])
+            .map(s=> (s||'').toString().trim())
+            .filter(Boolean)
+        ))
+
+        if (keepSkus.length > 0) {
+          const preview = await syncProductsBySku({ skus: keepSkus, dryRun: true })
+          const toMarkCount = Number(preview?.toMarkCount ?? 0)
+          if (toMarkCount > 0) {
+            const ok = confirm(`XLSX імпорт завершено. Знайдено ${toMarkCount} товар(ів) з SKU, яких немає у файлі. Проставити кількість = 0 (немає в наявності) та знижку = 0?`)
+            if (ok) {
+              const delRes = await syncProductsBySku({ skus: keepSkus, dryRun: false })
+              const markedCount = Number(delRes?.markedCount ?? 0)
+              showToast(`Синхронізація SKU: кількість=0 і знижка=0 для ${markedCount}`,'success')
+            }
+          }
+        }
+      } catch (err) {
+        showToast(getErrMsg(err),'error')
+      }
+
       loadAll()
     } catch(err){
       showToast(getErrMsg(err),'error')
@@ -508,13 +559,20 @@ export default function AdminPanel(){
         const d = pRes.value
         const items = Array.isArray(d) ? d : (Array.isArray(d?.items) ? d.items : [])
         setProducts(items)
+      } else {
+        showToast(getErrMsg(pRes.reason), 'error')
       }
       if (cRes.status === 'fulfilled') setCategories(cRes.value)
+      else showToast(getErrMsg(cRes.reason), 'error')
       if (oRes.status === 'fulfilled') setOrders(oRes.value)
+      else showToast(getErrMsg(oRes.reason), 'error')
       if (lRes.status === 'fulfilled') setLeads(lRes.value)
+      else showToast(getErrMsg(lRes.reason), 'error')
       if (bRes.status === 'fulfilled') {
         const imgs = Array.isArray(bRes.value?.images) ? bRes.value.images : []
         setBannerImages(imgs)
+      } else {
+        showToast(getErrMsg(bRes.reason), 'error')
       }
     } finally {
       setLoadingAll(false)
@@ -551,7 +609,7 @@ export default function AdminPanel(){
       const { specsPairs, specsText, ...rest } = prodForm
       const payload = { ...rest, specs: specsPairsToObject(specsPairs), images: normalizeImagesForSave(prodForm.images) }
       await createProduct(payload);
-      setShowProdCreate(false); setProdForm({ name:'', price:0, discount:0, image:'', imagePublicId:'', images: [], description:'', specsPairs: [newSpecRow()], specsText:'', category:'', subcategory:'', type:'', sku:'', stock:0, unit:'' });
+      setShowProdCreate(false); setProdForm({ name:'', price:0, discount:0, image:'', imagePublicId:'', images: [], description:'', specsPairs: [newSpecRow()], specsText:'', category:'', subcategory:'', type:'', sku:'', stock:0, unit:'', productOfWeek: false });
       loadAll();
       showToast('Товар успішно додано','success')
     }catch(err){
@@ -568,7 +626,7 @@ export default function AdminPanel(){
       const payload = { ...rest, specs: specsPairsToObject(specsPairs), images: normalizeImagesForSave(prodForm.images) }
       await updateProduct(selectedProdId, payload);
       setShowProdEdit(false);
-      setProdForm({ name:'', price:0, discount:0, image:'', imagePublicId:'', images: [], description:'', specsPairs: [newSpecRow()], specsText:'', category:'', subcategory:'', type:'', sku:'', stock:0, unit:'' });
+      setProdForm({ name:'', price:0, discount:0, image:'', imagePublicId:'', images: [], description:'', specsPairs: [newSpecRow()], specsText:'', category:'', subcategory:'', type:'', sku:'', stock:0, unit:'', productOfWeek: false });
       loadAll();
       showToast('Товар оновлено','success')
     }catch(err){
@@ -740,9 +798,9 @@ export default function AdminPanel(){
   }
 
   return (
-    <div className='container py-6 max-w-md mx-auto px-4 md:max-w-none md:px-0 flex flex-col'>
+    <div className='container py-6 max-w-md mx-auto px-4 md:max-w-none md:px-0 flex flex-col' data-testid='admin-panel-page'>
       {/* Адмін-панель заголовок і кнопка виходу — переміщено вгору */}
-      <div className='flex items-center justify-between mb-4'>
+      <div className='flex items-center justify-between mb-4' data-testid='admin-panel-header'>
         <h2 className='text-2xl font-semibold'>Адмін-панель</h2>
         <div className='flex items-center gap-2'>
           <button
@@ -750,6 +808,7 @@ export default function AdminPanel(){
             onClick={()=>{ setBannerOpen(true); loadBanner(); }}
             className='px-4 py-2 rounded-lg bg-white text-gray-900 shadow ring-1 ring-gray-200 hover:bg-gray-50 hover:ring-gray-300 transition-all duration-200 active:scale-95'
             title='Керування баннером на головній'
+            data-testid='admin-panel-banner-open'
           >
             Баннер
           </button>
@@ -757,12 +816,14 @@ export default function AdminPanel(){
             type='button'
             onClick={()=> navigate('/')}
             className='px-4 py-2 rounded-lg bg-white text-gray-900 shadow ring-1 ring-gray-200 hover:bg-gray-50 hover:ring-gray-300 transition-all duration-200 active:scale-95'
+            data-testid='admin-panel-go-catalog'
           >
             Каталог
           </button>
           <button
             onClick={()=>{ localStorage.removeItem('admin_token'); navigate('/admin/login', { replace:true }) }}
             className='px-4 py-2 rounded-lg bg-red-600 text-white shadow ring-1 ring-red-700/30 hover:bg-red-700 hover:shadow-lg transition-all duration-200 active:scale-95 hover:animate-pulse'
+            data-testid='admin-panel-logout'
           >
             Вийти
           </button>
@@ -770,42 +831,44 @@ export default function AdminPanel(){
       </div>
 
       {bannerOpen && (
-        <div className='fixed inset-0 z-[90] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4' onClick={()=>setBannerOpen(false)}>
-          <div className='bg-white rounded-2xl shadow-2xl w-full max-w-4xl p-5' onClick={(e)=>e.stopPropagation()}>
+        <div className='fixed inset-0 z-[90] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4' onClick={()=>setBannerOpen(false)} data-testid='admin-banner-overlay'>
+          <div className='bg-white rounded-2xl shadow-2xl w-full max-w-4xl p-5' onClick={(e)=>e.stopPropagation()} data-testid='admin-banner-modal'>
             <div className='flex items-center justify-between mb-3'>
               <h4 className='font-semibold'>Баннер (головна сторінка)</h4>
-              <button aria-label='Закрити' onClick={()=> setBannerOpen(false)} className='w-8 h-8 rounded-lg border'>✕</button>
+              <button aria-label='Закрити' onClick={()=> setBannerOpen(false)} className='w-8 h-8 rounded-lg border' data-testid='admin-banner-close'>✕</button>
             </div>
 
             <div className='grid gap-4'>
               <div className='flex items-center justify-between gap-3 flex-wrap'>
-                <label className='inline-flex items-center justify-center gap-2 px-3 py-2 border rounded cursor-pointer'>
-                  <input type='file' accept='image/*' multiple className='hidden' onChange={handleBannerFileChange} />
+                <label className='inline-flex items-center justify-center gap-2 px-3 py-2 border rounded cursor-pointer' data-testid='admin-banner-upload'>
+                  <input type='file' accept='image/*' multiple className='hidden' onChange={handleBannerFileChange} data-testid='admin-banner-upload-input' />
                   <span>{bannerUploading ? 'Завантаження…' : 'Імпортувати картинки'}</span>
                 </label>
-                <div className='text-sm text-gray-600'>
+                <div className='text-sm text-gray-600' data-testid='admin-banner-count'>
                   {Array.isArray(bannerImages) ? bannerImages.length : 0} шт.
                 </div>
               </div>
 
               {Array.isArray(bannerImages) && bannerImages.length > 0 ? (
-                <div className='grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3'>
+                <div className='grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3' data-testid='admin-banner-grid'>
                   {bannerImages.map((img, idx)=>(
-                    <div key={(img?.publicId||img?.url||idx) + '_' + idx} className='relative border rounded-xl p-2 bg-white'>
+                    <div key={(img?.publicId||img?.url||idx) + '_' + idx} className='relative border rounded-xl p-2 bg-white' data-testid={`admin-banner-image-${idx}`}>
                       <img
                         src={resolveImageUrl(img?.url)}
                         alt='banner'
                         className='w-full h-24 object-contain rounded bg-gray-50'
                         referrerPolicy='no-referrer'
+                        data-testid={`admin-banner-image-${idx}-img`}
                       />
-                      <div className='mt-2 flex items-center justify-between gap-2'>
-                        <div className='flex items-center gap-1'>
+                      <div className='mt-2 grid gap-2'>
+                        <div className='flex items-center justify-between gap-2'>
                           <button
                             type='button'
                             className='px-2 py-1 border rounded text-sm disabled:opacity-40'
                             onClick={()=> moveBannerImage(idx, idx-1)}
                             disabled={idx===0}
                             title='Вгору'
+                            data-testid={`admin-banner-image-${idx}-move-up`}
                           >
                             ↑
                           </button>
@@ -815,6 +878,7 @@ export default function AdminPanel(){
                             onClick={()=> moveBannerImage(idx, idx+1)}
                             disabled={idx===bannerImages.length-1}
                             title='Вниз'
+                            data-testid={`admin-banner-image-${idx}-move-down`}
                           >
                             ↓
                           </button>
@@ -824,6 +888,7 @@ export default function AdminPanel(){
                           className='px-2 py-1 border rounded text-sm hover:bg-gray-50'
                           onClick={()=> removeBannerImageAt(idx)}
                           title='Видалити'
+                          data-testid={`admin-banner-image-${idx}-delete`}
                         >
                           <FiX size={14} />
                         </button>
@@ -838,7 +903,7 @@ export default function AdminPanel(){
               )}
 
               <div className='flex items-center justify-end gap-2'>
-                <button type='button' className='px-4 py-2 border rounded-lg' onClick={()=> setBannerOpen(false)}>
+                <button type='button' className='px-4 py-2 border rounded-lg' onClick={()=> setBannerOpen(false)} data-testid='admin-banner-cancel'>
                   Скасувати
                 </button>
                 <button
@@ -846,6 +911,7 @@ export default function AdminPanel(){
                   className='px-4 py-2 rounded-lg bg-gray-900 text-white disabled:opacity-60'
                   onClick={saveBanner}
                   disabled={bannerSaving || bannerUploading}
+                  data-testid='admin-banner-save'
                 >
                   {bannerSaving ? 'Збереження…' : 'Зберегти'}
                 </button>
@@ -856,11 +922,11 @@ export default function AdminPanel(){
       )}
 
       {imgModalOpen && (
-        <div className='fixed inset-0 z-[80] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4' onClick={()=>setImgModalOpen(false)}>
-          <div className='bg-white rounded-2xl shadow-2xl w-full max-w-3xl p-5' onClick={(e)=>e.stopPropagation()}>
+        <div className='fixed inset-0 z-[80] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4' onClick={()=>setImgModalOpen(false)} data-testid='admin-product-image-modal-overlay'>
+          <div className='bg-white rounded-2xl shadow-2xl w-full max-w-3xl p-5' onClick={(e)=>e.stopPropagation()} data-testid='admin-product-image-modal'>
             <div className='flex items-center justify-between mb-3'>
               <h4 className='font-semibold'>Перегляд фото</h4>
-              <button aria-label='Закрити' onClick={()=> setImgModalOpen(false)} className='w-8 h-8 rounded-lg border'>✕</button>
+              <button aria-label='Закрити' onClick={()=> setImgModalOpen(false)} className='w-8 h-8 rounded-lg border' data-testid='admin-product-image-modal-close'>✕</button>
             </div>
 
             {(() => {
@@ -890,6 +956,7 @@ export default function AdminPanel(){
                       onClick={()=>{ makeImagePrimaryAt(imgModalIndex); setImgModalIndex(0); }}
                       disabled={imgModalIndex === 0}
                       title={imgModalIndex === 0 ? 'Це вже головне фото' : 'Зробити головним'}
+                      data-testid='admin-product-image-modal-make-primary'
                     >
                       Зробити головним
                     </button>
@@ -903,8 +970,8 @@ export default function AdminPanel(){
 
       {/* Modal: Edit Category (active, not hidden) */}
       {showCatEdit && (
-        <div className='fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4' onClick={()=> setShowCatEdit(false)}>
-          <div className='bg-white rounded-2xl shadow-2xl w-full max-w-6xl max-h-[96vh] overflow-auto' onClick={(e)=>e.stopPropagation()}>
+        <div className='fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4' onClick={()=> setShowCatEdit(false)} data-testid='admin-categories-edit-overlay'>
+          <div className='bg-white rounded-2xl shadow-2xl w-full max-w-6xl max-h-[96vh] overflow-auto' onClick={(e)=>e.stopPropagation()} data-testid='admin-categories-edit'>
             <div className='px-6 py-4 border-b bg-gradient-to-b from-gray-50 to-white rounded-t-2xl'>
               <div className='flex items-start justify-between gap-3'>
                 <div>
@@ -915,6 +982,7 @@ export default function AdminPanel(){
                   aria-label='Закрити'
                   onClick={()=> { setShowCatEdit(false); setCatTypeParentId(''); setCatTypeName(''); }}
                   className='w-9 h-9 rounded-xl border bg-white hover:bg-gray-50 active:scale-95 transition'
+                  data-testid='admin-categories-edit-close'
                 >
                   ✕
                 </button>
@@ -932,11 +1000,12 @@ export default function AdminPanel(){
                       value={catEditingName}
                       onChange={e=>setCatEditingName(e.target.value)}
                       placeholder='Назва категорії'
+                      data-testid='admin-categories-edit-name'
                     />
                   </div>
 
                 <label className='flex items-start gap-2 mt-4 text-sm'>
-                  <input type='checkbox' className='mt-1' checked={applyToProducts} onChange={(e)=> setApplyToProducts(e.target.checked)} />
+                  <input type='checkbox' className='mt-1' checked={applyToProducts} onChange={(e)=> setApplyToProducts(e.target.checked)} data-testid='admin-categories-edit-apply-to-products' />
                   <span>
                     Застосувати нову назву до всіх товарів цієї категорії
                     <div className='text-xs text-gray-500 mt-0.5'>Товари посилаються на категорію за ID, тому нова назва відобразиться автоматично.</div>
@@ -956,6 +1025,7 @@ export default function AdminPanel(){
                     onChange={e=> setCatSubName(e.target.value)}
                     placeholder='Нова підкатегорія'
                     disabled={catSubLoading}
+                    data-testid='admin-categories-edit-subcategory-new-name'
                   />
                   <button
                     type='button'
@@ -977,12 +1047,13 @@ export default function AdminPanel(){
                         setCatSubLoading(false)
                       }
                     }}
+                    data-testid='admin-categories-edit-subcategory-add'
                   >
                     {catSubLoading ? 'Додаю…' : 'Додати'}
                   </button>
                 </div>
 
-                <div className='max-h-56 overflow-auto rounded-xl border bg-gray-50'>
+                <div className='max-h-56 overflow-auto rounded-xl border bg-gray-50' data-testid='admin-categories-edit-subcategories'>
                   {(()=>{
                     const pid = (selectedCatId || '').toString()
                     const getParentId = (c)=>{
@@ -995,13 +1066,14 @@ export default function AdminPanel(){
                     const subs = categories.filter(c=> String(getParentId(c)||'') === String(pid))
                     if (!subs.length) return <div className='p-3 text-sm text-gray-500'>Підкатегорій ще немає.</div>
                     return subs.map(sc=> (
-                      <div key={sc._id} className='px-4 py-2.5 border-t first:border-t-0 text-sm bg-white hover:bg-gray-50 flex items-center gap-2'>
+                      <div key={sc._id} className='px-4 py-2.5 border-t first:border-t-0 text-sm bg-white hover:bg-gray-50 flex items-center gap-2' data-testid={`admin-categories-edit-subcategory-${sc._id}`}>
                         {editSubId === sc._id ? (
                           <input
                             className='border px-2 py-1.5 rounded-md w-full focus:outline-none focus:ring-2 focus:ring-black/10 focus:border-gray-400'
                             value={editSubName}
                             onChange={e=> setEditSubName(e.target.value)}
                             disabled={savingChildId === sc._id}
+                            data-testid={`admin-categories-edit-subcategory-${sc._id}-name`}
                           />
                         ) : (
                           <span className='flex-1 min-w-0 truncate'>{sc.name}</span>
@@ -1031,6 +1103,7 @@ export default function AdminPanel(){
                               }}
                               title='Зберегти'
                               aria-label='Зберегти'
+                              data-testid={`admin-categories-edit-subcategory-${sc._id}-save`}
                             >
                               <FiCheckCircle />
                             </button>
@@ -1040,6 +1113,7 @@ export default function AdminPanel(){
                               onClick={()=> { setEditSubId(''); setEditSubName(''); }}
                               title='Скасувати'
                               aria-label='Скасувати'
+                              data-testid={`admin-categories-edit-subcategory-${sc._id}-cancel`}
                             >
                               <FiX />
                             </button>
@@ -1052,6 +1126,7 @@ export default function AdminPanel(){
                               onClick={()=> { setEditSubId(sc._id); setEditSubName(sc.name || ''); }}
                               title='Редагувати'
                               aria-label='Редагувати'
+                              data-testid={`admin-categories-edit-subcategory-${sc._id}-edit`}
                             >
                               <FiEdit2 />
                             </button>
@@ -1076,6 +1151,7 @@ export default function AdminPanel(){
                               }}
                               title='Видалити'
                               aria-label='Видалити'
+                              data-testid={`admin-categories-edit-subcategory-${sc._id}-delete`}
                             >
                               <FiTrash2 />
                             </button>
@@ -1096,6 +1172,7 @@ export default function AdminPanel(){
                     className='border px-3 py-2.5 rounded-lg w-full focus:outline-none focus:ring-2 focus:ring-black/10 focus:border-gray-400'
                     value={catTypeParentId}
                     onChange={e=> { setCatTypeParentId(e.target.value); setCatTypeName('') }}
+                    data-testid='admin-categories-edit-type-parent-subcategory'
                   >
                     <option value=''>Оберіть підкатегорію</option>
                     {(()=>{
@@ -1120,6 +1197,7 @@ export default function AdminPanel(){
                       onChange={e=> setCatTypeName(e.target.value)}
                       placeholder='Новий тип'
                       disabled={catTypeLoading || !catTypeParentId}
+                      data-testid='admin-categories-edit-type-new-name'
                     />
                     <button
                       type='button'
@@ -1141,13 +1219,14 @@ export default function AdminPanel(){
                           setCatTypeLoading(false)
                         }
                       }}
+                      data-testid='admin-categories-edit-type-add'
                     >
                       {catTypeLoading ? '...' : 'Додати'}
                     </button>
                   </div>
                 </div>
 
-                <div className='border rounded-lg overflow-hidden'>
+                <div className='border rounded-lg overflow-hidden' data-testid='admin-categories-edit-types'>
                   {(()=>{
                     const pid = catTypeParentId
                     if (!pid) return <div className='p-3 text-sm text-gray-500'>Оберіть підкатегорію, щоб побачити типи.</div>
@@ -1161,13 +1240,14 @@ export default function AdminPanel(){
                     const types = categories.filter(c=> String(getParentId(c)||'') === String(pid))
                     if (!types.length) return <div className='p-3 text-sm text-gray-500'>Типів ще немає.</div>
                     return types.map(t=> (
-                      <div key={t._id} className='px-4 py-2.5 border-t first:border-t-0 text-sm bg-white hover:bg-gray-50 flex items-center gap-2'>
+                      <div key={t._id} className='px-4 py-2.5 border-t first:border-t-0 text-sm bg-white hover:bg-gray-50 flex items-center gap-2' data-testid={`admin-categories-edit-type-${t._id}`}>
                         {editTypeId === t._id ? (
                           <input
                             className='border px-2 py-1.5 rounded-md w-full focus:outline-none focus:ring-2 focus:ring-black/10 focus:border-gray-400'
                             value={editTypeName}
                             onChange={e=> setEditTypeName(e.target.value)}
                             disabled={savingChildId === t._id}
+                            data-testid={`admin-categories-edit-type-${t._id}-name`}
                           />
                         ) : (
                           <span className='flex-1 min-w-0 truncate'>{t.name}</span>
@@ -1197,6 +1277,7 @@ export default function AdminPanel(){
                               }}
                               title='Зберегти'
                               aria-label='Зберегти'
+                              data-testid={`admin-categories-edit-type-${t._id}-save`}
                             >
                               <FiCheckCircle />
                             </button>
@@ -1206,6 +1287,7 @@ export default function AdminPanel(){
                               onClick={()=> { setEditTypeId(''); setEditTypeName(''); }}
                               title='Скасувати'
                               aria-label='Скасувати'
+                              data-testid={`admin-categories-edit-type-${t._id}-cancel`}
                             >
                               <FiX />
                             </button>
@@ -1218,6 +1300,7 @@ export default function AdminPanel(){
                               onClick={()=> { setEditTypeId(t._id); setEditTypeName(t.name || ''); }}
                               title='Редагувати'
                               aria-label='Редагувати'
+                              data-testid={`admin-categories-edit-type-${t._id}-edit`}
                             >
                               <FiEdit2 />
                             </button>
@@ -1241,6 +1324,7 @@ export default function AdminPanel(){
                               }}
                               title='Видалити'
                               aria-label='Видалити'
+                              data-testid={`admin-categories-edit-type-${t._id}-delete`}
                             >
                               <FiTrash2 />
                             </button>
@@ -1254,7 +1338,7 @@ export default function AdminPanel(){
             </div>
 
             <div className='px-6 py-4 border-t bg-white rounded-b-2xl flex items-center justify-end gap-2'>
-              <button onClick={()=> { setShowCatEdit(false); setCatTypeParentId(''); setCatTypeName(''); }} className='px-4 py-2.5 rounded-lg border bg-white hover:bg-gray-50 transition'>Скасувати</button>
+              <button onClick={()=> { setShowCatEdit(false); setCatTypeParentId(''); setCatTypeName(''); }} className='px-4 py-2.5 rounded-lg border bg-white hover:bg-gray-50 transition' data-testid='admin-categories-edit-cancel'>Скасувати</button>
               <button onClick={async()=>{
                 try{
                   if (!selectedCatId) return;
@@ -1265,7 +1349,7 @@ export default function AdminPanel(){
                   loadAll();
                   showToast(applyToProducts ? 'Категорію оновлено. Товари відобразять нову назву автоматично.' : 'Категорію оновлено','success')
                 }catch(err){ showToast(getErrMsg(err),'error') }
-              }} className='px-4 py-2.5 rounded-lg bg-black text-white hover:bg-red-600 transition'>Зберегти</button>
+              }} className='px-4 py-2.5 rounded-lg bg-black text-white hover:bg-red-600 transition' data-testid='admin-categories-edit-save'>Зберегти</button>
             </div>
           </div>
         </div>
@@ -1273,7 +1357,7 @@ export default function AdminPanel(){
       {/* Toast stack */}
       <div className='fixed top-5 right-5 z-[9999] flex flex-col gap-2 items-end' aria-live='polite' aria-atomic='true'>
         {toasts.map(t => (
-          <div key={t.id} className={`max-w-sm pl-5 pr-2 py-4 rounded-xl shadow-lg border text-base font-medium flex items-center gap-3 transition-all duration-300 backdrop-blur-md ${t.type==='success' ? 'bg-green-600/85 border-white/10 text-white' : 'bg-red-600/85 border-white/10 text-white'} ${t.open ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-3'}`}>
+          <div key={t.id} className={`max-w-sm pl-5 pr-2 py-4 rounded-xl shadow-lg border text-base font-medium flex items-center gap-3 transition-all duration-300 backdrop-blur-md ${t.type==='success' ? 'bg-green-600/85 border-white/10 text-white' : 'bg-red-600/85 border-white/10 text-white'} ${t.open ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-3'}`} data-testid={`admin-toast-${t.type}-${t.id}`}>
             <span className='inline-flex items-center justify-center w-6 h-6 rounded-full bg-white/20'>
               {t.type==='success' ? <FiCheckCircle size={16} /> : <FiAlertTriangle size={16} />}
             </span>
@@ -1282,6 +1366,7 @@ export default function AdminPanel(){
               aria-label='Закрити'
               onClick={()=> closeToast(t.id)}
               className='ml-auto inline-flex items-center justify-center w-8 h-8 rounded-lg border border-white/30 text-white/90 hover:bg-white hover:text-black transition active:scale-95'
+              data-testid={`admin-toast-close-${t.id}`}
             >
               ✕
             </button>
@@ -1290,23 +1375,24 @@ export default function AdminPanel(){
       </div>
 
       {/* Заявки на доставку */}
-      <div className={`${leadsFull ? 'fixed inset-0 z-50 bg-white p-4 overflow-auto' : 'mt-6 mb-6'}`}>
-        <div className='flex items-center justify-between mb-2'>
+      <div className={`${leadsFull ? 'fixed inset-0 z-50 bg-white p-4 overflow-auto' : 'mt-6 mb-6'}`} data-testid='admin-leads-section'>
+        <div className='flex items-center justify-between mb-2' data-testid='admin-leads-header'>
           <h3 className='text-lg font-semibold'>Заявки (доставка / дзвінок)</h3>
           <button
             className='w-10 h-10 inline-flex items-center justify-center border rounded hover:bg-gray-50 active:scale-95'
             onClick={()=> setLeadsFull(v=>!v)}
             aria-label={leadsFull ? 'Вийти з повного екрану' : 'На весь екран'}
             title={leadsFull ? 'Згорнути' : 'Розгорнути'}
+            data-testid='admin-leads-toggle-fullscreen'
           >
             {leadsFull ? <FiMinimize2 /> : <FiMaximize2 />}
           </button>
         </div>
-        <div className='p-3 bg-white rounded-lg border shadow-sm flex items-center justify-center gap-2 md:gap-3 mb-3 flex-wrap md:flex-nowrap'>
-          <input className='border rounded w-[200px] md:w-[240px] shrink-0 h-10 px-3 text-sm' placeholder='Пошук (імʼя/телефон/місто)' value={leadSearch} onChange={e=> setLeadSearch(e.target.value)} />
-          <input type='date' className='border rounded w-[180px] shrink-0 h-10 px-3 text-sm' value={leadFrom} onChange={e=> setLeadFrom(e.target.value)} />
-          <input type='date' className='border rounded w-[180px] shrink-0 h-10 px-3 text-sm' value={leadTo} onChange={e=> setLeadTo(e.target.value)} />
-          <select className='border rounded w-[180px] shrink-0 h-10 px-3 text-sm' value={leadStatusFilter} onChange={e=> setLeadStatusFilter(e.target.value)}>
+        <div className='p-3 bg-white rounded-lg border shadow-sm flex items-center justify-center gap-2 md:gap-3 mb-3 flex-wrap md:flex-nowrap' data-testid='admin-leads-filters'>
+          <input className='border rounded w-[200px] md:w-[240px] shrink-0 h-10 px-3 text-sm' placeholder='Пошук (імʼя/телефон/місто)' value={leadSearch} onChange={e=> setLeadSearch(e.target.value)} data-testid='admin-leads-search' />
+          <input type='date' className='border rounded w-[180px] shrink-0 h-10 px-3 text-sm' value={leadFrom} onChange={e=> setLeadFrom(e.target.value)} data-testid='admin-leads-date-from' />
+          <input type='date' className='border rounded w-[180px] shrink-0 h-10 px-3 text-sm' value={leadTo} onChange={e=> setLeadTo(e.target.value)} data-testid='admin-leads-date-to' />
+          <select className='border rounded w-[180px] shrink-0 h-10 px-3 text-sm' value={leadStatusFilter} onChange={e=> setLeadStatusFilter(e.target.value)} data-testid='admin-leads-status-filter'>
             <option value=''>Всі статуси</option>
             {LEAD_STATUS_KEYS.map(k=> <option key={k} value={k}>{LEAD_STATUS[k]}</option>)}
           </select>
@@ -1315,13 +1401,14 @@ export default function AdminPanel(){
             onClick={()=>{ setLeadSearch(''); setLeadFrom(''); setLeadTo(''); setLeadStatusFilter(''); }}
             title='Скинути фільтри'
             aria-label='Скинути фільтри'
+            data-testid='admin-leads-reset-filters'
           >
             <FiRefreshCcw />
           </button>
         </div>
-        <div className='bg-white rounded-2xl border shadow-sm overflow-hidden'>
-          <div className={`rounded-lg border m-3 ${leadsFull ? '' : 'max-h-[280px] overflow-auto'}`}>
-            <table className='min-w-full text-sm'>
+        <div className='bg-white rounded-2xl border shadow-sm overflow-hidden' data-testid='admin-leads-table-card'>
+          <div className={`rounded-lg border m-3 ${leadsFull ? '' : 'max-h-[280px] overflow-auto'}`} data-testid='admin-leads-table-scroll'>
+            <table className='min-w-full text-sm' data-testid='admin-leads-table'>
               <thead className='bg-gray-50 sticky top-0 z-10'>
                 <tr>
                   <th className='text-center px-3 py-2'>Тип</th>
@@ -1353,14 +1440,14 @@ export default function AdminPanel(){
                   if (list.length === 0) {
                     return (
                       <tr>
-                        <td colSpan='9' className='px-3 py-6 text-center text-gray-500'>Немає активних заявок</td>
+                        <td colSpan='10' className='px-3 py-6 text-center text-gray-500'>Немає активних заявок</td>
                       </tr>
                     )
                   }
 
                   return list.map(l => {
                     return (
-                      <tr key={l._id} className='h-12 border-t odd:bg-gray-50/40 hover:bg-gray-50 transition-colors'>
+                      <tr key={l._id} className='h-12 border-t odd:bg-gray-50/40 hover:bg-gray-50 transition-colors' data-testid={`admin-lead-${l._id}`}> 
                         <td className='px-3 py-2 text-center'>
                           <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold border ${
                             (l.type||'delivery')==='call'
@@ -1385,6 +1472,7 @@ export default function AdminPanel(){
                             onChange={(e)=> updateLeadStatus(l._id, e.target.value)}
                             title={LEAD_STATUS[l.status||'new']}
                             aria-label='Статус заявки'
+                            data-testid={`admin-lead-${l._id}-status`}
                           >
                             {LEAD_STATUS_KEYS.map(k=> <option key={k} value={k}>{LEAD_STATUS[k]}</option>)}
                           </select>
@@ -1399,6 +1487,7 @@ export default function AdminPanel(){
                             onClick={()=> handleDeleteLead(l._id)}
                             title='Видалити'
                             aria-label='Видалити'
+                            data-testid={`admin-lead-${l._id}-delete`}
                           >
                             {deletingLeadId === l._id ? (
                               <span className='w-4 h-4 rounded-full border-2 border-red-300 border-t-red-600 animate-spin' />
@@ -1427,6 +1516,7 @@ export default function AdminPanel(){
                 type='button'
                 onClick={()=> setShowProdList(true)}
                 className='inline-flex items-center gap-2 px-3 py-2 border rounded hover:bg-black hover:text-white transition'
+                data-testid='admin-products-open-list'
               >
                 <FiEye size={18} />
                 <span>Всі товари</span>
@@ -1435,6 +1525,7 @@ export default function AdminPanel(){
                 type='button'
                 onClick={handleImportClick}
                 className='inline-flex items-center gap-2 px-3 py-2 border rounded hover:bg-black hover:text-white transition'
+                data-testid='admin-products-import-open'
               >
                 <FiPlus size={18} />
                 <span>Імпорт товарів</span>
@@ -1443,6 +1534,7 @@ export default function AdminPanel(){
                 type='button'
                 onClick={handleExportCsv}
                 className='inline-flex items-center gap-2 px-3 py-2 border rounded hover:bg-black hover:text-white transition'
+                data-testid='admin-products-export-csv'
               >
                 <FiDownload size={18} />
                 <span>Експорт CSV</span>
@@ -1451,6 +1543,7 @@ export default function AdminPanel(){
                 type='button'
                 onClick={handleExportXlsx}
                 className='inline-flex items-center gap-2 px-3 py-2 border rounded hover:bg-black hover:text-white transition'
+                data-testid='admin-products-export-xlsx'
               >
                 <FiDownload size={18} />
                 <span>Експорт XLSX</span>
@@ -1459,6 +1552,7 @@ export default function AdminPanel(){
                 type='button'
                 onClick={handleImportXlsxClick}
                 className='inline-flex items-center gap-2 px-3 py-2 border rounded hover:bg-black hover:text-white transition'
+                data-testid='admin-products-import-xlsx-open'
               >
                 <FiPlus size={18} />
                 <span>Імпорт XLSX</span>
@@ -1469,6 +1563,7 @@ export default function AdminPanel(){
                 className='inline-flex items-center justify-center w-10 h-10 border rounded text-red-600 hover:bg-red-600 hover:text-white transition'
                 title='Видалити всі товари'
                 aria-label='Видалити всі товари'
+                data-testid='admin-products-delete-all'
               >
                 <FiTrash2 size={18} />
               </button>
@@ -1477,9 +1572,10 @@ export default function AdminPanel(){
                 type='button'
                 onClick={()=> setShowCatList(true)}
                 className='inline-flex items-center gap-2 px-3 py-2 border rounded hover:bg-black hover:text-white transition'
+                data-testid='admin-categories-open-list'
               >
                 <FiEye size={18} />
-                <span>Всі категорії</span>
+                <span>Категорії</span>
               </button>
             </div>
             <button
@@ -1492,22 +1588,22 @@ export default function AdminPanel(){
             </button>
           </div>
           <div className='flex gap-2 items-center justify-center flex-wrap'>
-            <input ref={importInputRef} type='file' accept='.csv,.json,text/csv,application/json' className='hidden' onChange={handleImportFile} />
-            <input ref={importXlsxInputRef} type='file' accept='.xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' className='hidden' onChange={handleImportXlsxFile} />
+            <input ref={importInputRef} type='file' accept='.csv,.json,text/csv,application/json' className='hidden' onChange={handleImportFile} data-testid='admin-products-import-file-input' />
+            <input ref={importXlsxInputRef} type='file' accept='.xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' className='hidden' onChange={handleImportXlsxFile} data-testid='admin-products-import-xlsx-input' />
           </div>
 
           {/* Modal: Edit Product */}
           {showProdEdit && (
-            <div className='fixed inset-0 z-[60] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4'>
-              <div className='bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[95vh] overflow-auto p-6' onClick={(e)=>e.stopPropagation()}>
+            <div className='fixed inset-0 z-[60] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4' data-testid='admin-product-edit-overlay'>
+              <div className='bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[95vh] overflow-auto p-6' onClick={(e)=>e.stopPropagation()} data-testid='admin-product-edit'>
                 <div className='flex items-center justify-between mb-3'>
                   <h4 className='font-semibold'>Редагувати товар</h4>
-                  <button aria-label='Закрити' onClick={()=> setShowProdEdit(false)} className='w-8 h-8 rounded-lg border'>✕</button>
+                  <button aria-label='Закрити' onClick={()=> setShowProdEdit(false)} className='w-8 h-8 rounded-lg border' data-testid='admin-product-edit-close'>✕</button>
                 </div>
                 <div className='grid gap-3'>
                   <div className='grid gap-2 md:grid-cols-[220px_1fr] md:items-center'>
                     <div className='text-sm text-gray-700'>Назва:</div>
-                    <input className='border p-2 rounded w-full' required value={prodForm.name} onChange={e=>setProdForm({...prodForm, name:e.target.value})} />
+                    <input className='border p-2 rounded w-full' required value={prodForm.name} onChange={e=>setProdForm({...prodForm, name:e.target.value})} data-testid='admin-product-edit-name' />
                   </div>
 
                   <div className='grid gap-2 md:grid-cols-[220px_1fr] md:items-center'>
@@ -1519,6 +1615,7 @@ export default function AdminPanel(){
                         type='number'
                         value={prodForm.price}
                         onChange={e=>setProdForm({...prodForm, price:Number(e.target.value)})}
+                        data-testid='admin-product-edit-price'
                       />
                       <input
                         className='border p-2 rounded'
@@ -1527,13 +1624,14 @@ export default function AdminPanel(){
                         max='100'
                         value={prodForm.discount}
                         onChange={e=>setProdForm({...prodForm, discount: Math.max(0, Math.min(100, Number(e.target.value)||0))})}
+                        data-testid='admin-product-edit-discount'
                       />
                     </div>
                   </div>
 
                   <div className='grid gap-2 md:grid-cols-[220px_1fr] md:items-center'>
                     <div className='text-sm text-gray-700'>SKU / Артикул:</div>
-                    <input className='border p-2 rounded w-full' value={prodForm.sku} onChange={e=>setProdForm({...prodForm, sku:e.target.value})} />
+                    <input className='border p-2 rounded w-full' value={prodForm.sku} onChange={e=>setProdForm({...prodForm, sku:e.target.value})} data-testid='admin-product-edit-sku' />
                   </div>
 
                   <div className='grid gap-2 md:grid-cols-[220px_1fr] md:items-center'>
@@ -1544,18 +1642,32 @@ export default function AdminPanel(){
                       min='0'
                       value={prodForm.stock}
                       onChange={e=>setProdForm({...prodForm, stock: Math.max(0, Number(e.target.value)||0)})}
+                      data-testid='admin-product-edit-stock'
                     />
                   </div>
 
                   <div className='grid gap-2 md:grid-cols-[220px_1fr] md:items-center'>
                     <div className='text-sm text-gray-700'>Одиниця вимірювання:</div>
-                    <input className='border p-2 rounded w-full' value={prodForm.unit} onChange={e=>setProdForm({...prodForm, unit:e.target.value})} />
+                    <input className='border p-2 rounded w-full' value={prodForm.unit} onChange={e=>setProdForm({...prodForm, unit:e.target.value})} data-testid='admin-product-edit-unit' />
+                  </div>
+
+                  <div className='grid gap-2 md:grid-cols-[220px_1fr] md:items-center'>
+                    <div className='text-sm text-gray-700'>Товар тижня:</div>
+                    <label className='inline-flex items-center gap-2 text-sm text-gray-700 select-none'>
+                      <input
+                        type='checkbox'
+                        checked={Boolean(prodForm.productOfWeek)}
+                        onChange={e=> setProdForm(prev=> ({ ...prev, productOfWeek: e.target.checked }))}
+                        data-testid='admin-product-edit-product-of-week'
+                      />
+                      <span>Показувати в блоці «Товар тижня»</span>
+                    </label>
                   </div>
 
                   <div className='grid gap-2 md:grid-cols-[220px_1fr] md:items-center'>
                     <div className='text-sm text-gray-700'>Картинка (URL / файл):</div>
                     <div className='flex'>
-                      <label className='inline-flex items-center justify-center gap-2 px-3 py-2 border rounded cursor-pointer w-full sm:w-auto'>
+                      <label className='inline-flex items-center justify-center gap-2 px-3 py-2 border rounded cursor-pointer w-full sm:w-auto' data-testid='admin-product-edit-images-upload'>
                         <input type='file' accept='image/*' multiple className='hidden' onChange={handleFileChange} />
                         <span>{uploading ? 'Завантаження…' : 'Завантажити файл'}</span>
                       </label>
@@ -1574,6 +1686,7 @@ export default function AdminPanel(){
                               className='w-28 h-20 object-contain border rounded bg-white cursor-zoom-in'
                               referrerPolicy='no-referrer'
                               onClick={()=>openImgModal(idx)}
+                              data-testid={`admin-product-edit-image-${idx}`}
                             />
                             <button
                               type='button'
@@ -1581,6 +1694,7 @@ export default function AdminPanel(){
                               onClick={()=>removeImageAt(idx)}
                               aria-label='Видалити фото'
                               title='Видалити фото'
+                              data-testid={`admin-product-edit-image-remove-${idx}`}
                             >
                               <FiX size={14} />
                             </button>
@@ -1590,6 +1704,7 @@ export default function AdminPanel(){
                           type='button'
                           className='px-3 py-1 border rounded'
                           onClick={()=>setProdForm(prev=> ({ ...prev, image:'', imagePublicId:'', images: [] }))}
+                          data-testid='admin-product-edit-images-clear'
                         >
                           Очистити всі
                         </button>
@@ -1606,6 +1721,7 @@ export default function AdminPanel(){
                             className='border p-2 pr-10 rounded w-full'
                             value={prodForm.category}
                             onChange={e=> setProdForm(prev=> ({ ...prev, category: e.target.value, subcategory:'', type:'' }))}
+                            data-testid='admin-product-edit-category'
                           >
                             <option value=''>Виберіть категорію</option>
                             {(()=>{
@@ -1628,6 +1744,7 @@ export default function AdminPanel(){
                           className='w-10 h-10 inline-flex items-center justify-center border rounded bg-white hover:bg-black hover:text-white transition'
                           aria-label='Додати нову категорію'
                           title='Додати категорію'
+                          data-testid='admin-product-edit-inline-category-toggle'
                         >
                           <FiPlus size={18} />
                         </button>
@@ -1639,12 +1756,14 @@ export default function AdminPanel(){
                             value={inlineCatName}
                             onChange={e=> setInlineCatName(e.target.value)}
                             placeholder='Нова категорія'
+                            data-testid='admin-product-edit-inline-category-name'
                           />
                           <button
                             type='button'
                             onClick={handleInlineCreateCategory}
                             disabled={inlineCatLoading || !inlineCatName.trim()}
                             className='inline-flex items-center justify-center gap-2 px-3 py-2 border rounded bg-gray-50 hover:bg-black hover:text-white transition disabled:opacity-60 disabled:cursor-not-allowed'
+                            data-testid='admin-product-edit-inline-category-submit'
                           >
                             <FiPlus size={16} />
                             <span>{inlineCatLoading ? 'Створення…' : 'Додати категорію'}</span>
@@ -1863,11 +1982,12 @@ export default function AdminPanel(){
                   </div>
                 </div>
                 <div className='mt-4 flex justify-end gap-2'>
-                  <button onClick={()=> setShowProdEdit(false)} className='px-3 py-2 border rounded' disabled={savingProduct}>Скасувати</button>
+                  <button onClick={()=> setShowProdEdit(false)} className='px-3 py-2 border rounded' disabled={savingProduct} data-testid='admin-product-edit-cancel'>Скасувати</button>
                   <button
                     onClick={handleUpdate}
                     disabled={savingProduct}
                     className='px-3 py-2 bg-black text-white rounded hover:bg-red-600 transition disabled:opacity-60 disabled:cursor-not-allowed inline-flex items-center gap-2'
+                    data-testid='admin-product-edit-save'
                   >
                     {savingProduct && <span className='w-4 h-4 rounded-full border-2 border-white/50 border-t-white animate-spin' />}
                     <span>{savingProduct ? 'Збереження…' : 'Зберегти'}</span>
@@ -1879,14 +1999,14 @@ export default function AdminPanel(){
 
           {/* Modal: Create Product */}
           {showProdCreate && (
-            <div className='fixed inset-0 z-[60] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4'>
-              <div className='bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[95vh] overflow-auto p-6' onClick={(e)=>e.stopPropagation()}>
+            <div className='fixed inset-0 z-[60] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4' data-testid='admin-product-create-overlay'>
+              <div className='bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[95vh] overflow-auto p-6' onClick={(e)=>e.stopPropagation()} data-testid='admin-product-create'>
                 <div className='flex items-center justify-between mb-3'>
                   <h4 className='font-semibold'>Новий товар</h4>
-                  <button aria-label='Закрити' onClick={()=> setShowProdCreate(false)} className='w-8 h-8 rounded-lg border'>✕</button>
+                  <button aria-label='Закрити' onClick={()=> setShowProdCreate(false)} className='w-8 h-8 rounded-lg border' data-testid='admin-product-create-close'>✕</button>
                 </div>
                 <div className='grid md:grid-cols-2 gap-3'>
-                  <input className='border p-2 rounded' required placeholder='Назва' value={prodForm.name} onChange={e=>setProdForm({...prodForm, name:e.target.value})} />
+                  <input className='border p-2 rounded' required placeholder='Назва' value={prodForm.name} onChange={e=>setProdForm({...prodForm, name:e.target.value})} data-testid='admin-product-create-name' />
                   <div className='grid grid-cols-[2fr_1fr] gap-2'>
                     <input
                       className='border p-2 rounded'
@@ -1895,6 +2015,7 @@ export default function AdminPanel(){
                       placeholder='Ціна'
                       value={prodForm.price}
                       onChange={e=>setProdForm({...prodForm, price:Number(e.target.value)})}
+                      data-testid='admin-product-create-price'
                     />
                     <input
                       className='border p-2 rounded'
@@ -1904,6 +2025,7 @@ export default function AdminPanel(){
                       placeholder='Discount %'
                       value={prodForm.discount}
                       onChange={e=>setProdForm({...prodForm, discount: Math.max(0, Math.min(100, Number(e.target.value)||0))})}
+                      data-testid='admin-product-create-discount'
                     />
                   </div>
                   <div className='grid grid-cols-3 gap-2'>
@@ -1912,6 +2034,7 @@ export default function AdminPanel(){
                       placeholder='SKU / артикул'
                       value={prodForm.sku}
                       onChange={e=>setProdForm({...prodForm, sku:e.target.value})}
+                      data-testid='admin-product-create-sku'
                     />
                     <input
                       className='border p-2 rounded'
@@ -1920,13 +2043,27 @@ export default function AdminPanel(){
                       placeholder='Кількість на складі'
                       value={prodForm.stock}
                       onChange={e=>setProdForm({...prodForm, stock: Math.max(0, Number(e.target.value)||0)})}
+                      data-testid='admin-product-create-stock'
                     />
                     <input
                       className='border p-2 rounded'
                       placeholder='Одиниця (шт, м, кг...)'
                       value={prodForm.unit}
                       onChange={e=>setProdForm({...prodForm, unit:e.target.value})}
+                      data-testid='admin-product-create-unit'
                     />
+                  </div>
+
+                  <div className='md:col-span-2'>
+                    <label className='inline-flex items-center gap-2 text-sm text-gray-700 select-none'>
+                      <input
+                        type='checkbox'
+                        checked={Boolean(prodForm.productOfWeek)}
+                        onChange={e=> setProdForm(prev=> ({ ...prev, productOfWeek: e.target.checked }))}
+                        data-testid='admin-product-create-product-of-week'
+                      />
+                      <span>Товар тижня</span>
+                    </label>
                   </div>
 
                   <div className='md:col-span-2 space-y-3'>
@@ -2026,8 +2163,8 @@ export default function AdminPanel(){
                     </div>
                   </div>
                   <div className='md:col-span-2 grid gap-2 sm:grid-cols-[1fr_auto] items-center'>
-                    <input className='border p-2 rounded' placeholder='URL картинки' value={prodForm.image} onChange={e=>setProdForm({...prodForm, image:e.target.value})} />
-                    <label className='inline-flex items-center gap-2 px-3 py-2 border rounded cursor-pointer'>
+                    <input className='border p-2 rounded' placeholder='URL картинки' value={prodForm.image} onChange={e=>setProdForm({...prodForm, image:e.target.value})} data-testid='admin-product-create-image-url' />
+                    <label className='inline-flex items-center gap-2 px-3 py-2 border rounded cursor-pointer' data-testid='admin-product-create-images-upload'>
                       <input type='file' accept='image/*' multiple className='hidden' onChange={handleFileChange} />
                       <span>{uploading ? 'Завантаження…' : 'Завантажити файл'}</span>
                     </label>
@@ -2043,6 +2180,7 @@ export default function AdminPanel(){
                             className='w-28 h-20 object-contain border rounded bg-white cursor-zoom-in'
                             referrerPolicy='no-referrer'
                             onClick={()=>openImgModal(idx)}
+                            data-testid={`admin-product-create-image-${idx}`}
                           />
                           <button
                             type='button'
@@ -2050,6 +2188,7 @@ export default function AdminPanel(){
                             onClick={()=>removeImageAt(idx)}
                             aria-label='Видалити фото'
                             title='Видалити фото'
+                            data-testid={`admin-product-create-image-remove-${idx}`}
                           >
                             <FiX size={14} />
                           </button>
@@ -2059,6 +2198,7 @@ export default function AdminPanel(){
                         type='button'
                         className='px-3 py-1 border rounded'
                         onClick={()=>setProdForm(prev=> ({ ...prev, image:'', imagePublicId:'', images: [] }))}
+                        data-testid='admin-product-create-images-clear'
                       >
                         Очистити всі
                       </button>
@@ -2189,11 +2329,12 @@ export default function AdminPanel(){
                   </div>
                 </div>
                 <div className='mt-4 flex justify-end gap-2'>
-                  <button onClick={()=> setShowProdCreate(false)} className='px-3 py-2 border rounded' disabled={savingProduct}>Скасувати</button>
+                  <button onClick={()=> setShowProdCreate(false)} className='px-3 py-2 border rounded' disabled={savingProduct} data-testid='admin-product-create-cancel'>Скасувати</button>
                   <button
                     onClick={handleCreateProduct}
                     disabled={savingProduct}
                     className='px-3 py-2 bg-black text-white rounded hover:bg-red-600 transition disabled:opacity-60 disabled:cursor-not-allowed inline-flex items-center gap-2'
+                    data-testid='admin-product-create-submit'
                   >
                     {savingProduct && <span className='w-4 h-4 rounded-full border-2 border-white/50 border-t-white animate-spin' />}
                     <span>{savingProduct ? 'Створення…' : 'Створити'}</span>
@@ -2206,10 +2347,11 @@ export default function AdminPanel(){
 
         {/* Modal: View All Products (list) */}
         {showProdList && (
-          <div className='fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4'>
+          <div className='fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4' data-testid='admin-products-list-overlay'>
             <div
               className={`bg-white rounded-3xl shadow-2xl overflow-auto p-6 ${prodFull ? 'w-full h-full max-w-none' : 'w-full max-w-6xl max-h-[90vh]'}`}
               onClick={(e)=>e.stopPropagation()}
+              data-testid='admin-products-list'
             >
               <div className='flex items-center justify-between mb-4 border-b pb-3'>
                 <div className='flex flex-col gap-0.5'>
@@ -2253,6 +2395,7 @@ export default function AdminPanel(){
                     onClick={()=> setProdFull(v=>!v)}
                     aria-label={prodFull ? 'Вийти з повного екрану' : 'На весь екран'}
                     title={prodFull ? 'Згорнути' : 'Розгорнути'}
+                    data-testid='admin-products-list-toggle-fullscreen'
                   >
                     {prodFull ? <FiMinimize2 size={16} /> : <FiMaximize2 size={16} />}
                   </button>
@@ -2262,10 +2405,11 @@ export default function AdminPanel(){
                     aria-label='Оновити'
                     title='Оновити'
                     disabled={loadingAll}
+                    data-testid='admin-products-list-refresh'
                   >
                     <FiRefreshCcw size={16} />
                   </button>
-                  <button aria-label='Закрити' onClick={()=> setShowProdList(false)} className='w-8 h-8 rounded-lg border hover:bg-gray-100'>✕</button>
+                  <button aria-label='Закрити' onClick={()=> setShowProdList(false)} className='w-8 h-8 rounded-lg border hover:bg-gray-100' data-testid='admin-products-list-close'>✕</button>
                 </div>
               </div>
               <div className='mb-1 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 min-w-0'>
@@ -2276,6 +2420,7 @@ export default function AdminPanel(){
                     onChange={e=>{ setProdCatFilter(e.target.value); setProdSubcatFilter(''); setProdTypeFilter(''); setProdPage(1) }}
                     title='Фільтр по категорії'
                     disabled={loadingAll}
+                    data-testid='admin-products-list-filter-category'
                   >
                     <option value=''>Всі категорії</option>
                     {(()=>{
@@ -2298,6 +2443,7 @@ export default function AdminPanel(){
                     value={prodListSearch}
                     onChange={e=>{ setProdListSearch(e.target.value); setProdPage(1) }}
                     disabled={loadingAll}
+                    data-testid='admin-products-list-search'
                   />
                 </div>
 
@@ -2315,6 +2461,7 @@ export default function AdminPanel(){
                       setProdSortMode('date_desc')
                       setProdPage(1)
                     }}
+                    data-testid='admin-products-list-reset-filters'
                   >
                     Скинути фільтри
                   </button>
@@ -2485,6 +2632,15 @@ export default function AdminPanel(){
                           return (bv - av)
                         })
                       const rows = list
+                      if (!rows.length) {
+                        return (
+                          <tr className='border-t'>
+                            <td className='px-3 py-6 text-center text-gray-500' colSpan={7}>
+                              Нічого не знайдено
+                            </td>
+                          </tr>
+                        )
+                      }
                       return rows.map(p=> (
                         <tr key={p._id} className='border-t odd:bg-gray-50/40 hover:bg-gray-50 transition-colors'>
                           <td className='px-3 py-2 text-center'>
@@ -2519,6 +2675,7 @@ export default function AdminPanel(){
                                   setPreviewProd(p)
                                   setShowProdPreview(true)
                                 }}
+                                data-testid={`admin-product-${p._id}-preview`}
                               >
                                 <FiEye size={16} />
                               </button>
@@ -2556,18 +2713,21 @@ export default function AdminPanel(){
                                     sku: p.sku||'',
                                     stock: p.stock||0,
                                     unit: p.unit||'',
+                                    productOfWeek: Boolean(p.productOfWeek),
                                   });
                                   setShowProdEdit(true);
                                 }}
+                                data-testid={`admin-product-${p._id}-edit`}
                               >
                                 <FiEdit2 size={16} />
                               </button>
                               <button
                                 title='Видалити'
                                 aria-label='Видалити'
-                                className='w-9 h-9 inline-flex items-center justify-center border rounded-lg text-red-600 hover:bg-red-600 hover:text-white transition bg-white disabled:opacity-60 disabled:cursor-not-allowed'
-                                disabled={Boolean(deletingProductId)}
+                                className='w-9 h-9 inline-flex items-center justify-center border rounded-lg hover:bg-red-600 hover:text-white transition bg-white text-red-600'
                                 onClick={()=> handleDeleteProduct(p._id)}
+                                disabled={Boolean(deletingProductId)}
+                                data-testid={`admin-product-${p._id}-delete`}
                               >
                                 {deletingProductId === p._id ? (
                                   <span className='w-4 h-4 rounded-full border-2 border-red-300 border-t-red-600 animate-spin' />
@@ -2592,19 +2752,22 @@ export default function AdminPanel(){
           <div
             className='fixed inset-0 z-[70] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4'
             onClick={()=>{ setShowProdPreview(false); setPreviewProd(null) }}
+            data-testid='admin-product-preview-overlay'
           >
             <div
               className='bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-auto p-6'
               onClick={(e)=>e.stopPropagation()}
+              data-testid='admin-product-preview'
             >
-              <div className='flex items-center justify-between mb-4'>
-                <div className='font-semibold'>Превʼю товару</div>
+              <div className='flex items-center justify-between mb-3'>
+                <h4 className='font-semibold'>Превʼю товару</h4>
                 <button
                   type='button'
                   className='w-9 h-9 inline-flex items-center justify-center border rounded-lg hover:bg-black hover:text-white transition'
                   onClick={()=>{ setShowProdPreview(false); setPreviewProd(null) }}
                   aria-label='Закрити'
                   title='Закрити'
+                  data-testid='admin-product-preview-close'
                 >
                   <FiX size={16} />
                 </button>
@@ -2626,33 +2789,33 @@ export default function AdminPanel(){
             Для швидкого додавання використовуйте поле "Нова категорія" у формі товару. Тут можна масово переглядати, перейменовувати та видаляти категорії.
           </p>
           <div className='flex gap-2 items-center justify-center'>
-            <button type='button' onClick={()=> setShowCatList(true)} className='inline-flex items-center gap-2 px-3 py-2 border rounded hover:bg-black hover:text-white transition'>
+            <button type='button' onClick={()=> setShowCatList(true)} className='inline-flex items-center gap-2 px-3 py-2 border rounded hover:bg-black hover:text-white transition' data-testid='admin-categories-open-list-legacy'>
               <FiEye size={18} /> <span>Переглянути всі</span>
             </button>
-            <button type='button' onClick={()=> setShowCatCreate(true)} className='inline-flex items-center gap-2 px-3 py-2 border rounded hover:bg-black hover:text-white transition'>
+            <button type='button' onClick={()=> setShowCatCreate(true)} className='inline-flex items-center gap-2 px-3 py-2 border rounded hover:bg-black hover:text-white transition' data-testid='admin-categories-open-create-legacy'>
               <FiPlus size={18} /> <span>Нова категорія</span>
             </button>
           </div>
 
           {/* Modal: Edit Category */}
           {showCatEdit && (
-            <div className='fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4' onClick={()=> setShowCatEdit(false)}>
-              <div className='bg-white rounded-xl shadow-2xl w-full max-w-md p-5' onClick={(e)=>e.stopPropagation()}>
+            <div className='fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4' onClick={()=> setShowCatEdit(false)} data-testid='admin-categories-edit-legacy-overlay'>
+              <div className='bg-white rounded-xl shadow-2xl w-full max-w-md p-5' onClick={(e)=>e.stopPropagation()} data-testid='admin-categories-edit-legacy'>
                 <div className='flex items-center justify-between mb-3'>
                   <h4 className='font-semibold'>Редагувати категорію</h4>
-                  <button aria-label='Закрити' onClick={()=> setShowCatEdit(false)} className='w-8 h-8 rounded-lg border'>✕</button>
+                  <button aria-label='Закрити' onClick={()=> setShowCatEdit(false)} className='w-8 h-8 rounded-lg border' data-testid='admin-categories-edit-legacy-close'>✕</button>
                 </div>
                 <label className='text-sm text-gray-600'>Назва</label>
-                <input className='border p-2 rounded w-full mb-3' value={catEditingName} onChange={e=>setCatEditingName(e.target.value)} />
+                <input className='border p-2 rounded w-full mb-3' value={catEditingName} onChange={e=>setCatEditingName(e.target.value)} data-testid='admin-categories-edit-legacy-name' />
                 <label className='flex items-start gap-2 mb-3 text-sm'>
-                  <input type='checkbox' className='mt-1' checked={applyToProducts} onChange={(e)=> setApplyToProducts(e.target.checked)} />
+                  <input type='checkbox' className='mt-1' checked={applyToProducts} onChange={(e)=> setApplyToProducts(e.target.checked)} data-testid='admin-categories-edit-legacy-apply-to-products' />
                   <span>
                     Застосувати нову назву до всіх товарів цієї категорії
                     <div className='text-gray-500'>Товари посилаються на категорію за ID, тому нова назва відобразиться автоматично.</div>
                   </span>
                 </label>
                 <div className='flex justify-end gap-2'>
-                  <button onClick={()=> setShowCatEdit(false)} className='px-3 py-2 border rounded'>Скасувати</button>
+                  <button onClick={()=> setShowCatEdit(false)} className='px-3 py-2 border rounded' data-testid='admin-categories-edit-legacy-cancel'>Скасувати</button>
                   <button onClick={async()=>{
                     try{
                       if (!selectedCatId) return;
@@ -2662,7 +2825,7 @@ export default function AdminPanel(){
                       loadAll();
                       showToast(applyToProducts ? 'Категорію оновлено. Товари відобразять нову назву автоматично.' : 'Категорію оновлено','success')
                     }catch(err){ showToast(getErrMsg(err),'error') }
-                  }} className='px-3 py-2 bg-black text-white rounded hover:bg-red-600 transition'>Зберегти</button>
+                  }} className='px-3 py-2 bg-black text-white rounded hover:bg-red-600 transition' data-testid='admin-categories-edit-legacy-save'>Зберегти</button>
                 </div>
               </div>
             </div>
@@ -2670,23 +2833,23 @@ export default function AdminPanel(){
 
           {/* Modal: Create Category */}
           {showCatCreate && (
-            <div className='fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4' onClick={()=> setShowCatCreate(false)}>
-              <div className='bg-white rounded-xl shadow-2xl w-full max-w-md p-5' onClick={(e)=>e.stopPropagation()}>
+            <div className='fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4' onClick={()=> setShowCatCreate(false)} data-testid='admin-categories-create-legacy-overlay'>
+              <div className='bg-white rounded-xl shadow-2xl w-full max-w-md p-5' onClick={(e)=>e.stopPropagation()} data-testid='admin-categories-create-legacy'>
                 <div className='flex items-center justify-between mb-3'>
                   <h4 className='font-semibold'>Нова категорія</h4>
-                  <button aria-label='Закрити' onClick={()=> setShowCatCreate(false)} className='w-8 h-8 rounded-lg border'>✕</button>
+                  <button aria-label='Закрити' onClick={()=> setShowCatCreate(false)} className='w-8 h-8 rounded-lg border' data-testid='admin-categories-create-legacy-close'>✕</button>
                 </div>
                 <label className='text-sm text-gray-600'>Назва</label>
-                <input className='border p-2 rounded w-full mb-4' value={catName} onChange={e=>setCatName(e.target.value)} placeholder='Введіть назву категорії' />
+                <input className='border p-2 rounded w-full mb-4' value={catName} onChange={e=>setCatName(e.target.value)} placeholder='Введіть назву категорії' data-testid='admin-categories-create-legacy-name' />
                 <div className='flex justify-end gap-2'>
-                  <button onClick={()=> setShowCatCreate(false)} className='px-3 py-2 border rounded'>Скасувати</button>
+                  <button onClick={()=> setShowCatCreate(false)} className='px-3 py-2 border rounded' data-testid='admin-categories-create-legacy-cancel'>Скасувати</button>
                   <button onClick={async()=>{
                     try{
                       await createCategory({ name: (catName||'').trim() });
                       setCatName(''); setShowCatCreate(false); loadAll();
                       showToast('Категорію створено','success')
                     }catch(err){ showToast(getErrMsg(err),'error') }
-                  }} className='px-3 py-2 bg-black text-white rounded hover:bg-red-600 transition'>Створити</button>
+                  }} className='px-3 py-2 bg-black text-white rounded hover:bg-red-600 transition' data-testid='admin-categories-create-legacy-submit'>Створити</button>
                 </div>
               </div>
             </div>
@@ -2696,19 +2859,20 @@ export default function AdminPanel(){
 
       {/* Modal: View All Categories (list) */}
       {showCatList && (
-        <div className='fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4' onClick={()=> setShowCatList(false)}>
-          <div className='bg-white rounded-2xl shadow-2xl w-full max-w-5xl max-h-[92vh] overflow-auto p-6' onClick={(e)=>e.stopPropagation()}>
+        <div className='fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4' onClick={()=> setShowCatList(false)} data-testid='admin-categories-list-overlay'>
+          <div className='bg-white rounded-2xl shadow-2xl w-full max-w-5xl max-h-[92vh] overflow-auto p-6' onClick={(e)=>e.stopPropagation()} data-testid='admin-categories-list'>
             <div className='flex items-center justify-between mb-4 border-b pb-3'>
               <h4 className='font-semibold'>Усі категорії</h4>
-              <button aria-label='Закрити' onClick={()=> setShowCatList(false)} className='w-8 h-8 rounded-lg border hover:bg-gray-100'>✕</button>
+              <button aria-label='Закрити' onClick={()=> setShowCatList(false)} className='w-8 h-8 rounded-lg border hover:bg-gray-100' data-testid='admin-categories-list-close'>✕</button>
             </div>
-            <div className='mb-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3'>
+            <div className='mb-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3' data-testid='admin-categories-list-controls'>
               <div className='flex items-center gap-2'>
                 <span className='text-sm text-gray-600'>Сортування:</span>
                 <select
                   className='border rounded px-3 py-2 pr-10 min-w-[150px]'
                   value={catSortKey}
                   onChange={e=> setCatSortKey(e.target.value)}
+                  data-testid='admin-categories-list-sort-key'
                 >
                   <option value='name'>Назва</option>
                   <option value='date'>Дата</option>
@@ -2717,6 +2881,7 @@ export default function AdminPanel(){
                   className='px-3 py-2 border rounded hover:bg-black hover:text-white transition'
                   onClick={()=> setCatSortAsc(v=>!v)}
                   title={catSortAsc ? 'За зростанням' : 'За спаданням'}
+                  data-testid='admin-categories-list-sort-dir'
                 >
                   {catSortAsc ? '↑' : '↓'}
                 </button>
@@ -2729,6 +2894,7 @@ export default function AdminPanel(){
                     placeholder='Пошук за назвою'
                     value={catListSearch}
                     onChange={e=>{ setCatListSearch(e.target.value); setCatPage(1) }}
+                    data-testid='admin-categories-list-search'
                   />
                 )}
                 <button
@@ -2737,13 +2903,14 @@ export default function AdminPanel(){
                   className='w-9 h-9 inline-flex items-center justify-center border rounded hover:bg-black hover:text-white transition'
                   title='Пошук'
                   aria-label='Пошук категорій'
+                  data-testid='admin-categories-list-toggle-search'
                 >
                   <FiSearch size={16} />
                 </button>
               </div>
             </div>
-            <div className='max-h-[78vh] overflow-auto rounded-lg border'>
-              <table className='min-w-full text-sm'>
+            <div className='max-h-[78vh] overflow-auto rounded-lg border' data-testid='admin-categories-list-table-scroll'>
+              <table className='min-w-full text-sm' data-testid='admin-categories-list-table'>
                 <thead className='bg-gray-50 sticky top-0 z-10'>
                   <tr>
                     <th className='px-3 py-2 text-center'>Назва</th>
@@ -2787,6 +2954,7 @@ export default function AdminPanel(){
                           className='border-t odd:bg-gray-50/40 hover:bg-gray-50 transition-colors cursor-pointer'
                           onClick={()=> setExpandedCatId(prev=> String(prev||'')===String(c._id||'') ? '' : c._id)}
                           title='Натисніть, щоб показати/сховати підкатегорії'
+                          data-testid={`admin-category-${c._id}`}
                         >
                           <td className='px-3 py-2 text-center font-medium'>
                             {c.name}
@@ -2799,6 +2967,7 @@ export default function AdminPanel(){
                               aria-label='Редагувати'
                               className='w-9 h-9 inline-flex items-center justify-center border rounded-lg hover:bg-black hover:text-white transition'
                               onClick={(e)=>{ e.preventDefault(); e.stopPropagation(); setSelectedCatId(c._id); setCatEditingName(c.name); setCatSubName(''); setCatTypeParentId(''); setCatTypeName(''); setShowCatList(false); setShowCatEdit(true); }}
+                              data-testid={`admin-category-${c._id}-edit`}
                             >
                               <FiEdit2 size={16} />
                             </button>
@@ -2807,6 +2976,7 @@ export default function AdminPanel(){
                               aria-label='Видалити'
                               className='ml-2 w-9 h-9 inline-flex items-center justify-center border rounded-lg text-red-600 hover:bg-red-600 hover:text-white transition'
                               onClick={async(e)=>{ e.preventDefault(); e.stopPropagation(); if(!confirm('Видалити категорію?')) return; try{ await deleteCategory(c._id); if (String(expandedCatId||'')===String(c._id||'')) setExpandedCatId(''); loadAll(); showToast('Категорію видалено','success') } catch(err){ showToast(getErrMsg(err),'error') } }}
+                              data-testid={`admin-category-${c._id}-delete`}
                             >
                               <FiTrash2 size={16} />
                             </button>
@@ -2815,7 +2985,7 @@ export default function AdminPanel(){
                       )
 
                       const subRows = subs.map(sc=> (
-                        <tr key={`${c._id}__${sc._id}`} className='border-t bg-white'>
+                        <tr key={`${c._id}__${sc._id}`} className='border-t bg-white' data-testid={`admin-category-${c._id}-subcategory-${sc._id}`}> 
                           <td className='px-3 py-2 text-center text-sm text-gray-700'>
                             <span className='inline-block text-gray-400 mr-1'>—</span>
                             {sc.name}
@@ -2838,24 +3008,25 @@ export default function AdminPanel(){
         </div>
       )}
       {/* Список товарів замінено на вибір у дропдауні зверху форми */}
-      <div className={`${ordersFull ? 'fixed inset-0 z-50 bg-white p-4 overflow-auto' : 'mt-6'}`}>
-        <div className='flex items-center justify-between mb-2'>
+      <div className={`${ordersFull ? 'fixed inset-0 z-50 bg-white p-4 overflow-auto' : 'mt-6'}`} data-testid='admin-orders-section'>
+        <div className='flex items-center justify-between mb-2' data-testid='admin-orders-header'>
           <h3 className='text-lg font-semibold'>Замовлення</h3>
           <button
             className='w-10 h-10 inline-flex items-center justify-center border rounded hover:bg-gray-50 active:scale-95'
             onClick={()=> setOrdersFull(v=>!v)}
             aria-label={ordersFull ? 'Вийти з повного екрану' : 'На весь екран'}
             title={ordersFull ? 'Згорнути' : 'Розгорнути'}
+            data-testid='admin-orders-toggle-fullscreen'
           >
             {ordersFull ? <FiMinimize2 /> : <FiMaximize2 />}
           </button>
         </div>
         {/* Filters */}
-        <div className='p-3 bg-white rounded-lg border shadow-sm flex items-center justify-center gap-2 md:gap-3 mb-3 flex-wrap md:flex-nowrap'>
-          <input className='border rounded w-[200px] md:w-[220px] shrink-0 h-10 px-3 text-sm' placeholder='Пошук (імʼя/телефон/ID)' value={orderSearch} onChange={e=>{ setOrderSearch(e.target.value); setOrderPage(1) }} />
-          <input type='date' className='border rounded w-[200px] md:w-[220px] shrink-0 h-10 px-3 text-sm' value={dateFrom} onChange={e=>{ setDateFrom(e.target.value); setOrderPage(1) }} />
-          <input type='date' className='border rounded w-[200px] md:w-[220px] shrink-0 h-10 px-3 text-sm' value={dateTo} onChange={e=>{ setDateTo(e.target.value); setOrderPage(1) }} />
-          <select className='border rounded w-[200px] md:w-[220px] shrink-0 h-10 px-3 text-sm' value={orderStatus} onChange={e=>{ setOrderStatus(e.target.value); setOrderPage(1) }}>
+        <div className='p-3 bg-white rounded-lg border shadow-sm flex items-center justify-center gap-2 md:gap-3 mb-3 flex-wrap md:flex-nowrap' data-testid='admin-orders-filters'>
+          <input className='border rounded w-[200px] md:w-[220px] shrink-0 h-10 px-3 text-sm' placeholder='Пошук (імʼя/телефон/ID)' value={orderSearch} onChange={e=>{ setOrderSearch(e.target.value); setOrderPage(1) }} data-testid='admin-orders-search' />
+          <input type='date' className='border rounded w-[200px] md:w-[220px] shrink-0 h-10 px-3 text-sm' value={dateFrom} onChange={e=>{ setDateFrom(e.target.value); setOrderPage(1) }} data-testid='admin-orders-date-from' />
+          <input type='date' className='border rounded w-[200px] md:w-[220px] shrink-0 h-10 px-3 text-sm' value={dateTo} onChange={e=>{ setDateTo(e.target.value); setOrderPage(1) }} data-testid='admin-orders-date-to' />
+          <select className='border rounded w-[200px] md:w-[220px] shrink-0 h-10 px-3 text-sm' value={orderStatus} onChange={e=>{ setOrderStatus(e.target.value); setOrderPage(1) }} data-testid='admin-orders-status-filter'>
             <option value=''>Всі статуси</option>
             {STATUS_KEYS.map(k=> <option key={k} value={k}>{getStatusLabel(k)}</option>)}
           </select>
@@ -2864,15 +3035,16 @@ export default function AdminPanel(){
             onClick={()=>{ setOrderSearch(''); setOrderStatus(''); setDateFrom(''); setDateTo(''); setOrderPage(1) }}
             title='Скинути фільтри'
             aria-label='Скинути фільтри'
+            data-testid='admin-orders-reset-filters'
           >
             <FiRefreshCcw />
           </button>
         </div>
 
         {/* Table */}
-        <div className='bg-white rounded-2xl border shadow-sm overflow-hidden'>
-          <div className={`rounded-lg border m-3 ${ordersFull ? '' : 'max-h-[280px] overflow-auto'}`}>
-            <table className='min-w-full text-sm'>
+        <div className='bg-white rounded-2xl border shadow-sm overflow-hidden' data-testid='admin-orders-table-card'>
+          <div className={`rounded-lg border m-3 ${ordersFull ? '' : 'max-h-[280px] overflow-auto'}`} data-testid='admin-orders-table-scroll'>
+            <table className='min-w-full text-sm' data-testid='admin-orders-table'>
               <thead className='bg-gray-50 sticky top-0 z-10'>
                 <tr>
                   <th className='text-center px-3 py-2'>ID</th>
@@ -2909,7 +3081,7 @@ export default function AdminPanel(){
                   }
 
                   return list.map(o=> (
-                    <tr key={o._id} className='h-12 border-t odd:bg-gray-50/40 hover:bg-gray-50 transition-colors'>
+                    <tr key={o._id} className='h-12 border-t odd:bg-gray-50/40 hover:bg-gray-50 transition-colors' data-testid={`admin-order-${o._id}`}> 
                       <td className='px-3 py-2 font-mono text-xs'>{o._id}</td>
                       <td className='px-3 py-2'>{fmtDate(o.createdAt)}</td>
                       <td className='px-3 py-2'>{o.customerName}</td>
@@ -2927,13 +3099,14 @@ export default function AdminPanel(){
                           onChange={async (e)=>{ try{ await updateOrder(o._id, { status: e.target.value }); loadAll(); showToast('Статус оновлено','success') } catch(err){ showToast(getErrMsg(err),'error') } }}
                           title={getStatusLabel(o.status||'new')}
                           aria-label='Статус замовлення'
+                          data-testid={`admin-order-${o._id}-status`}
                         >
                           {STATUS_KEYS.map(k=> <option key={k} value={k}>{getStatusLabel(k)}</option>)}
                         </select>
                       </td>
                       <td className='px-3 py-2 text-right'>
-                        <button className='px-2 py-1 border rounded hover:bg-black hover:text-white transition' onClick={()=>{ setSelectedOrder({ ...o }); setOrderStatusEdit(o.status||'new'); setOrderNote(o.note||'') }}>Деталі</button>
-                        <button className='ml-2 px-2 py-1 border rounded text-red-600 hover:bg-red-600 hover:text-white transition' onClick={()=> handleDeleteOrder(o._id)}>Видалити</button>
+                        <button className='px-2 py-1 border rounded hover:bg-black hover:text-white transition' onClick={()=>{ setSelectedOrder({ ...o }); setOrderStatusEdit(o.status||'new'); setOrderNote(o.note||'') }} data-testid={`admin-order-${o._id}-details`}>Деталі</button>
+                        <button className='ml-2 px-2 py-1 border rounded text-red-600 hover:bg-red-600 hover:text-white transition' onClick={()=> handleDeleteOrder(o._id)} data-testid={`admin-order-${o._id}-delete`}>Видалити</button>
                       </td>
                     </tr>
                   ))
@@ -2946,11 +3119,11 @@ export default function AdminPanel(){
 
         {/* Order details modal */}
         {selectedOrder && (
-          <div className='fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4' onClick={()=> setSelectedOrder(null)}>
-            <div className='bg-white rounded-2xl shadow-2xl w-full max-w-3xl p-5' onClick={(e)=>e.stopPropagation()}>
+          <div className='fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4' onClick={()=> setSelectedOrder(null)} data-testid='admin-order-details-overlay'>
+            <div className='bg-white rounded-2xl shadow-2xl w-full max-w-3xl p-5' onClick={(e)=>e.stopPropagation()} data-testid='admin-order-details'>
               <div className='flex items-center justify-between mb-3 border-b pb-3'>
                 <h4 className='font-semibold'>Замовлення #{selectedOrder._id}</h4>
-                <button aria-label='Закрити' onClick={()=> setSelectedOrder(null)} className='w-8 h-8 rounded-lg border hover:bg-gray-100'>✕</button>
+                <button aria-label='Закрити' onClick={()=> setSelectedOrder(null)} className='w-8 h-8 rounded-lg border hover:bg-gray-100' data-testid='admin-order-details-close'>✕</button>
               </div>
               <div className='grid md:grid-cols-2 gap-3 text-sm'>
                 <div className='p-3 rounded-lg border bg-gray-50'>
@@ -2962,15 +3135,15 @@ export default function AdminPanel(){
                 <div className='p-3 rounded-lg border bg-gray-50'>
                   <div className='font-medium mb-1'>Керування</div>
                   <label className='block text-gray-600 mb-1'>Статус</label>
-                  <select className='border p-2 rounded w-full mb-2' value={orderStatusEdit} onChange={e=> setOrderStatusEdit(e.target.value)}>
+                  <select className='border p-2 rounded w-full mb-2' value={orderStatusEdit} onChange={e=> setOrderStatusEdit(e.target.value)} data-testid='admin-order-details-status'>
                     {STATUS_KEYS.map(k=> <option key={k} value={k}>{getStatusLabel(k)}</option>)}
                   </select>
                   <label className='block text-gray-600 mb-1'>Нотатка</label>
-                  <textarea className='border p-2 rounded w-full' rows='3' value={orderNote} onChange={e=> setOrderNote(e.target.value)} />
+                  <textarea className='border p-2 rounded w-full' rows='3' value={orderNote} onChange={e=> setOrderNote(e.target.value)} data-testid='admin-order-details-note' />
                 </div>
               </div>
-              <div className='mt-3 overflow-x-auto'>
-                <table className='min-w-full text-sm'>
+              <div className='mt-3 overflow-x-auto' data-testid='admin-order-details-items'>
+                <table className='min-w-full text-sm' data-testid='admin-order-details-items-table'>
                   <thead>
                     <tr className='bg-gray-50'>
                       <th className='text-left px-3 py-2'>Товар</th>
@@ -3003,7 +3176,7 @@ export default function AdminPanel(){
                       const sum = (price * qty).toFixed(2);
 
                       return (
-                        <tr key={idx} className='border-t'>
+                        <tr key={idx} className='border-t' data-testid={`admin-order-details-item-${idx}`}>
                           <td className='px-3 py-2'>{name || 'Товар'}</td>
                           <td className='px-3 py-2 text-right'>{qty}</td>
                           <td className='px-3 py-2 text-right'>{price.toFixed(2)} ₴</td>
@@ -3016,8 +3189,8 @@ export default function AdminPanel(){
                 <div className='mt-2 text-right font-semibold'>Разом: {(selectedOrder.totalPrice||0).toFixed(2)} ₴</div>
               </div>
               <div className='mt-4 flex justify-end gap-2'>
-                <button onClick={()=> setSelectedOrder(null)} className='px-3 py-2 border rounded'>Закрити</button>
-                <button onClick={async()=>{ try{ await updateOrder(selectedOrder._id, { status: orderStatusEdit, note: orderNote }); showToast('Замовлення оновлено','success'); setSelectedOrder(null); loadAll(); } catch(err){ showToast(getErrMsg(err),'error') } }} className='px-3 py-2 bg-black text-white rounded hover:bg-red-600 transition'>Зберегти</button>
+                <button onClick={()=> setSelectedOrder(null)} className='px-3 py-2 border rounded' data-testid='admin-order-details-cancel'>Закрити</button>
+                <button onClick={async()=>{ try{ await updateOrder(selectedOrder._id, { status: orderStatusEdit, note: orderNote }); showToast('Замовлення оновлено','success'); setSelectedOrder(null); loadAll(); } catch(err){ showToast(getErrMsg(err),'error') } }} className='px-3 py-2 bg-black text-white rounded hover:bg-red-600 transition' data-testid='admin-order-details-save'>Зберегти</button>
               </div>
             </div>
           </div>

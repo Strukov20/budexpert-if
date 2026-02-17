@@ -279,7 +279,7 @@ export default function Header() {
   }
 
   return (
-    <header className="bg-white/70 backdrop-blur supports-[backdrop-filter]:bg-white/60 border-b">
+    <header className="bg-white/70 backdrop-blur supports-[backdrop-filter]:bg-white/60 border-b" data-testid='header'>
       <div className="max-w-7xl mx-auto py-1 px-2 md:py-1.5 md:px-4 relative">
           <div className="bg-white/95 rounded-2xl ring-1 ring-gray-200 shadow-md overflow-hidden">
           <div className="px-3 md:px-4 py-1 text-xs md:text-xs flex items-center justify-center gap-2 bg-gradient-to-r from-red-600 to-red-700 text-white">
@@ -288,6 +288,7 @@ export default function Header() {
               aria-label="Адмін логін"
               className="inline-flex items-center justify-center w-6 h-6 rounded-full border border-white/30 select-none shrink-0 hover:bg-white/10 active:scale-95 transition"
               onClick={() => navigate('/admin/login')}
+              data-testid='header-admin-login'
             >
               🚚
             </button>
@@ -295,7 +296,7 @@ export default function Header() {
           </div>
 
           <div className="hidden md:grid grid-cols-[auto_1fr] grid-rows-2 gap-x-6 gap-y-1.5 px-3 md:px-5 py-2.5 items-center">
-            <div className="row-span-2 flex items-center gap-2 md:gap-3 cursor-pointer shrink-0 -ml-2 md:-ml-3 -my-1 md:-my-2" onClick={() => navigate("/") }>
+            <div className="row-span-2 flex items-center gap-2 md:gap-3 cursor-pointer shrink-0 -ml-2 md:-ml-3 -my-1 md:-my-2" onClick={() => navigate("/") } data-testid='header-logo'>
               <img src="/logo.png" alt="БудЕксперт" className="w-24 h-24 md:w-32 md:h-32 object-contain rounded-lg" />
             </div>
 
@@ -313,6 +314,7 @@ export default function Header() {
                           } catch {}
                         }}
                         className="inline-flex items-center gap-2 text-sm lg:text-base text-gray-800 hover:text-red-600 transition whitespace-nowrap"
+                        data-testid='header-phone-link'
                       >
                         <FiPhoneCall className="w-4 h-4" />
                         <span className="font-semibold">{SHOP_PHONE}</span>
@@ -323,6 +325,7 @@ export default function Header() {
                       type="button"
                       className="w-44 lg:w-48 inline-flex items-center justify-center gap-2 text-[10px] lg:text-[11px] px-2.5 py-1 lg:px-4 lg:py-1.5 rounded-lg bg-gray-900 text-white hover:bg-black transition font-semibold whitespace-nowrap"
                       onClick={()=> setCallOpen(true)}
+                      data-testid='header-call-me-open'
                     >
                       <FiPhoneCall className="w-4 h-4 shrink-0" />
                       <span>Зателефонувати мені</span>
@@ -364,6 +367,7 @@ export default function Header() {
                   type="button"
                   className="inline-flex items-center justify-center gap-2 text-[11px] lg:text-[12px] font-semibold uppercase tracking-wide text-gray-900 hover:text-red-600 whitespace-nowrap max-w-full text-center p-1.5 rounded-xl hover:ring-1 hover:ring-red-200 transition"
                   onClick={() => window.open(mapsUrl, '_blank')}
+                  data-testid='header-address'
                 >
                   <FiMapPin className="w-5 h-5" />
                   <span className="truncate">Івано-Франківськ, вул.Білозіра 8</span>
@@ -375,6 +379,7 @@ export default function Header() {
               <button
                 className="w-44 lg:w-48 inline-flex items-center justify-center gap-2 h-11 px-5 rounded-xl bg-red-600 text-white border border-red-600 shadow-sm hover:bg-red-700 hover:border-red-700 hover:-translate-y-0.5 transition whitespace-nowrap font-semibold text-sm lg:text-sm"
                 onClick={() => navigate("/")}
+                data-testid='header-catalog'
               >
                 <FiGrid className="w-5 h-5" />
                 <span>Каталог товарів</span>
@@ -388,6 +393,7 @@ export default function Header() {
                 type="button"
                 className="inline-flex items-center justify-center h-11 px-4 lg:px-5 rounded-xl bg-red-600 text-white font-semibold text-[12px] lg:text-sm tracking-wide shadow-md hover:shadow-lg hover:bg-red-700 transition whitespace-nowrap"
                 onClick={() => navigate('/services')}
+                data-testid='header-blog'
               >
                 Блог
               </button>
@@ -401,10 +407,11 @@ export default function Header() {
                   aria-label="Кошик"
                   className={`relative p-2 rounded-lg transition active:scale-95 ${count > 0 ? 'bg-red-50 text-red-600 animate-pulse' : 'hover:bg-red-50 hover:text-red-600'}`}
                   onClick={() => { setMiniOpen(false); navigate("/cart") } }
+                  data-testid='header-cart'
                 >
                   <FiShoppingCart className="w-6 h-6" />
                   {count > 0 && (
-                    <span className="absolute -top-1 -right-1 bg-red-600 text-white text-[10px] rounded-full px-1.5 py-0.5 leading-none min-w-[18px] text-center">
+                    <span className="absolute -top-1 -right-1 bg-red-600 text-white text-[10px] rounded-full px-1.5 py-0.5 leading-none min-w-[18px] text-center" data-testid='header-cart-count'>
                       {count}
                     </span>
                   )}
@@ -413,6 +420,7 @@ export default function Header() {
                   <div
                     className="hidden md:block md:absolute right-0 md:mt-2 w-96 bg-white rounded-xl shadow-2xl ring-1 ring-gray-200 z-50 overflow-hidden"
                     onClick={(e)=> e.stopPropagation()}
+                    data-testid='header-mini-cart'
                   >
                     <div className="p-4">
                       <div className="font-semibold mb-3 text-gray-800">Мій кошик</div>
@@ -481,6 +489,7 @@ export default function Header() {
                   type="button"
                   className={`inline-flex items-center justify-center h-10 px-3 rounded-xl font-semibold text-[11px] tracking-wide shadow-md transition whitespace-nowrap ${isServicesPage ? 'border border-gray-200 bg-white text-gray-900 hover:shadow-lg hover:bg-red-50 hover:border-red-200 hover:text-red-700' : 'bg-red-600 text-white hover:shadow-lg hover:bg-red-700'}`}
                   onClick={() => navigate(isServicesPage ? '/' : '/services')}
+                  data-testid='header-mobile-blog-toggle'
                 >
                   {isServicesPage ? 'Каталог' : 'Блог'}
                 </button>
@@ -489,10 +498,11 @@ export default function Header() {
                   aria-label="Кошик"
                   className={`relative p-2 rounded-lg transition active:scale-95 ${count > 0 ? 'bg-red-50 text-red-600' : 'hover:bg-red-50 hover:text-red-600'}`}
                   onClick={() => { setMiniOpen(false); navigate("/cart") } }
+                  data-testid='header-mobile-cart'
                 >
                   <FiShoppingCart className="w-6 h-6" />
                   {count > 0 && (
-                    <span className="absolute -top-1 -right-1 bg-red-600 text-white text-[10px] rounded-full px-1.5 py-0.5 leading-none min-w-[18px] text-center">
+                    <span className="absolute -top-1 -right-1 bg-red-600 text-white text-[10px] rounded-full px-1.5 py-0.5 leading-none min-w-[18px] text-center" data-testid='header-mobile-cart-count'>
                       {count}
                     </span>
                   )}
@@ -503,8 +513,8 @@ export default function Header() {
         </div>
 
         {callOpen && typeof document !== 'undefined' && createPortal(
-          <div className="fixed inset-0 bg-black/40 backdrop-blur-[2px] z-50 flex items-center justify-center p-4" onClick={()=> setCallOpen(false)}>
-            <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden" onClick={(e)=> e.stopPropagation()}>
+          <div className="fixed inset-0 bg-black/40 backdrop-blur-[2px] z-50 flex items-center justify-center p-4" onClick={()=> setCallOpen(false)} data-testid='call-modal-overlay'>
+            <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden" onClick={(e)=> e.stopPropagation()} data-testid='call-modal'>
               <div className="p-5">
                 <div className="flex items-center justify-between gap-3">
                   <div className="text-lg font-semibold">Замовити дзвінок</div>
@@ -512,13 +522,14 @@ export default function Header() {
                     aria-label="Закрити"
                     onClick={()=> setCallOpen(false)}
                     className="w-9 h-9 rounded-full border flex items-center justify-center hover:bg-gray-50 active:scale-95"
+                    data-testid='call-modal-close'
                   >
                     ✕
                   </button>
                 </div>
                 <div className="mt-1 text-sm text-gray-600">Залиште контакти — ми передзвонимо.</div>
 
-                <form className="mt-4 flex flex-col gap-3" onSubmit={submitCallLead} noValidate>
+                <form className="mt-4 flex flex-col gap-3" onSubmit={submitCallLead} noValidate data-testid='call-modal-form'>
                   <div>
                     <label className='text-sm text-gray-700 mb-1 block'>Ваше ім’я</label>
                     <div className={`relative bg-white rounded-xl ring-1 ring-gray-200 shadow px-3 transition hover:bg-red-50/40 hover:ring-red-200 ${callNameError ? 'ring-red-300' : ''}`}>
@@ -531,6 +542,7 @@ export default function Header() {
                         aria-invalid={!!callNameError}
                         autoComplete='name'
                         required
+                        data-testid='call-modal-name'
                       />
                     </div>
                     {callNameError && <div className='mt-1 text-xs text-red-600'>{callNameError}</div>}
@@ -549,6 +561,7 @@ export default function Header() {
                         aria-invalid={!!callPhoneError}
                         autoComplete='tel'
                         required
+                        data-testid='call-modal-phone'
                       />
                     </div>
                     {callPhoneError && <div className='mt-1 text-xs text-red-600'>{callPhoneError}</div>}
@@ -557,6 +570,7 @@ export default function Header() {
                   <button
                     type="submit"
                     className="btn w-full h-11 rounded-xl font-semibold active:scale-95"
+                    data-testid='call-modal-submit'
                   >
                     Надіслати
                   </button>

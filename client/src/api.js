@@ -76,6 +76,11 @@ export async function importProductsXlsx(file){
   return r.data;
 }
 
+export async function syncProductsBySku({ skus, dryRun } = {}){
+  const r = await api.post('/products/sync/sku', { skus, dryRun: Boolean(dryRun) });
+  return r.data;
+}
+
 export async function getCategories(){ const r = await api.get('/categories'); return r.data; }
 export async function createCategory(payload){ const r = await api.post('/categories', payload); return r.data; }
 export async function updateCategory(id, payload){ const r = await api.put(`/categories/${id}`, payload); return r.data; }

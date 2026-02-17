@@ -88,7 +88,7 @@ export default function ProductPage(){
 
   if (loading) {
     return (
-      <div className='max-w-4xl mx-auto px-4 py-10'>
+      <div className='max-w-4xl mx-auto px-4 py-10' data-testid='product-page-loading'>
         <div className='text-gray-600'>Завантаження…</div>
       </div>
     )
@@ -96,9 +96,9 @@ export default function ProductPage(){
 
   if (err) {
     return (
-      <div className='max-w-4xl mx-auto px-4 py-10'>
+      <div className='max-w-4xl mx-auto px-4 py-10' data-testid='product-page-error'>
         <div className='text-red-700 mb-4'>{err}</div>
-        <Link className='underline' to='/'>На головну</Link>
+        <Link className='underline' to='/' data-testid='product-page-back-home'>На головну</Link>
       </div>
     )
   }
@@ -122,14 +122,14 @@ export default function ProductPage(){
   const specsEntries = getSpecsEntries()
 
   return (
-    <div className='max-w-5xl mx-auto px-4 py-8'>
+    <div className='max-w-5xl mx-auto px-4 py-8' data-testid='product-page'>
       <div className='mb-4 text-sm text-gray-500'>
-        <Link className='hover:underline' to='/'>Головна</Link>
+        <Link className='hover:underline' to='/' data-testid='product-page-breadcrumb-home'>Головна</Link>
         <span className='mx-2'>/</span>
-        <span className='text-gray-800'>{p.name}</span>
+        <span className='text-gray-800' data-testid='product-page-breadcrumb-name'>{p.name}</span>
       </div>
 
-      <div className='bg-white border rounded-2xl shadow-sm overflow-hidden max-w-4xl mx-auto'>
+      <div className='bg-white border rounded-2xl shadow-sm overflow-hidden max-w-4xl mx-auto' data-testid={`product-page-card-${p?._id || ''}`}>
         <div className='p-4 md:p-6'>
           <div className='w-full bg-gray-50 rounded-xl border flex items-center justify-center overflow-hidden'>
             <div className='w-full aspect-[16/9] flex items-center justify-center'>
@@ -139,6 +139,7 @@ export default function ProductPage(){
                   alt={p.name}
                   className='w-full h-full object-contain'
                   referrerPolicy='no-referrer'
+                  data-testid='product-page-image'
                 />
               ) : (
                 <div className='text-gray-400'>No image</div>
@@ -146,9 +147,9 @@ export default function ProductPage(){
             </div>
           </div>
 
-          <h1 className='mt-4 text-2xl font-semibold tracking-tight'>{p.name}</h1>
+          <h1 className='mt-4 text-2xl font-semibold tracking-tight' data-testid='product-page-title'>{p.name}</h1>
           {p.sku ? (
-            <div className='text-sm text-gray-500 mb-1'>Артикул: {p.sku}</div>
+            <div className='text-sm text-gray-500 mb-1' data-testid='product-page-sku'>Артикул: {p.sku}</div>
           ) : null}
 
           <div className='mt-4'>
@@ -157,6 +158,7 @@ export default function ProductPage(){
                 type='button'
                 onClick={()=> setActiveTab('description')}
                 className={`px-3 py-1.5 rounded-lg text-sm font-semibold transition ${activeTab==='description' ? 'bg-white shadow border border-gray-200' : 'text-gray-600 hover:text-black'}`}
+                data-testid='product-page-tab-description'
               >
                 Опис
               </button>
@@ -164,6 +166,7 @@ export default function ProductPage(){
                 type='button'
                 onClick={()=> setActiveTab('specs')}
                 className={`px-3 py-1.5 rounded-lg text-sm font-semibold transition ${activeTab==='specs' ? 'bg-white shadow border border-gray-200' : 'text-gray-600 hover:text-black'}`}
+                data-testid='product-page-tab-specs'
               >
                 Характеристики
               </button>
@@ -176,6 +179,7 @@ export default function ProductPage(){
                     <div
                       ref={descRef}
                       className='prose prose-sm md:prose-base max-w-none'
+                      data-testid='product-page-description'
                       style={
                         isDescExpanded
                           ? undefined
@@ -195,6 +199,7 @@ export default function ProductPage(){
                         type='button'
                         className='mt-3 text-sm font-semibold underline decoration-dotted hover:text-black'
                         onClick={()=> setIsDescExpanded((v)=> !v)}
+                        data-testid='product-page-description-toggle'
                       >
                         {isDescExpanded ? 'Згорнути' : 'Показати повністю'}
                       </button>
@@ -211,7 +216,7 @@ export default function ProductPage(){
               <div className='mt-3'>
                 {specsEntries.length > 0 ? (
                   <div className='border rounded-lg overflow-hidden'>
-                    <table className='w-full text-sm'>
+                    <table className='w-full text-sm' data-testid='product-page-specs'>
                       <tbody>
                         {specsEntries.map(([k, v]) => (
                           <tr key={String(k)} className='border-t first:border-t-0 odd:bg-gray-50/60'>
@@ -251,10 +256,11 @@ export default function ProductPage(){
               type='button'
               onClick={()=> addToCart(p)}
               className='px-4 py-2.5 rounded-lg bg-black text-white hover:bg-red-600 transition'
+              data-testid='product-page-add-to-cart'
             >
               Додати в кошик
             </button>
-            <Link to='/cart' className='px-4 py-2.5 rounded-lg border hover:bg-gray-50 transition'>
+            <Link to='/cart' className='px-4 py-2.5 rounded-lg border hover:bg-gray-50 transition' data-testid='product-page-go-to-cart'>
               Перейти в кошик
             </Link>
           </div>

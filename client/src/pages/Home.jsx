@@ -11,9 +11,12 @@ export default function Home(){
   const location = useLocation()
   const { parentSlug, childSlug, typeSlug } = useParams()
   const [products, setProducts] = useState([])
+  const [weekProducts, setWeekProducts] = useState([])
+  const [weekStart, setWeekStart] = useState(0)
   const [categories, setCategories] = useState([])
   const [loadingCategories, setLoadingCategories] = useState(false)
   const [loadingProducts, setLoadingProducts] = useState(false)
+  const [loadingWeekProducts, setLoadingWeekProducts] = useState(false)
   const [cat, setCat] = useState('')
   const [subcat, setSubcat] = useState('')
   const [type, setType] = useState('')
@@ -31,6 +34,7 @@ export default function Home(){
   const countsReqIdRef = useRef(0)
   const productsAbortRef = useRef(null)
   const countsAbortRef = useRef(null)
+  const weekRowRef = useRef(null)
 
   const readQueryQ = (s) => {
     try {
@@ -40,6 +44,21 @@ export default function Home(){
       return ''
     }
   }
+
+  useEffect(()=>{
+    let alive = true
+    setLoadingWeekProducts(true)
+    setWeekStart(0)
+    getProducts({ productOfWeek: true, page: 1, limit: 12 })
+      .then((d)=>{
+        if (!alive) return
+        const items = Array.isArray(d?.items) ? d.items : (Array.isArray(d) ? d : [])
+        setWeekProducts(items)
+      })
+      .catch(()=>{ if (alive) setWeekProducts([]) })
+      .finally(()=>{ if (alive) setLoadingWeekProducts(false) })
+    return ()=>{ alive = false }
+  }, [])
 
   // Keep local search state in sync with URL (?q=...), so Header search works.
   useEffect(()=>{
@@ -504,9 +523,89 @@ export default function Home(){
     window.dispatchEvent(ev);
   }
 
+  const weekPerView = isMobile ? 1 : 4
+  const canPrevWeek = weekStart > 0
+  const canNextWeek = weekStart + weekPerView < weekProducts.length
+  const scrollWeek = (dir)=>{
+    setWeekStart(prev => {
+      const next = prev + dir
+      const maxStart = Math.max(0, weekProducts.length - weekPerView)
+      return Math.min(Math.max(0, next), maxStart)
+    })
+  }
+
+  useEffect(()=>{
+    if (loadingWeekProducts) return
+    if (weekProducts.length <= weekPerView) return
+    const t = setInterval(()=>{
+      setWeekStart(prev => {
+        const maxStart = Math.max(0, weekProducts.length - weekPerView)
+        if (prev >= maxStart) return 0
+        return prev + 1
+      })
+    }, 5000)
+    return ()=> clearInterval(t)
+  }, [loadingWeekProducts, weekProducts.length, weekPerView])
+
   return (
     <div className='container pt-2 pb-6 max-w-md mx-auto px-4 md:max-w-none md:px-0'>
       <HomeBanner />
+
+      <div className='mb-6 p-4 md:p-5 rounded-2xl border border-red-100 bg-red-50/60 shadow-sm' data-testid='week-products'>
+        <div className='flex items-center justify-between gap-3 mb-3'>
+          <div className='flex-1 text-center text-2xl md:text-3xl font-extrabold text-black tracking-tight uppercase'>Товар тижня</div>
+          <div className='flex items-center gap-2'>
+            <button
+              type='button'
+              onClick={()=> scrollWeek(-1)}
+              className='w-9 h-9 inline-flex items-center justify-center border rounded-lg bg-white hover:bg-black hover:text-white transition disabled:opacity-60'
+              aria-label='Прокрутити вліво'
+              disabled={loadingWeekProducts || !canPrevWeek}
+              data-testid='week-products-prev'
+            >
+              ‹
+            </button>
+            <button
+              type='button'
+              onClick={()=> scrollWeek(1)}
+              className='w-9 h-9 inline-flex items-center justify-center border rounded-lg bg-white hover:bg-black hover:text-white transition disabled:opacity-60'
+              aria-label='Прокрутити вправо'
+              disabled={loadingWeekProducts || !canNextWeek}
+              data-testid='week-products-next'
+            >
+              ›
+            </button>
+          </div>
+        </div>
+
+        <div className='overflow-hidden' data-testid='week-products-row'>
+          <div ref={weekRowRef} className='flex flex-nowrap gap-4 items-stretch'>
+            {loadingWeekProducts ? (
+              <div className='py-6 text-gray-600'>Завантаження…</div>
+            ) : (weekProducts.length === 0 ? (
+              <div className='py-6 text-gray-500'>Немає товарів тижня</div>
+            ) : (
+              weekProducts
+                .slice(weekStart, weekStart + weekPerView)
+                .map(p => (
+                  <div
+                    key={p._id}
+                    className='min-w-[260px] max-w-[260px] md:min-w-0 md:max-w-none h-full relative'
+                    style={!isMobile ? { flex: '0 0 calc((100% - 3rem) / 4)' } : undefined}
+                  >
+                    <div className='absolute top-2 left-2 z-10 flex flex-col gap-1'>
+                      <div className='px-2.5 py-1 rounded-full bg-red-600 text-white text-[10px] md:text-xs font-extrabold shadow'>
+                        ТОВАР ТИЖНЯ
+                      </div>
+                    </div>
+                    <ProductCard p={p} onAdd={addToCart} categories={categories} hideBadges />
+                  </div>
+                ))
+            ))}
+          </div>
+        </div>
+      </div>
+
       <div className='grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-2 mb-4'>
         <div className='w-full'>
           <div className='flex flex-col sm:flex-row gap-2'>
@@ -770,7 +869,7 @@ export default function Home(){
 
       <div ref={productsTopRef} />
 
-      <div className='grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4'>
+      <div className='grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4' data-testid='product-grid'>
         {loadingProducts && itemsToRender.length === 0 ? (
           <div className='col-span-full flex items-center justify-center py-10 text-gray-700'>
             <div className='flex items-center gap-3'>

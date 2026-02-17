@@ -187,7 +187,7 @@ export default function Checkout(){
   }, [showThanks])
 
   return (
-    <div className='container py-6 max-w-md mx-auto px-4 md:max-w-none md:px-0'>
+    <div className='container py-6 max-w-md mx-auto px-4 md:max-w-none md:px-0' data-testid='checkout-page'>
       <div className='relative overflow-hidden rounded-2xl border shadow-lg bg-gradient-to-br from-white to-red-50'>
         <div className='absolute -top-16 -right-16 w-56 h-56 rounded-full bg-red-100 blur-2xl opacity-70 pointer-events-none'></div>
         <div className='relative p-5 md:p-6'>
@@ -217,14 +217,15 @@ export default function Checkout(){
             </div>
           </div>
 
-          <form onSubmit={handleSubmit} className='grid grid-cols-1 md:grid-cols-2 gap-3'>
+          <form onSubmit={handleSubmit} className='grid grid-cols-1 md:grid-cols-2 gap-3' data-testid='checkout-form'>
         <div className='md:col-span-2 mb-2'>
-          <div className='flex flex-col sm:flex-row gap-2 sm:gap-0 rounded-2xl sm:rounded-full bg-gray-50/70 sm:bg-gray-100 p-2 sm:p-1 ring-1 ring-gray-200/80 sm:ring-0 shadow-sm sm:shadow-none text-xs md:text-sm font-medium'>
+          <div className='flex flex-col sm:flex-row gap-2 sm:gap-0 rounded-2xl sm:rounded-full bg-gray-50/70 sm:bg-gray-100 p-2 sm:p-1 ring-1 ring-gray-200/80 sm:ring-0 shadow-sm sm:shadow-none text-xs md:text-sm font-medium' data-testid='checkout-method'>
             <label
               className={`flex-1 inline-flex items-center justify-center text-center cursor-pointer select-none transition px-3 py-2.5 sm:py-1.5 rounded-xl sm:rounded-full ring-1 sm:ring-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500/40 active:scale-[0.99] sm:active:scale-100
                 ${method==='delivery' ? 'bg-black text-white ring-black/20 shadow-md' : 'bg-white text-gray-900 ring-gray-200 shadow-sm'}
                 sm:${method==='delivery' ? 'bg-black text-white shadow-sm' : 'bg-transparent text-gray-800 hover:bg-white/60'}`}
               title='Доставка по місту'
+              data-testid='checkout-method-delivery'
             >
               <input type='radio' name='method' value='delivery' checked={method==='delivery'} onChange={()=> setMethod('delivery')} className='hidden' />
               <span className='inline-flex items-center justify-center gap-2 w-full'>
@@ -237,6 +238,7 @@ export default function Checkout(){
                 ${method==='post' ? 'bg-black text-white ring-black/20 shadow-md' : 'bg-white text-gray-900 ring-gray-200 shadow-sm'}
                 sm:${method==='post' ? 'bg-black text-white shadow-sm' : 'bg-transparent text-gray-800 hover:bg-white/60'}`}
               title='Доставка на пошту'
+              data-testid='checkout-method-post'
             >
               <input type='radio' name='method' value='post' checked={method==='post'} onChange={()=> setMethod('post')} className='hidden' />
               <span className='inline-flex items-center justify-center gap-2 w-full'>
@@ -249,6 +251,7 @@ export default function Checkout(){
                 ${method==='pickup' ? 'bg-black text-white ring-black/20 shadow-md' : 'bg-white text-gray-900 ring-gray-200 shadow-sm'}
                 sm:${method==='pickup' ? 'bg-black text-white shadow-sm' : 'bg-transparent text-gray-800 hover:bg-white/60'}`}
               title='Самовивіз'
+              data-testid='checkout-method-pickup'
             >
               <input type='radio' name='method' value='pickup' checked={method==='pickup'} onChange={()=> setMethod('pickup')} className='hidden' />
               <span className='inline-flex items-center justify-center gap-2 w-full'>
@@ -268,6 +271,8 @@ export default function Checkout(){
               onChange={e=> setName(e.target.value)}
               onBlur={()=> setTouched(t=> ({...t, name:true}))}
               required
+              autoComplete='name'
+              data-testid='checkout-name'
             />
           </div>
           {nameError && <div className='text-xs text-red-600 mt-1'>{nameError}</div>}
@@ -283,6 +288,8 @@ export default function Checkout(){
               onChange={e=> setPhoneRaw(e.target.value)}
               onBlur={()=> setTouched(t=> ({...t, phone:true}))}
               required
+              autoComplete='tel'
+              data-testid='checkout-phone'
             />
           </div>
           {phoneError && <div className='text-xs text-red-600 mt-1'>{phoneError}</div>}
@@ -298,6 +305,7 @@ export default function Checkout(){
                     className='h-11 text-base w-full appearance-none bg-transparent border-0 focus:outline-none pr-7'
                     placeholder='Пошук міста (мін. 2 символи)'
                     value={npCityQuery}
+                    data-testid='checkout-np-city-input'
                     onFocus={async () => {
                     if (!npShowCityList) {
                       if (!npCities.length && npCityQuery.trim().length >= 2) {
@@ -353,13 +361,14 @@ export default function Checkout(){
                         setNpShowCityList(false)
                         setNpShowOfficeList(false)
                       }}
+                      data-testid='checkout-np-city-clear'
                     >
                       ×
                     </button>
                   )}
                 </div>
                 {!npLoadingCities && npShowCityList && npCities.length > 0 && (
-                  <div className='max-h-40 overflow-y-auto -mx-1 mt-1'>
+                  <div className='max-h-40 overflow-y-auto -mx-1 mt-1' data-testid='checkout-np-city-list'>
                     {npCities.map(c => (
                       <button
                         type='button'
@@ -381,6 +390,7 @@ export default function Checkout(){
                             .catch(()=> setNpOffices([]))
                             .finally(()=> setNpLoadingOffices(false))
                         }}
+                        data-testid={`checkout-np-city-${c.ref}`}
                       >
                         {c.name}
                       </button>
@@ -396,6 +406,8 @@ export default function Checkout(){
                 onChange={e=> setCity(e.target.value)}
                 onBlur={()=> setTouched(t=> ({...t, city:true}))}
                 required
+                autoComplete='address-level2'
+                data-testid='checkout-city'
               />
             )}
           </div>
@@ -413,6 +425,7 @@ export default function Checkout(){
                 placeholder={!npCityRef ? 'Спочатку оберіть місто' : 'Пошук відділення'}
                 disabled={!npCityRef || npLoadingOffices}
                 value={npOfficeQuery}
+                data-testid='checkout-np-office-input'
                 onFocus={() => {
                   if (npCityRef && npOffices.length > 0) {
                     setNpShowOfficeList(true)
@@ -433,12 +446,13 @@ export default function Checkout(){
                     setNpOfficeName('')
                     if (npOffices.length > 0) setNpShowOfficeList(true)
                   }}
+                  data-testid='checkout-np-office-clear'
                 >
                   ×
                 </button>
               )}
               {!npLoadingOffices && npShowOfficeList && npOffices.length > 0 && (
-                <div className='max-h-40 overflow-y-auto -mx-1 mt-1'>
+                <div className='max-h-40 overflow-y-auto -mx-1 mt-1' data-testid='checkout-np-office-list'>
                   {npOffices
                     .filter(o => {
                       const q = (npOfficeQuery || '').trim().toLowerCase()
@@ -458,6 +472,7 @@ export default function Checkout(){
                         setNpOfficeQuery(label)
                         setNpShowOfficeList(false)
                       }}
+                      data-testid={`checkout-np-office-${o.ref}`}
                     >
                       {o.name}
                     </button>
@@ -480,6 +495,8 @@ export default function Checkout(){
               onChange={e=> setStreet(e.target.value)}
               onBlur={()=> setTouched(t=> ({...t, street:true}))}
               required
+              autoComplete='address-line1'
+              data-testid='checkout-street'
             />
           </div>
           {streetError && <div className='text-xs text-red-600 mt-1'>{streetError}</div>}
@@ -496,6 +513,8 @@ export default function Checkout(){
               onChange={e=> setHouse(e.target.value)}
               onBlur={()=> setTouched(t=> ({...t, house:true}))}
               required
+              autoComplete='address-line2'
+              data-testid='checkout-house'
             />
           </div>
           {houseError && <div className='text-xs text-red-600 mt-1'>{houseError}</div>}
@@ -535,6 +554,7 @@ export default function Checkout(){
                   aria-invalid={!!dtError}
                   min={minDateStr}
                   required
+                  data-testid='checkout-delivery-date'
                 />
                 <div className='relative bg-white rounded-xl ring-1 ring-gray-200 shadow px-3 transition hover:bg-red-50/40 hover:ring-red-200 w-full'>
                   <select
@@ -544,6 +564,7 @@ export default function Checkout(){
                     onBlur={()=> setTouched(t=> ({...t, dt:true}))}
                     aria-invalid={!!dtError}
                     required
+                    data-testid='checkout-delivery-time'
                   >
                     <option value='' disabled>Оберіть час</option>
                     {timeOptions.map(t=> <option key={t} value={t}>{t}</option>)}
@@ -564,6 +585,7 @@ export default function Checkout(){
               className='btn md:col-span-2 transition active:scale-95 disabled:opacity-60 inline-flex items-center justify-center gap-2'
               disabled={loading}
               aria-busy={loading ? 'true' : 'false'}
+              data-testid='checkout-submit'
             >
               {loading && (
                 <span className='inline-block w-4 h-4 border-2 border-white/60 border-t-transparent rounded-full animate-spin'></span>
@@ -571,13 +593,13 @@ export default function Checkout(){
               <span>{loading ? 'Відправляємо...' : 'Підтвердити замовлення'}</span>
             </button>
           </form>
-          {status && <div className='mt-3 text-green-600'>{status}</div>}
+          {status && <div className='mt-3 text-green-600' data-testid='checkout-status'>{status}</div>}
         </div>
       </div>
 
       {showThanks && (
-        <div className='fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4' role='dialog' aria-modal='true' aria-labelledby='order-success-title' onClick={()=> { setShowThanks(false); navigate('/', { replace:true }) }}>
-          <div className='relative bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 text-center' onClick={(e)=> e.stopPropagation()}>
+        <div className='fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4' role='dialog' aria-modal='true' aria-labelledby='order-success-title' onClick={()=> { setShowThanks(false); navigate('/', { replace:true }) }} data-testid='checkout-success-overlay'>
+          <div className='relative bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 text-center' onClick={(e)=> e.stopPropagation()} data-testid='checkout-success'>
             <div className='absolute left-0 right-0 top-0'>
               <div className='h-1 bg-red-600' style={{ width: barWidth, transition: 'width 5s linear' }} />
             </div>
@@ -586,7 +608,7 @@ export default function Checkout(){
             </div>
             <h3 id='order-success-title' className='text-xl font-semibold'>Замовлення прийнято</h3>
             <p className='text-gray-700 mt-2'>Дякуємо! Ми невдовзі зв’яжемося з вами і з радістю доставимо замовлення.</p>
-            <button className='mt-4 px-4 py-2 rounded-lg bg-black text-white hover:bg-red-600 transition active:scale-95' onClick={()=> { setShowThanks(false); navigate('/', { replace:true }) }}>Добре</button>
+            <button className='mt-4 px-4 py-2 rounded-lg bg-black text-white hover:bg-red-600 transition active:scale-95' onClick={()=> { setShowThanks(false); navigate('/', { replace:true }) }} data-testid='checkout-success-close'>Добре</button>
           </div>
         </div>
       )}
