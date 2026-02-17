@@ -22,7 +22,8 @@ const productSchema = new mongoose.Schema({
   sku: { type: String, trim: true },
   stock: { type: Number, default: 0, min: 0 },
   unit: { type: String, trim: true },
-  discount: { type: Number, default: 0, min: 0, max: 100 }
+  discount: { type: Number, default: 0, min: 0, max: 100 },
+  productOfWeek: { type: Boolean, default: false }
 }, { timestamps: true });
 
 const Product = mongoose.model("Product", productSchema);

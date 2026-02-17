@@ -121,10 +121,11 @@ export default function SearchBar({value, onChange, onSelect}){
         ref={dropdownRef}
         className='fixed z-[10000] bg-white rounded-xl ring-1 ring-gray-200 shadow-lg overflow-hidden'
         style={{ left: dropdownRect.left, top: dropdownRect.top + 8, width: dropdownRect.width }}
+        data-testid='search-suggestions'
       >
         <div className='max-h-72 overflow-auto'>
           {loading ? (
-            <div className='px-4 py-3 text-sm text-gray-500'>Завантаження…</div>
+            <div className='px-4 py-3 text-sm text-gray-500' data-testid='search-suggestions-loading'>Завантаження…</div>
           ) : (
             items.map((p)=> (
               <button
@@ -136,6 +137,7 @@ export default function SearchBar({value, onChange, onSelect}){
                   e.stopPropagation()
                   selectItem(p?.name || '')
                 }}
+                data-testid={`search-suggestion-${p?._id || (p?.name || '')}`}
               >
                 {p?.name || ''}
               </button>
@@ -147,7 +149,7 @@ export default function SearchBar({value, onChange, onSelect}){
   }, [open, dropdownRect.left, dropdownRect.top, dropdownRect.width, loading, items])
 
   return (
-    <div ref={rootRef} className='relative bg-white rounded-xl ring-1 ring-gray-200 shadow px-3'>
+    <div ref={rootRef} className='relative bg-white rounded-xl ring-1 ring-gray-200 shadow px-3' data-testid='search'>
       <span className='absolute inset-y-0 left-3 flex items-center text-gray-500 pointer-events-none'>
         {/* Лупа */}
         <svg xmlns='http://www.w3.org/2000/svg' className='h-4 w-4' viewBox='0 0 20 20' fill='currentColor'>
@@ -161,6 +163,7 @@ export default function SearchBar({value, onChange, onSelect}){
         onFocus={()=> { if (items.length > 0) { recomputeRect(); setOpen(true) } }}
         placeholder='Пошук товарів...'
         className='h-11 w-full bg-transparent border-0 pl-9 pr-9 text-base focus:ring-0 focus:outline-none'
+        data-testid='search-input'
       />
       {value && (
         <button
@@ -168,6 +171,7 @@ export default function SearchBar({value, onChange, onSelect}){
           aria-label='Очистити'
           onClick={()=> onChange('')}
           className='absolute inset-y-0 right-3 flex items-center text-gray-500 hover:text-black'
+          data-testid='search-clear'
         >
           {/* Х */}
           <svg xmlns='http://www.w3.org/2000/svg' className='h-4 w-4' viewBox='0 0 20 20' fill='currentColor'>

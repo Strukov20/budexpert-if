@@ -64,17 +64,18 @@ export default function HomeBanner(){
   if (!src) return null
 
   return (
-    <div className='mb-6'>
-      <div className={`relative overflow-hidden rounded-2xl bg-transparent border border-white/5 h-[28vh] md:h-[40vh] min-h-[180px] md:min-h-[220px] max-h-[520px] shadow transition-opacity duration-300 ${fading ? 'opacity-0' : 'opacity-100'}`}>
+    <div className='mb-6' data-testid='home-banner'>
+      <div className={`relative overflow-hidden rounded-2xl bg-transparent border border-white/5 h-[22vh] md:h-[32vh] min-h-[145px] md:min-h-[176px] max-h-[420px] shadow transition-opacity duration-300 ${fading ? 'opacity-0' : 'opacity-100'}`} data-testid='home-banner-frame'>
         <img
           src={src}
           alt='banner'
           className='absolute inset-0 w-full h-full object-contain'
           referrerPolicy='no-referrer'
+          data-testid='home-banner-image'
         />
 
         {images.length > 1 && (
-          <div className='absolute bottom-3 left-1/2 -translate-x-1/2 flex items-center gap-2'>
+          <div className='absolute bottom-3 left-1/2 -translate-x-1/2 flex items-center gap-2' data-testid='home-banner-dots'>
             {images.map((_x, i)=>(
               <button
                 key={i}
@@ -82,6 +83,7 @@ export default function HomeBanner(){
                 aria-label={`Слайд ${i+1}`}
                 onClick={()=>{ setFading(true); setTimeout(()=>{ setIdx(i); setFading(false) }, 200); startTimer() }}
                 className={`h-2.5 w-2.5 rounded-full ring-1 transition ${i===idx ? 'bg-red-600 ring-red-600' : 'bg-red-200 ring-red-300 hover:bg-red-300 hover:ring-red-400'}`}
+                data-testid={`home-banner-dot-${i}`}
               />
             ))}
           </div>

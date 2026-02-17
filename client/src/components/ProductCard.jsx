@@ -5,7 +5,7 @@ import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import rehypeSanitize from 'rehype-sanitize'
 
-export default function ProductCard({p, onAdd, categories}){
+export default function ProductCard({p, onAdd, categories, hideBadges}){
   const navigate = useNavigate()
   const [open, setOpen] = useState(false)
   const [activeTab, setActiveTab] = useState('description')
@@ -215,37 +215,50 @@ export default function ProductCard({p, onAdd, categories}){
 
   return (
     <>
-      <div className="card group p-3 md:p-4 flex flex-col border border-gray-100 rounded-lg shadow-sm hover:shadow-md transition">
-        <div className="relative bg-gray-50 border rounded-lg shadow-sm p-2 cursor-pointer" onClick={goToProduct}>
+      <div className="card group p-3 md:p-4 flex flex-col h-full border border-gray-100 rounded-lg shadow-sm hover:shadow-md transition" data-testid={`product-card-${p?._id || ''}`}>
+        <div className="relative bg-gray-50 border rounded-lg shadow-sm p-2 cursor-pointer" onClick={goToProduct} data-testid={`product-card-${p?._id || ''}-image`}>
           <img
             src={cardSrc}
             onError={(e)=>{ e.currentTarget.onerror=null; e.currentTarget.src=placeholderSm; }}
-            className="w-full h-32 md:h-40 object-contain rounded-md mix-blend-multiply"
+            className={
+              "w-full h-32 md:h-40 object-contain rounded-md mix-blend-multiply " +
+              (isOutOfStock ? 'grayscale opacity-35 blur-[1.5px]' : '')
+            }
             alt={p.name}
           />
-          {(hasDiscount || isOutOfStock) && (
-            <div className="absolute top-1 left-1 flex flex-col gap-1">
-              {hasDiscount && (
-                <div className="px-2 py-0.5 rounded-full bg-red-600 text-white text-[10px] md:text-xs font-semibold shadow">
-                  АКЦІЯ -{discount}%
-                </div>
-              )}
-              {isOutOfStock && (
-                <div className="px-2 py-0.5 rounded-full bg-red-600 text-white text-[10px] md:text-xs font-semibold shadow">
-                  Немає в наявності
-                </div>
-              )}
+          {isOutOfStock && (
+            <div className="absolute inset-0 rounded-md bg-black/25" aria-hidden="true" />
+          )}
+          {isOutOfStock && (
+            <div className="absolute inset-0 flex items-center justify-center" aria-hidden="true">
+              <div className="px-3 py-1.5 rounded-full bg-black/70 text-white text-[11px] md:text-xs font-extrabold tracking-wide">
+                ТОВАР ЗАКІНЧИВСЯ
+              </div>
+            </div>
+          )}
+          {!hideBadges && hasDiscount && (
+            <div className="absolute top-1 left-1">
+              <div className="px-2 py-0.5 rounded-full bg-red-600 text-white text-[10px] md:text-xs font-semibold shadow">
+                АКЦІЯ -{discount}%
+              </div>
             </div>
           )}
         </div>
-        <h3 className="mt-2 md:mt-3 font-semibold text-sm md:text-base cursor-pointer" onClick={goToProduct}>{p.name}</h3>
+        <h3
+          className="mt-2 md:mt-3 font-semibold text-sm md:text-base cursor-pointer leading-[1.25]"
+          style={{ overflow: 'hidden', lineHeight: 1.25, maxHeight: 'calc(1.25em * 3)', minHeight: 'calc(1.25em * 3)', wordBreak: 'break-word' }}
+          onClick={goToProduct}
+          data-testid={`product-card-${p?._id || ''}-title`}
+        >
+          {p.name}
+        </h3>
         {p.sku && (
           <div className="mt-0.5 text-[11px] md:text-xs text-gray-500">Артикул: {p.sku}</div>
         )}
         <div
           ref={descRef}
           className="text-xs md:text-sm text-gray-600 mt-1 cursor-pointer leading-[1.35] pb-[2px] relative pr-8"
-          style={{ overflow: 'hidden', lineHeight: 1.35, maxHeight: 'calc(1.35em * 3)', wordBreak: 'break-word' }}
+          style={{ overflow: 'hidden', lineHeight: 1.35, maxHeight: 'calc(1.35em * 3)', minHeight: 'calc(1.35em * 3)', wordBreak: 'break-word' }}
           title="Натисни, щоб побачити повний опис"
           onClick={goToProduct}
         >
@@ -267,6 +280,7 @@ export default function ProductCard({p, onAdd, categories}){
           type="button"
           className="mt-2 text-xs md:text-sm text-gray-700 underline decoration-dotted hover:text-black self-start"
           onClick={(e)=>{ e.preventDefault(); e.stopPropagation(); setOpen(true) }}
+          data-testid={`product-card-${p?._id || ''}-quick-view`}
         >
           Швидкий перегляд
         </button>
@@ -290,6 +304,7 @@ export default function ProductCard({p, onAdd, categories}){
             onClick={()=>onAdd(p)}
             className="btn transition active:scale-95 sm:hidden w-9 h-9 flex items-center justify-center p-0 text-xl font-bold"
             aria-label="Додати в кошик"
+            data-testid={`product-card-${p?._id || ''}-add-mobile`}
           >
             {inCart ? '✓' : '+'}
           </button>
@@ -298,14 +313,15 @@ export default function ProductCard({p, onAdd, categories}){
             {qty > 0 ? (
               <div className="flex items-center gap-2">
                 <button onClick={dec} className="w-8 h-8 border rounded flex items-center justify-center transition active:scale-95">−</button>
-                <span className="w-6 text-center">{qty}</span>
-                <button onClick={inc} className="w-8 h-8 border rounded flex items-center justify-center transition active:scale-95">+</button>
+                <span className="w-6 text-center" data-testid={`product-card-${p?._id || ''}-qty`}>{qty}</span>
+                <button onClick={inc} className="w-8 h-8 border rounded flex items-center justify-center transition active:scale-95" data-testid={`product-card-${p?._id || ''}-inc`}>+</button>
               </div>
             ) : (
               <button
                 onClick={()=>onAdd(p)}
                 className="btn transition active:scale-95 w-9 h-9 flex items-center justify-center p-0 text-xl font-bold"
                 aria-label="Додати в кошик"
+                data-testid={`product-card-${p?._id || ''}-add`}
               >
                 {inCart ? '✓' : '+'}
               </button>
@@ -315,12 +331,13 @@ export default function ProductCard({p, onAdd, categories}){
       </div>
 
       {open && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={()=>setOpen(false)}>
-          <div className="relative bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[80vh] flex flex-col overflow-hidden transition" onClick={e=>e.stopPropagation()}>
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={()=>setOpen(false)} data-testid={`product-quick-view-${p?._id || ''}-overlay`}>
+          <div className="relative bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[80vh] flex flex-col overflow-hidden transition" onClick={e=>e.stopPropagation()} data-testid={`product-quick-view-${p?._id || ''}`}>
             <button
               aria-label="Закрити"
               onClick={()=> setOpen(false)}
               className="absolute top-3 right-3 w-9 h-9 rounded-full bg-white/90 border flex items-center justify-center shadow transition-colors cursor-pointer hover:bg-red-600 hover:text-white focus:outline-none focus:ring-2 focus:ring-red-500/40 z-20"
+              data-testid={`product-quick-view-${p?._id || ''}-close`}
             >
               ✕
             </button>
@@ -331,6 +348,7 @@ export default function ProductCard({p, onAdd, categories}){
                   onError={(e)=>{ e.currentTarget.onerror=null; e.currentTarget.src=placeholderLg; }}
                   className="w-full max-h-[30vh] md:max-h-[34vh] object-contain rounded-md"
                   alt={p.name}
+                  data-testid={`product-quick-view-${p?._id || ''}-image`}
                 />
                 {hasGallery && (
                   <>
@@ -340,6 +358,7 @@ export default function ProductCard({p, onAdd, categories}){
                       title="Попереднє"
                       onClick={goPrevImg}
                       className="absolute left-2 top-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-black/55 text-white border border-white/40 shadow-lg flex items-center justify-center hover:bg-black/70 active:scale-95 transition"
+                      data-testid={`product-quick-view-${p?._id || ''}-prev-image`}
                     >
                       <span className="relative -left-[2px]">
                         <FiChevronLeft size={28} />
@@ -351,6 +370,7 @@ export default function ProductCard({p, onAdd, categories}){
                       title="Наступне"
                       onClick={goNextImg}
                       className="absolute right-2 top-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-black/55 text-white border border-white/40 shadow-lg flex items-center justify-center hover:bg-black/70 active:scale-95 transition"
+                      data-testid={`product-quick-view-${p?._id || ''}-next-image`}
                     >
                       <span className="relative left-[2px]">
                         <FiChevronRight size={28} />
@@ -387,6 +407,7 @@ export default function ProductCard({p, onAdd, categories}){
                       }
                       aria-label={`Вибрати фото ${idx + 1}`}
                       title={`Фото ${idx + 1}`}
+                      data-testid={`product-quick-view-${p?._id || ''}-thumb-${idx}`}
                     >
                       <img
                         src={resolveSrc(img.url) || placeholderSm}
@@ -398,7 +419,7 @@ export default function ProductCard({p, onAdd, categories}){
                   ))}
                 </div>
               )}
-              <h3 className="mt-4 text-2xl font-semibold tracking-tight text-left">{p.name}</h3>
+              <h3 className="mt-4 text-2xl font-semibold tracking-tight text-left" data-testid={`product-quick-view-${p?._id || ''}-title`}>{p.name}</h3>
               {p.sku && (
                 <div className="text-sm text-gray-500 mb-1">Артикул: {p.sku}</div>
               )}
@@ -429,6 +450,7 @@ export default function ProductCard({p, onAdd, categories}){
                     type="button"
                     onClick={()=> setActiveTab('description')}
                     className={`px-3 py-1.5 rounded-lg text-sm font-semibold transition ${activeTab==='description' ? 'bg-white shadow border border-gray-200' : 'text-gray-600 hover:text-black'}`}
+                    data-testid={`product-quick-view-${p?._id || ''}-tab-description`}
                   >
                     Опис
                   </button>
@@ -436,6 +458,7 @@ export default function ProductCard({p, onAdd, categories}){
                     type="button"
                     onClick={()=> setActiveTab('specs')}
                     className={`px-3 py-1.5 rounded-lg text-sm font-semibold transition ${activeTab==='specs' ? 'bg-white shadow border border-gray-200' : 'text-gray-600 hover:text-black'}`}
+                    data-testid={`product-quick-view-${p?._id || ''}-tab-specs`}
                   >
                     Характеристики
                   </button>
@@ -499,12 +522,12 @@ export default function ProductCard({p, onAdd, categories}){
               <div className="flex items-center gap-2">
                 {qty > 0 ? (
                   <div className="flex items-center gap-2">
-                    <button onClick={dec} className="w-8 h-8 border rounded flex items-center justify-center transition active:scale-95">−</button>
-                    <span className="w-6 text-center">{qty}</span>
-                    <button onClick={inc} className="w-8 h-8 border rounded flex items-center justify-center transition active:scale-95">+</button>
+                    <button onClick={dec} className="w-8 h-8 border rounded flex items-center justify-center transition active:scale-95" data-testid={`product-quick-view-${p?._id || ''}-dec`}>−</button>
+                    <span className="w-6 text-center" data-testid={`product-quick-view-${p?._id || ''}-qty`}>{qty}</span>
+                    <button onClick={inc} className="w-8 h-8 border rounded flex items-center justify-center transition active:scale-95" data-testid={`product-quick-view-${p?._id || ''}-inc`}>+</button>
                   </div>
                 ) : (
-                  <button onClick={()=>{ onAdd(p); }} className="btn transition active:scale-95 text-2xl font-bold">
+                  <button onClick={()=>{ onAdd(p); }} className="btn transition active:scale-95 text-2xl font-bold" data-testid={`product-quick-view-${p?._id || ''}-add`}>
                     {inCart ? '✓' : '+'}
                   </button>
                 )}

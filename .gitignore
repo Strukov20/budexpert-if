@@ -9,7 +9,8 @@ client/dist/
 # Env
 .env
 **/.env
-server/server/.env
+.env.*
+**/.env.*
 
 # Uploads
 server/uploads/
