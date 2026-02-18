@@ -104,49 +104,17 @@ export default function Header() {
 
   const qNavTimerRef = useRef(null)
 
-  const navigateWithQImmediate = (next) => {
-    const v = (next || '').toString()
+  const navigateToSearchResults = (next) => {
+    const v = (next || '').toString().trim()
+    if (!v) return
     setSearch(v)
-
-    if (qNavTimerRef.current) {
-      clearTimeout(qNavTimerRef.current)
-      qNavTimerRef.current = null
-    }
-
-    let params
-    try { params = new URLSearchParams(location.search || '') } catch { params = new URLSearchParams() }
-
-    if (v) params.set('q', v)
-    else params.delete('q')
-
-    const qs = params.toString()
-    const target = (location.pathname === '/' ? '/' : '/') + (qs ? `?${qs}` : '')
-    navigate(target, { replace: location.pathname === '/' })
+    const qs = new URLSearchParams({ q: v }).toString()
+    navigate(`/products?${qs}`)
   }
 
   const setQueryQ = (value) => {
     const next = (value || '').toString()
     setSearch(next)
-
-    if (qNavTimerRef.current) {
-      clearTimeout(qNavTimerRef.current)
-      qNavTimerRef.current = null
-    }
-
-    qNavTimerRef.current = setTimeout(()=>{
-      const currentQ = readQueryQ(location.search)
-      if (String(currentQ) === String(next)) return
-
-      let params
-      try { params = new URLSearchParams(location.search || '') } catch { params = new URLSearchParams() }
-
-      if (next) params.set('q', next)
-      else params.delete('q')
-
-      const qs = params.toString()
-      const target = (location.pathname === '/' ? '/' : '/') + (qs ? `?${qs}` : '')
-      navigate(target, { replace: location.pathname === '/' })
-    }, 700)
   }
 
   useEffect(()=>{
@@ -363,7 +331,7 @@ export default function Header() {
             <button
               type="button"
               className="inline-flex items-center justify-center gap-2 h-10 px-4 rounded-lg bg-red-600 text-white font-semibold text-sm hover:bg-red-700 transition whitespace-nowrap"
-              onClick={() => navigate("/")}
+              onClick={() => navigate("/products")}
               data-testid='header-catalog'
             >
               <FiGrid className="w-4 h-4" />
@@ -405,7 +373,7 @@ export default function Header() {
           </div>
 
           <div className="col-start-3 row-start-1 min-w-0">
-            <SearchBar value={search} onChange={setQueryQ} onSelect={navigateWithQImmediate} />
+            <SearchBar value={search} onChange={setQueryQ} onSelect={navigateToSearchResults} />
           </div>
 
           <div

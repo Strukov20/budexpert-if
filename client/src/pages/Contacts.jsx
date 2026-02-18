@@ -86,16 +86,16 @@ export default function Contacts(){
       <h1 className='text-3xl font-semibold'>Контакти</h1>
 
       <div className='mt-6 grid gap-4'>
-        <div className='rounded-2xl border bg-white shadow-sm p-5'>
+        <div className='rounded-2xl border bg-white shadow-sm p-5 text-center'>
           <div className='text-lg font-semibold'>Як з нами зв’язатися</div>
           <div className='mt-3 grid gap-3 md:grid-cols-3'>
-            <div className='rounded-xl border bg-white p-4'>
-              <div className='flex items-center gap-2 text-sm font-medium text-gray-900'>
+            <div className='rounded-xl border bg-white p-4 text-center'>
+              <div className='flex items-center justify-center gap-2 text-sm font-medium text-gray-900'>
                 <FiPhone className='w-4 h-4 text-gray-500' />
                 <span>Телефон</span>
               </div>
               <a
-                className='mt-2 inline-flex underline decoration-dotted hover:text-black text-sm'
+                className='mt-2 inline-flex items-center justify-center underline decoration-dotted hover:text-black text-sm'
                 href='tel:+380980095577'
                 onClick={() => {
                   try {
@@ -109,8 +109,8 @@ export default function Contacts(){
               <div className='mt-2 text-xs text-gray-600'>Дзвінки приймаємо у робочі години.</div>
             </div>
 
-            <div className='rounded-xl border bg-white p-4'>
-              <div className='flex items-center gap-2 text-sm font-medium text-gray-900'>
+            <div className='rounded-xl border bg-white p-4 text-center'>
+              <div className='flex items-center justify-center gap-2 text-sm font-medium text-gray-900'>
                 <FiMapPin className='w-4 h-4 text-gray-500' />
                 <span>Адреса</span>
               </div>
@@ -118,15 +118,15 @@ export default function Contacts(){
               <button
                 type='button'
                 onClick={() => window.open(MAPS_URL, '_blank')}
-                className='mt-3 inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-white text-black text-xs font-medium hover:bg-red-600 hover:text-white transition-transform duration-150 active:scale-95 cursor-pointer shadow-sm hover:shadow-md border'
+                className='mt-3 inline-flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-white text-black text-xs font-medium hover:bg-red-600 hover:text-white transition-transform duration-150 active:scale-95 cursor-pointer shadow-sm hover:shadow-md border'
               >
                 <FiMapPin className='w-4 h-4' />
                 <span>Відкрити на карті</span>
               </button>
             </div>
 
-            <div className='rounded-xl border bg-white p-4'>
-              <div className='flex items-center gap-2 text-sm font-medium text-gray-900'>
+            <div className='rounded-xl border bg-white p-4 text-center'>
+              <div className='flex items-center justify-center gap-2 text-sm font-medium text-gray-900'>
                 <FiClock className='w-4 h-4 text-gray-500' />
                 <span>Графік роботи</span>
               </div>

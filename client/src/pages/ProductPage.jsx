@@ -1,15 +1,17 @@
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import { useParams, Link } from 'react-router-dom'
-import { getProduct } from '../api'
+import { useNavigate, useParams, Link } from 'react-router-dom'
+import { getCategories, getProduct } from '../api'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import rehypeSanitize from 'rehype-sanitize'
 
 export default function ProductPage(){
   const { id } = useParams()
+  const navigate = useNavigate()
   const [loading, setLoading] = useState(false)
   const [p, setP] = useState(null)
   const [err, setErr] = useState('')
+  const [categories, setCategories] = useState([])
   const [activeTab, setActiveTab] = useState('description')
   const [isDescExpanded, setIsDescExpanded] = useState(false)
   const [canExpandDesc, setCanExpandDesc] = useState(false)
@@ -62,6 +64,14 @@ export default function ProductPage(){
   }, [id])
 
   useEffect(()=>{
+    let alive = true
+    getCategories()
+      .then((d)=>{ if (alive) setCategories(Array.isArray(d) ? d : []) })
+      .catch(()=>{ if (alive) setCategories([]) })
+    return ()=>{ alive = false }
+  }, [])
+
+  useEffect(()=>{
     setIsDescExpanded(false)
   }, [id])
 
@@ -86,26 +96,7 @@ export default function ProductPage(){
     }
   }, [activeTab, p?._id, p?.description, isDescExpanded])
 
-  if (loading) {
-    return (
-      <div className='max-w-4xl mx-auto px-4 py-10' data-testid='product-page-loading'>
-        <div className='text-gray-600'>Завантаження…</div>
-      </div>
-    )
-  }
-
-  if (err) {
-    return (
-      <div className='max-w-4xl mx-auto px-4 py-10' data-testid='product-page-error'>
-        <div className='text-red-700 mb-4'>{err}</div>
-        <Link className='underline' to='/' data-testid='product-page-back-home'>На головну</Link>
-      </div>
-    )
-  }
-
-  if (!p) return null
-
-  const img0 = (Array.isArray(p?.images) && p.images[0] && p.images[0].url) ? p.images[0].url : (p.image || '')
+  const img0 = (Array.isArray(p?.images) && p.images[0] && p.images[0].url) ? p.images[0].url : (p?.image || '')
   const imageUrl = resolveImageUrl(img0)
 
   const getSpecsEntries = ()=>{
@@ -121,15 +112,102 @@ export default function ProductPage(){
   const hasDescription = Boolean((p?.description || '').toString().trim())
   const specsEntries = getSpecsEntries()
 
+  const catObj = useMemo(()=>{
+    const list = Array.isArray(categories) ? categories : []
+    const cid = p?.category
+    return list.find(c => String(c?._id) === String(cid)) || null
+  }, [categories, p?.category])
+
+  const subcatObj = useMemo(()=>{
+    const list = Array.isArray(categories) ? categories : []
+    const sid = p?.subcategory
+    return list.find(c => String(c?._id) === String(sid)) || null
+  }, [categories, p?.subcategory])
+
+  const typeObj = useMemo(()=>{
+    const list = Array.isArray(categories) ? categories : []
+    const tid = p?.type
+    return list.find(c => String(c?._id) === String(tid)) || null
+  }, [categories, p?.type])
+
+  const productsUrlForCat = (catId)=>{
+    const params = new URLSearchParams()
+    if (catId) params.set('cat', String(catId))
+    const qs = params.toString()
+    return '/products' + (qs ? `?${qs}` : '')
+  }
+
+  const productsUrlForSub = (catId, subId)=>{
+    const params = new URLSearchParams()
+    if (catId) params.set('cat', String(catId))
+    if (subId) params.set('sub', String(subId))
+    const qs = params.toString()
+    return '/products' + (qs ? `?${qs}` : '')
+  }
+
+  if (loading) {
+    return (
+      <div className='max-w-4xl mx-auto px-4 py-10' data-testid='product-page-loading'>
+        <div className='text-gray-600'>Завантаження…</div>
+      </div>
+    )
+  }
+
+  if (err) {
+    return (
+      <div className='max-w-4xl mx-auto px-4 py-10' data-testid='product-page-error'>
+        <div className='text-red-700 mb-4'>{err}</div>
+        <Link className='underline' to='/products' data-testid='product-page-back-home'>До товарів</Link>
+      </div>
+    )
+  }
+
+  if (!p) return null
+
   return (
     <div className='max-w-5xl mx-auto px-4 py-8' data-testid='product-page'>
       <div className='mb-4 text-sm text-gray-500'>
-        <Link className='hover:underline' to='/' data-testid='product-page-breadcrumb-home'>Головна</Link>
+        <Link className='hover:underline' to='/products' data-testid='product-page-breadcrumb-home'>Товари</Link>
+
+        {catObj?.name ? (
+          <>
+            <span className='mx-2'>/</span>
+            <Link className='hover:underline' to={productsUrlForCat(catObj?._id)} data-testid='product-page-breadcrumb-category'>
+              {catObj.name}
+            </Link>
+          </>
+        ) : null}
+
+        {subcatObj?.name ? (
+          <>
+            <span className='mx-2'>/</span>
+            <Link className='hover:underline' to={productsUrlForSub(catObj?._id, subcatObj?._id)} data-testid='product-page-breadcrumb-subcategory'>
+              {subcatObj.name}
+            </Link>
+          </>
+        ) : null}
+
+        {typeObj?.name ? (
+          <>
+            <span className='mx-2'>/</span>
+            <span className='text-gray-700' data-testid='product-page-breadcrumb-type'>{typeObj.name}</span>
+          </>
+        ) : null}
+
         <span className='mx-2'>/</span>
         <span className='text-gray-800' data-testid='product-page-breadcrumb-name'>{p.name}</span>
       </div>
 
-      <div className='bg-white border rounded-2xl shadow-sm overflow-hidden max-w-4xl mx-auto' data-testid={`product-page-card-${p?._id || ''}`}>
+      <div className='bg-white border rounded-2xl shadow-sm overflow-hidden max-w-4xl mx-auto relative' data-testid={`product-page-card-${p?._id || ''}`}>
+        <button
+          type='button'
+          aria-label='Закрити'
+          onClick={()=> navigate('/products')}
+          className='absolute top-3 right-3 w-9 h-9 rounded-full bg-white/90 border flex items-center justify-center shadow transition-colors cursor-pointer hover:bg-red-600 hover:text-white focus:outline-none focus:ring-2 focus:ring-red-500/40 z-20'
+          data-testid='product-page-close'
+        >
+          ✕
+        </button>
         <div className='p-4 md:p-6'>
           <div className='w-full bg-gray-50 rounded-xl border flex items-center justify-center overflow-hidden'>
             <div className='w-full aspect-[16/9] flex items-center justify-center'>
