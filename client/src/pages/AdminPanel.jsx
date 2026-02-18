@@ -133,7 +133,7 @@ export default function AdminPanel(){
 
   async function loadBanner(){
     try{
-      const d = await getBanner()
+      const d = await getBanner('home')
       const imgs = Array.isArray(d?.images) ? d.images : []
       setBannerImages(imgs)
     } catch {
@@ -627,7 +627,7 @@ export default function AdminPanel(){
         getCategories(),
         getOrders(),
         getLeads(),
-        getBanner(),
+        getBanner('home'),
       ])
 
       if (pRes.status === 'fulfilled') {
@@ -880,7 +880,7 @@ export default function AdminPanel(){
         <div className='flex items-center gap-2'>
           <button
             type='button'
-            onClick={()=>{ setBannerOpen(true); loadBanner(); }}
+            onClick={()=>{ setBannerImages([]); setBannerOpen(true); loadBanner(); }}
             className='px-4 py-2 rounded-lg bg-white text-gray-900 shadow ring-1 ring-gray-200 hover:bg-gray-50 hover:ring-gray-300 transition-all duration-200 active:scale-95'
             title='Керування баннером на головній'
             data-testid='admin-panel-banner-open'
@@ -889,7 +889,7 @@ export default function AdminPanel(){
           </button>
           <button
             type='button'
-            onClick={()=>{ setAboutGalleryOpen(true); loadAboutGallery(); }}
+            onClick={()=>{ setAboutGalleryImages([]); setAboutGalleryOpen(true); loadAboutGallery(); }}
             className='px-4 py-2 rounded-lg bg-white text-gray-900 shadow ring-1 ring-gray-200 hover:bg-gray-50 hover:ring-gray-300 transition-all duration-200 active:scale-95'
             title='Фото для сторінки "Про магазин"'
             data-testid='admin-panel-about-gallery-open'
