@@ -30,6 +30,7 @@ export default function Home(){
   const sentinelRef = useRef(null)
   const productsTopRef = useRef(null)
   const didMountScrollRef = useRef(false)
+  const didSearchScrollRef = useRef(false)
   const productsReqIdRef = useRef(0)
   const countsReqIdRef = useRef(0)
   const productsAbortRef = useRef(null)
@@ -75,6 +76,27 @@ export default function Home(){
     }, 600)
     return ()=> clearTimeout(t)
   }, [search])
+
+  // Auto-scroll to products after applying a search query from Header (?q=...).
+  useEffect(()=>{
+    const q = String(debouncedSearch || '').trim()
+    if (!q) {
+      didSearchScrollRef.current = false
+      return
+    }
+    if (!productsTopRef.current) return
+
+    // Avoid doing multiple auto-scrolls for the same query while the user continues browsing.
+    if (didSearchScrollRef.current) return
+    didSearchScrollRef.current = true
+
+    // Wait a tick so layout settles and products grid anchor exists.
+    requestAnimationFrame(()=>{
+      const el = productsTopRef.current
+      const top = (el.getBoundingClientRect?.().top || 0) + window.scrollY - 150
+      window.scrollTo({ top: Math.max(0, top), behavior: 'smooth' })
+    })
+  }, [debouncedSearch])
 
   const legacyToSlugRaw = useMemo(()=> (name)=> {
     const raw = (name || '').toString().trim()

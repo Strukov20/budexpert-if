@@ -13,6 +13,7 @@ import ReturnsPolicy from './pages/ReturnsPolicy'
 import Payment from './pages/Payment'
 import About from './pages/About'
 import Contacts from './pages/Contacts'
+import ProductsSearch from './pages/ProductsSearch'
 
 export default function App(){
   const location = useLocation()
@@ -32,6 +33,8 @@ export default function App(){
           <Route path='/cart' element={<CartPage />} />
           <Route path='/checkout' element={<Checkout />} />
           <Route path='/p/:id' element={<ProductPage />} />
+          <Route path='/products' element={<ProductsSearch />} />
+          <Route path='/products/:id' element={<ProductPage />} />
           <Route path='/payment' element={<Payment />} />
           <Route path='/about' element={<About />} />
           <Route path='/contacts' element={<Contacts />} />

@@ -210,7 +210,7 @@ export default function ProductCard({p, onAdd, categories, hideBadges}){
 
   const goToProduct = ()=> {
     if (!p?._id) return
-    navigate(`/p/${p._id}`)
+    navigate(`/products/${p._id}`)
   }
 
   return (

@@ -114,6 +114,25 @@ export default function SearchBar({value, onChange, onSelect}){
     setOpen(false)
   }
 
+  const submitSearch = ()=>{
+    const v = (value || '').toString().trim()
+    if (!v) return
+    if (debounceRef.current) {
+      clearTimeout(debounceRef.current)
+      debounceRef.current = null
+    }
+    if (abortRef.current) {
+      try { abortRef.current.abort() } catch {}
+      abortRef.current = null
+    }
+    lastReqIdRef.current += 1
+    setItems([])
+    if (typeof onSelect === 'function') onSelect(v)
+    setOpen(false)
+  }
+
+  const fmtPrice = useMemo(()=> new Intl.NumberFormat('uk-UA', { minimumFractionDigits: 0, maximumFractionDigits: 2 }), [])
+
   const dropdownEl = useMemo(()=>{
     if (!open) return null
     return (
@@ -139,17 +158,39 @@ export default function SearchBar({value, onChange, onSelect}){
                 }}
                 data-testid={`search-suggestion-${p?._id || (p?.name || '')}`}
               >
-                {p?.name || ''}
+                <div className='flex items-start justify-between gap-3'>
+                  <div className='min-w-0'>
+                    <div className='font-medium truncate'>{p?.name || ''}</div>
+                    <div className='text-xs text-gray-500 mt-0.5'>
+                      {(() => {
+                        const stock = Number(p?.stock ?? 0)
+                        return stock > 0 ? `В наявності: ${stock}` : 'Немає в наявності'
+                      })()}
+                    </div>
+                  </div>
+                  <div className='shrink-0 text-right'>
+                    <div className='font-semibold'>
+                      {(() => {
+                        const price = Number(p?.price ?? 0)
+                        return price ? `${fmtPrice.format(price)} грн` : ''
+                      })()}
+                    </div>
+                  </div>
+                </div>
               </button>
             ))
           )}
         </div>
       </div>
     )
-  }, [open, dropdownRect.left, dropdownRect.top, dropdownRect.width, loading, items])
+  }, [open, dropdownRect.left, dropdownRect.top, dropdownRect.width, loading, items, fmtPrice])
 
   return (
-    <div ref={rootRef} className='relative bg-white rounded-xl ring-1 ring-gray-200 shadow px-3' data-testid='search'>
+    <div ref={rootRef} className='relative' data-testid='search'>
+      <form
+        className='relative bg-white rounded-xl ring-1 ring-gray-200 shadow px-3'
+        onSubmit={(e)=>{ e.preventDefault(); submitSearch() }}
+      >
       <span className='absolute inset-y-0 left-3 flex items-center text-gray-500 pointer-events-none'>
         {/* Лупа */}
         <svg xmlns='http://www.w3.org/2000/svg' className='h-4 w-4' viewBox='0 0 20 20' fill='currentColor'>
@@ -161,6 +202,12 @@ export default function SearchBar({value, onChange, onSelect}){
         value={value}
         onChange={e=>onChange(e.target.value)}
         onFocus={()=> { if (items.length > 0) { recomputeRect(); setOpen(true) } }}
+        onKeyDown={(e)=>{
+          if (e.key === 'Enter') {
+            e.preventDefault()
+            submitSearch()
+          }
+        }}
         placeholder='Пошук товарів...'
         className='h-11 w-full bg-transparent border-0 pl-9 pr-9 text-base focus:ring-0 focus:outline-none'
         data-testid='search-input'
@@ -181,6 +228,7 @@ export default function SearchBar({value, onChange, onSelect}){
       )}
 
       {typeof document !== 'undefined' && dropdownEl ? createPortal(dropdownEl, document.body) : null}
+      </form>
     </div>
   )
 }
