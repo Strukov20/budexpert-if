@@ -4,6 +4,11 @@ import requireAdmin from '../middleware/auth.js'
 
 const router = express.Router()
 
+const normalizeKey = (raw) => {
+  const k = (raw ?? '').toString().trim()
+  return k || 'home'
+}
+
 const normalizeImagesInput = (images) => {
   if (!Array.isArray(images)) return []
   return images
@@ -12,32 +17,35 @@ const normalizeImagesInput = (images) => {
       if (typeof x === 'string') {
         const url = x.toString().trim()
         if (!url) return null
-        return { url, publicId: '' }
+        return { url, publicId: '', link: '' }
       }
       if (typeof x !== 'object') return null
       const url = (x.url ?? x.image ?? '').toString().trim()
       const publicId = (x.publicId ?? x.imagePublicId ?? '').toString().trim()
+      const link = (x.link ?? '').toString().trim()
       if (!url && !publicId) return null
-      return { url, publicId }
+      return { url, publicId, link }
     })
     .filter(Boolean)
 }
 
 // GET /api/banner (public)
-router.get('/', async (_req, res) => {
-  const doc = await Banner.findOne({ key: 'home' }).lean()
-  res.json({ key: 'home', images: Array.isArray(doc?.images) ? doc.images : [] })
+router.get('/', async (req, res) => {
+  const key = normalizeKey(req.query?.key)
+  const doc = await Banner.findOne({ key }).lean()
+  res.json({ key, images: Array.isArray(doc?.images) ? doc.images : [] })
 })
 
 // PUT /api/banner (admin)
 router.put('/', requireAdmin, async (req, res) => {
+  const key = normalizeKey(req.body?.key ?? req.query?.key)
   const images = normalizeImagesInput(req.body?.images)
   const updated = await Banner.findOneAndUpdate(
-    { key: 'home' },
+    { key },
     { $set: { images } },
     { new: true, upsert: true }
   ).lean()
-  res.json({ key: 'home', images: Array.isArray(updated?.images) ? updated.images : [] })
+  res.json({ key, images: Array.isArray(updated?.images) ? updated.images : [] })
 })
 
 export default router

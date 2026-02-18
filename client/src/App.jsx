@@ -10,6 +10,9 @@ import AdminLogin from './pages/AdminLogin'
 import Services from './pages/Services'
 import ProductPage from './pages/ProductPage'
 import ReturnsPolicy from './pages/ReturnsPolicy'
+import Payment from './pages/Payment'
+import About from './pages/About'
+import Contacts from './pages/Contacts'
 
 export default function App(){
   const location = useLocation()
@@ -29,6 +32,9 @@ export default function App(){
           <Route path='/cart' element={<CartPage />} />
           <Route path='/checkout' element={<Checkout />} />
           <Route path='/p/:id' element={<ProductPage />} />
+          <Route path='/payment' element={<Payment />} />
+          <Route path='/about' element={<About />} />
+          <Route path='/contacts' element={<Contacts />} />
           <Route path='/returns' element={<ReturnsPolicy />} />
           <Route path='/admin/login' element={<AdminLogin />} />
           <Route path='/admin' element={<RequireAdmin><Admin /></RequireAdmin>} />

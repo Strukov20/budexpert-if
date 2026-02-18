@@ -102,5 +102,11 @@ export async function getPostCities(params){ const r = await api.get('/post/citi
 export async function getPostOffices(params){ const r = await api.get('/post/offices', { params }); return r.data; }
 
 // Баннер (картинки на головній)
-export async function getBanner(){ const r = await api.get('/banner'); return r.data; }
-export async function updateBanner(payload){ const r = await api.put('/banner', payload); return r.data; }
+export async function getBanner(key = 'home'){
+  const r = await api.get('/banner', { params: { key } })
+  return r.data
+}
+export async function updateBanner({ key = 'home', ...payload } = {}){
+  const r = await api.put('/banner', { key, ...payload })
+  return r.data
+}
