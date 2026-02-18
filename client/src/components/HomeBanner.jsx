@@ -65,11 +65,11 @@ export default function HomeBanner(){
 
   return (
     <div className='mb-6' data-testid='home-banner'>
-      <div className={`relative overflow-hidden rounded-2xl bg-transparent border border-white/5 h-[22vh] md:h-[32vh] min-h-[145px] md:min-h-[176px] max-h-[420px] shadow transition-opacity duration-300 ${fading ? 'opacity-0' : 'opacity-100'}`} data-testid='home-banner-frame'>
+      <div className={`relative overflow-hidden rounded-2xl bg-transparent border border-white/5 h-[34vh] md:h-[50vh] min-h-[220px] md:min-h-[280px] max-h-[640px] shadow transition-opacity duration-300 ${fading ? 'opacity-0' : 'opacity-100'}`} data-testid='home-banner-frame'>
         <img
           src={src}
           alt='banner'
-          className='absolute inset-0 w-full h-full object-contain'
+          className='absolute inset-0 w-full h-full object-contain object-center'
           referrerPolicy='no-referrer'
           data-testid='home-banner-image'
         />

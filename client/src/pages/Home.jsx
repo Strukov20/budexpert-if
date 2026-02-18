@@ -35,6 +35,8 @@ export default function Home(){
   const productsAbortRef = useRef(null)
   const countsAbortRef = useRef(null)
   const weekRowRef = useRef(null)
+  const weekTouchStartRef = useRef({ x: 0, y: 0, t: 0 })
+  const weekTouchMovedRef = useRef(false)
 
   const readQueryQ = (s) => {
     try {
@@ -523,7 +525,7 @@ export default function Home(){
     window.dispatchEvent(ev);
   }
 
-  const weekPerView = isMobile ? 1 : 4
+  const weekPerView = isMobile ? 2 : 4
   const canPrevWeek = weekStart > 0
   const canNextWeek = weekStart + weekPerView < weekProducts.length
   const scrollWeek = (dir)=>{
@@ -532,6 +534,33 @@ export default function Home(){
       const maxStart = Math.max(0, weekProducts.length - weekPerView)
       return Math.min(Math.max(0, next), maxStart)
     })
+  }
+
+  const onWeekTouchStart = (e)=>{
+    const t = e?.touches?.[0]
+    if (!t) return
+    weekTouchStartRef.current = { x: t.clientX, y: t.clientY, t: Date.now() }
+    weekTouchMovedRef.current = false
+  }
+  const onWeekTouchMove = (e)=>{
+    const t = e?.touches?.[0]
+    if (!t) return
+    const start = weekTouchStartRef.current
+    const dx = t.clientX - start.x
+    const dy = t.clientY - start.y
+    if (Math.abs(dx) > 8 || Math.abs(dy) > 8) weekTouchMovedRef.current = true
+  }
+  const onWeekTouchEnd = (e)=>{
+    if (!weekTouchMovedRef.current) return
+    const changed = e?.changedTouches?.[0]
+    if (!changed) return
+    const start = weekTouchStartRef.current
+    const dx = changed.clientX - start.x
+    const dy = changed.clientY - start.y
+    if (Math.abs(dx) < 50) return
+    if (Math.abs(dx) < Math.abs(dy)) return
+    if (dx < 0) scrollWeek(1)
+    else scrollWeek(-1)
   }
 
   useEffect(()=>{
@@ -579,7 +608,13 @@ export default function Home(){
         </div>
 
         <div className='overflow-hidden' data-testid='week-products-row'>
-          <div ref={weekRowRef} className='flex flex-nowrap gap-4 items-stretch'>
+          <div
+            ref={weekRowRef}
+            className={`flex flex-nowrap gap-4 items-stretch ${isMobile ? 'justify-center' : ''}`}
+            onTouchStart={onWeekTouchStart}
+            onTouchMove={onWeekTouchMove}
+            onTouchEnd={onWeekTouchEnd}
+          >
             {loadingWeekProducts ? (
               <div className='py-6 text-gray-600'>Завантаження…</div>
             ) : (weekProducts.length === 0 ? (
@@ -590,8 +625,12 @@ export default function Home(){
                 .map(p => (
                   <div
                     key={p._id}
-                    className='min-w-[260px] max-w-[260px] md:min-w-0 md:max-w-none h-full relative'
-                    style={!isMobile ? { flex: '0 0 calc((100% - 3rem) / 4)' } : undefined}
+                    className='md:min-w-0 md:max-w-none h-full relative'
+                    style={
+                      isMobile
+                        ? { flex: '0 0 calc((100% - 1rem) / 2)', minWidth: 0 }
+                        : { flex: '0 0 calc((100% - 3rem) / 4)', minWidth: 0 }
+                    }
                   >
                     <div className='absolute top-2 left-2 z-10 flex flex-col gap-1'>
                       <div className='px-2.5 py-1 rounded-full bg-red-600 text-white text-[10px] md:text-xs font-extrabold shadow'>
@@ -881,7 +920,7 @@ export default function Home(){
 
       <div ref={productsTopRef} />
 
-      <div className='grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4' data-testid='product-grid'>
+      <div className='grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-4' data-testid='product-grid'>
         {loadingProducts && itemsToRender.length === 0 ? (
           <div className='col-span-full flex items-center justify-center py-10 text-gray-700'>
             <div className='flex items-center gap-3'>
