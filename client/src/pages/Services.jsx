@@ -1,6 +1,6 @@
-import React, { useEffect, useRef, useState } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { FiPhoneCall, FiCheckCircle, FiPackage, FiTruck } from 'react-icons/fi'
-import DeliveryLeadForm from '../components/DeliveryLeadForm'
+import { createLead } from '../api'
 
 export default function Services(){
   useEffect(()=>{
@@ -129,6 +129,71 @@ export default function Services(){
   ]
 
   // (партнери/сертифікати приховані на цій версії сторінки)
+
+  const [callName, setCallName] = useState('')
+  const [callPhoneRaw, setCallPhoneRaw] = useState('')
+  const [callTouched, setCallTouched] = useState({})
+  const [callSuccessOpen, setCallSuccessOpen] = useState(false)
+
+  const normalizeUaPhone = (v) => {
+    const digits = (v || '').replace(/\D/g, '')
+    let local = ''
+    if (digits.startsWith('380')) local = digits.slice(3, 12)
+    else if (digits.startsWith('0')) local = digits.slice(1, 10)
+    else local = digits.slice(-9)
+    return '+380' + (local ? local : '')
+  }
+  const isUaPhoneValid = (v) => /^\+380\d{9}$/.test(v)
+  const ukNameRegex = useMemo(()=> /^[А-ЩЬЮЯІЇЄҐа-щьюяіїєґ'’\- ]{2,}$/u, [])
+  const callPhone = useMemo(()=> normalizeUaPhone(callPhoneRaw), [callPhoneRaw])
+
+  const formatUaPhone = (p) => {
+    const local = (p || '').replace(/^\+?380/, '')
+    const g1 = local.slice(0, 2)
+    const g2 = local.slice(2, 5)
+    const g3 = local.slice(5, 7)
+    const g4 = local.slice(7, 9)
+    let out = '+380'
+    if (g1) out += ' ' + g1
+    if (g2) out += ' ' + g2
+    if (g3) out += ' ' + g3
+    if (g4) out += ' ' + g4
+    return out
+  }
+  const callPhoneFormatted = useMemo(()=> formatUaPhone(callPhone), [callPhone])
+
+  const callNameError = useMemo(()=>{
+    if (!callTouched.name) return ''
+    if (!callName || callName.trim().length < 2) return 'Мінімум 2 символи'
+    if (!ukNameRegex.test(callName.trim())) return 'Тільки українські літери, пробіли, апостроф'
+    return ''
+  }, [callName, callTouched.name, ukNameRegex])
+  const callPhoneError = useMemo(()=>{
+    if (!callTouched.phone) return ''
+    if (!isUaPhoneValid(callPhone)) return 'Телефон у форматі +380XXXXXXXXX'
+    return ''
+  }, [callPhone, callTouched.phone])
+  const callHasErrors = !!(callNameError || callPhoneError)
+
+  const submitCallLead = async (e) => {
+    e.preventDefault()
+    setCallTouched({ name: true, phone: true })
+    if (callHasErrors) return
+    try {
+      await createLead({
+        type: 'call',
+        name: callName.trim(),
+        phone: callPhone.replace(/\s+/g, ''),
+      })
+      setCallSuccessOpen(true)
+      setCallName('')
+      setCallPhoneRaw('')
+      setCallTouched({})
+      setCallOpen(false)
+    } catch {
+      alert('Сталася помилка при відправці. Спробуйте ще раз, будь ласка.')
+    }
+  }
 
   return (
     <div className='container py-8 px-4 space-y-10 max-w-md mx-auto md:max-w-none md:px-0'>
@@ -281,7 +346,62 @@ export default function Services(){
 
       {/* Лід-форма (перенесено під "Як це працює") */}
       <section id='lead' className='space-y-3'>
-        <DeliveryLeadForm />
+        <div className='relative overflow-hidden rounded-2xl border shadow-lg bg-gradient-to-br from-white to-red-50'>
+          <div className='absolute -top-16 -right-16 w-56 h-56 rounded-full bg-red-100 blur-2xl opacity-70 pointer-events-none'></div>
+          <div className='relative p-5 md:p-6'>
+            <div className='flex items-center gap-3 mb-3'>
+              <div className='w-10 h-10 rounded-xl bg-red-600 text-white flex items-center justify-center shadow ring-1 ring-red-600/20'>
+                <FiPhoneCall className='w-5 h-5' />
+              </div>
+              <div className='text-xl font-semibold'>Зв’яжіться зі мною</div>
+            </div>
+
+            <form className='grid md:grid-cols-2 gap-3' onSubmit={submitCallLead} noValidate>
+              <div>
+                <label className='text-sm text-gray-700 mb-1 block'>Ваше ім’я</label>
+                <div className={`relative bg-white rounded-xl ring-1 ring-gray-200 shadow px-3 transition hover:bg-red-50/40 hover:ring-red-200 ${callNameError ? 'ring-red-300' : ''}`}> 
+                  <input
+                    className='h-11 text-base w-full appearance-none bg-transparent border-0 focus:ring-0 focus:outline-none px-0'
+                    placeholder='Ваше ім’я'
+                    value={callName}
+                    onChange={(e)=> setCallName(e.target.value)}
+                    onBlur={()=> setCallTouched(t=> ({...t, name:true}))}
+                    aria-invalid={!!callNameError}
+                    autoComplete='name'
+                    required
+                  />
+                </div>
+                {callNameError && <div className='mt-1 text-xs text-red-600'>{callNameError}</div>}
+              </div>
+
+              <div>
+                <label className='text-sm text-gray-700 mb-1 block'>Телефон</label>
+                <div className={`relative bg-white rounded-xl ring-1 ring-gray-200 shadow px-3 transition hover:bg-red-50/40 hover:ring-red-200 ${callPhoneError ? 'ring-red-300' : ''}`}> 
+                  <input
+                    className='h-11 text-base w-full appearance-none bg-transparent border-0 focus:ring-0 focus:outline-none px-0'
+                    placeholder='Телефон'
+                    inputMode='tel'
+                    value={callPhoneFormatted}
+                    onChange={(e)=> setCallPhoneRaw(e.target.value)}
+                    onBlur={()=> setCallTouched(t=> ({...t, phone:true}))}
+                    aria-invalid={!!callPhoneError}
+                    autoComplete='tel'
+                    required
+                  />
+                </div>
+                {callPhoneError && <div className='mt-1 text-xs text-red-600'>{callPhoneError}</div>}
+              </div>
+
+              <button
+                type='submit'
+                className='btn md:col-span-2 disabled:opacity-60'
+                disabled={callHasErrors}
+              >
+                Надіслати
+              </button>
+            </form>
+          </div>
+        </div>
       </section>
 
       {/* Довіра: відгуки */}

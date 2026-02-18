@@ -39,6 +39,10 @@ export default function AdminPanel(){
   const [bannerOpen, setBannerOpen] = useState(false)
   const [bannerSaving, setBannerSaving] = useState(false)
   const [bannerUploading, setBannerUploading] = useState(false)
+  const [aboutGalleryImages, setAboutGalleryImages] = useState([])
+  const [aboutGalleryOpen, setAboutGalleryOpen] = useState(false)
+  const [aboutGallerySaving, setAboutGallerySaving] = useState(false)
+  const [aboutGalleryUploading, setAboutGalleryUploading] = useState(false)
   const [loadingAll, setLoadingAll] = useState(false)
   const [savingProduct, setSavingProduct] = useState(false)
   const [deletingProductId, setDeletingProductId] = useState('')
@@ -145,13 +149,23 @@ export default function AdminPanel(){
       const uploaded = []
       for (const f of files) {
         const { url, filename } = await uploadImage(f)
-        uploaded.push({ url, publicId: filename || '' })
+        uploaded.push({ url, publicId: filename || '', link: '' })
       }
       setBannerImages(prev => ([...prev, ...uploaded]))
     } finally {
       setBannerUploading(false)
       e.target.value = ''
     }
+  }
+
+  const setBannerImageLink = (idx, link)=>{
+    setBannerImages(prev => {
+      const next = Array.isArray(prev) ? [...prev] : []
+      if (idx < 0 || idx >= next.length) return prev
+      const cur = next[idx] || {}
+      next[idx] = { ...cur, link: (link ?? '').toString() }
+      return next
+    })
   }
 
   const removeBannerImageAt = (idx)=>{
@@ -185,6 +199,67 @@ export default function AdminPanel(){
       showToast(getErrMsg(err),'error')
     } finally {
       setBannerSaving(false)
+    }
+  }
+
+  async function loadAboutGallery(){
+    try{
+      const d = await getBanner('about')
+      const imgs = Array.isArray(d?.images) ? d.images : []
+      setAboutGalleryImages(imgs)
+    } catch {
+      // ignore
+    }
+  }
+
+  async function handleAboutGalleryFileChange(e){
+    const files = Array.from(e.target.files || [])
+    if(!files.length) return
+    setAboutGalleryUploading(true)
+    try{
+      const uploaded = []
+      for (const f of files) {
+        const { url, filename } = await uploadImage(f)
+        uploaded.push({ url, publicId: filename || '', link: '' })
+      }
+      setAboutGalleryImages(prev => ([...prev, ...uploaded]))
+    } finally {
+      setAboutGalleryUploading(false)
+      e.target.value = ''
+    }
+  }
+
+  const removeAboutGalleryImageAt = (idx)=>{
+    setAboutGalleryImages(prev => {
+      const next = Array.isArray(prev) ? [...prev] : []
+      next.splice(idx, 1)
+      return next
+    })
+  }
+
+  const moveAboutGalleryImage = (fromIdx, toIdx)=>{
+    setAboutGalleryImages(prev => {
+      const next = Array.isArray(prev) ? [...prev] : []
+      if (fromIdx < 0 || fromIdx >= next.length) return prev
+      if (toIdx < 0 || toIdx >= next.length) return prev
+      const [picked] = next.splice(fromIdx, 1)
+      next.splice(toIdx, 0, picked)
+      return next
+    })
+  }
+
+  async function saveAboutGallery(){
+    if (aboutGallerySaving) return
+    setAboutGallerySaving(true)
+    try{
+      const res = await updateBanner({ key: 'about', images: aboutGalleryImages })
+      setAboutGalleryImages(Array.isArray(res?.images) ? res.images : [])
+      showToast('Фото збережено','success')
+      setAboutGalleryOpen(false)
+    } catch(err){
+      showToast(getErrMsg(err),'error')
+    } finally {
+      setAboutGallerySaving(false)
     }
   }
 
@@ -814,6 +889,15 @@ export default function AdminPanel(){
           </button>
           <button
             type='button'
+            onClick={()=>{ setAboutGalleryOpen(true); loadAboutGallery(); }}
+            className='px-4 py-2 rounded-lg bg-white text-gray-900 shadow ring-1 ring-gray-200 hover:bg-gray-50 hover:ring-gray-300 transition-all duration-200 active:scale-95'
+            title='Фото для сторінки "Про магазин"'
+            data-testid='admin-panel-about-gallery-open'
+          >
+            Фото (Про магазин)
+          </button>
+          <button
+            type='button'
             onClick={()=> navigate('/')}
             className='px-4 py-2 rounded-lg bg-white text-gray-900 shadow ring-1 ring-gray-200 hover:bg-gray-50 hover:ring-gray-300 transition-all duration-200 active:scale-95'
             data-testid='admin-panel-go-catalog'
@@ -859,6 +943,13 @@ export default function AdminPanel(){
                         className='w-full h-24 object-contain rounded bg-gray-50'
                         referrerPolicy='no-referrer'
                         data-testid={`admin-banner-image-${idx}-img`}
+                      />
+                      <input
+                        value={(img?.link || '').toString()}
+                        onChange={(e)=> setBannerImageLink(idx, e.target.value)}
+                        className='mt-2 w-full px-2 py-1 border rounded text-sm'
+                        placeholder='Посилання (наприклад /гіпсокартон або https://...)'
+                        data-testid={`admin-banner-image-${idx}-link`}
                       />
                       <div className='mt-2 grid gap-2'>
                         <div className='flex items-center justify-between gap-2'>
@@ -914,6 +1005,97 @@ export default function AdminPanel(){
                   data-testid='admin-banner-save'
                 >
                   {bannerSaving ? 'Збереження…' : 'Зберегти'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {aboutGalleryOpen && (
+        <div className='fixed inset-0 z-[90] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4' onClick={()=>setAboutGalleryOpen(false)} data-testid='admin-about-gallery-overlay'>
+          <div className='bg-white rounded-2xl shadow-2xl w-full max-w-4xl p-5' onClick={(e)=>e.stopPropagation()} data-testid='admin-about-gallery-modal'>
+            <div className='flex items-center justify-between mb-3'>
+              <h4 className='font-semibold'>Фото (Про магазин)</h4>
+              <button aria-label='Закрити' onClick={()=> setAboutGalleryOpen(false)} className='w-8 h-8 rounded-lg border' data-testid='admin-about-gallery-close'>✕</button>
+            </div>
+
+            <div className='grid gap-4'>
+              <div className='flex items-center justify-between gap-3 flex-wrap'>
+                <label className='inline-flex items-center justify-center gap-2 px-3 py-2 border rounded cursor-pointer' data-testid='admin-about-gallery-upload'>
+                  <input type='file' accept='image/*' multiple className='hidden' onChange={handleAboutGalleryFileChange} data-testid='admin-about-gallery-upload-input' />
+                  <span>{aboutGalleryUploading ? 'Завантаження…' : 'Імпортувати фото'}</span>
+                </label>
+                <div className='text-sm text-gray-600' data-testid='admin-about-gallery-count'>
+                  {Array.isArray(aboutGalleryImages) ? aboutGalleryImages.length : 0} шт.
+                </div>
+              </div>
+
+              {Array.isArray(aboutGalleryImages) && aboutGalleryImages.length > 0 ? (
+                <div className='grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3' data-testid='admin-about-gallery-grid'>
+                  {aboutGalleryImages.map((img, idx)=>(
+                    <div key={(img?.publicId||img?.url||idx) + '_' + idx} className='relative border rounded-xl p-2 bg-white' data-testid={`admin-about-gallery-image-${idx}`}>
+                      <img
+                        src={resolveImageUrl(img?.url)}
+                        alt='about'
+                        className='w-full h-24 object-contain rounded bg-gray-50'
+                        referrerPolicy='no-referrer'
+                        data-testid={`admin-about-gallery-image-${idx}-img`}
+                      />
+                      <div className='mt-2 grid gap-2'>
+                        <div className='flex items-center justify-between gap-2'>
+                          <button
+                            type='button'
+                            className='px-2 py-1 border rounded text-sm disabled:opacity-40'
+                            onClick={()=> moveAboutGalleryImage(idx, idx-1)}
+                            disabled={idx===0}
+                            title='Вгору'
+                            data-testid={`admin-about-gallery-image-${idx}-move-up`}
+                          >
+                            ↑
+                          </button>
+                          <button
+                            type='button'
+                            className='px-2 py-1 border rounded text-sm disabled:opacity-40'
+                            onClick={()=> moveAboutGalleryImage(idx, idx+1)}
+                            disabled={idx===aboutGalleryImages.length-1}
+                            title='Вниз'
+                            data-testid={`admin-about-gallery-image-${idx}-move-down`}
+                          >
+                            ↓
+                          </button>
+                        </div>
+                        <button
+                          type='button'
+                          className='px-2 py-1 border rounded text-sm hover:bg-gray-50'
+                          onClick={()=> removeAboutGalleryImageAt(idx)}
+                          title='Видалити'
+                          data-testid={`admin-about-gallery-image-${idx}-delete`}
+                        >
+                          <FiX size={14} />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className='text-sm text-gray-600 border rounded-xl p-4 bg-gray-50'>
+                  Немає фото. Додайте зображення для галереї на сторінці «Про магазин».
+                </div>
+              )}
+
+              <div className='flex items-center justify-end gap-2'>
+                <button type='button' className='px-4 py-2 border rounded-lg' onClick={()=> setAboutGalleryOpen(false)} data-testid='admin-about-gallery-cancel'>
+                  Скасувати
+                </button>
+                <button
+                  type='button'
+                  className='px-4 py-2 rounded-lg bg-gray-900 text-white disabled:opacity-60'
+                  onClick={saveAboutGallery}
+                  disabled={aboutGallerySaving || aboutGalleryUploading}
+                  data-testid='admin-about-gallery-save'
+                >
+                  {aboutGallerySaving ? 'Збереження…' : 'Зберегти'}
                 </button>
               </div>
             </div>

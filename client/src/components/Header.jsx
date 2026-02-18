@@ -52,6 +52,8 @@ export default function Header() {
   const [items, setItems] = useState([]);
   const [miniOpen, setMiniOpen] = useState(false);
   const [mapOpen, setMapOpen] = useState(false);
+  const mapOpenTimerRef = useRef(null)
+  const mapCloseTimerRef = useRef(null)
   const [callOpen, setCallOpen] = useState(false);
   const [callName, setCallName] = useState('');
   const [callPhoneRaw, setCallPhoneRaw] = useState('');
@@ -252,6 +254,10 @@ export default function Header() {
     if (isCartPage && miniOpen) setMiniOpen(false);
   }, [isCartPage]);
   const mapsUrl = 'https://maps.app.goo.gl/V6mLeSS4EXGmaSe56';
+  const mapsEmbedUrl = useMemo(() => {
+    const q = `Івано-Франківськ, ${SHOP_ADDRESS}`
+    return `https://www.google.com/maps?q=${encodeURIComponent(q)}&output=embed`
+  }, [SHOP_ADDRESS])
 
   useEffect(()=>{
     if (!callOpen) return
@@ -278,191 +284,259 @@ export default function Header() {
     }
   }
 
+  const navLinks = useMemo(() => ([
+    { label: 'Доставка', to: '/services' },
+    { label: 'Оплата', to: '/payment' },
+    { label: 'Повернення', to: '/returns' },
+    { label: 'Про магазин', to: '/about' },
+    { label: 'Контакти', to: '/contacts' },
+  ]), [])
+
+  const openMapPreview = () => {
+    if (mapCloseTimerRef.current) {
+      clearTimeout(mapCloseTimerRef.current)
+      mapCloseTimerRef.current = null
+    }
+    if (mapOpen) return
+    if (mapOpenTimerRef.current) return
+    mapOpenTimerRef.current = setTimeout(() => {
+      mapOpenTimerRef.current = null
+      setMapOpen(true)
+    }, 150)
+  }
+
+  const closeMapPreview = () => {
+    if (mapOpenTimerRef.current) {
+      clearTimeout(mapOpenTimerRef.current)
+      mapOpenTimerRef.current = null
+    }
+    if (!mapOpen) return
+    if (mapCloseTimerRef.current) return
+    mapCloseTimerRef.current = setTimeout(() => {
+      mapCloseTimerRef.current = null
+      setMapOpen(false)
+    }, 200)
+  }
+
+  useEffect(() => {
+    return () => {
+      if (mapOpenTimerRef.current) clearTimeout(mapOpenTimerRef.current)
+      if (mapCloseTimerRef.current) clearTimeout(mapCloseTimerRef.current)
+    }
+  }, [])
+
   return (
-    <header className="bg-white/70 backdrop-blur supports-[backdrop-filter]:bg-white/60 border-b" data-testid='header'>
-      <div className="max-w-7xl mx-auto py-1 px-2 md:py-1.5 md:px-4 relative">
-          <div className="bg-white/95 rounded-2xl ring-1 ring-gray-200 shadow-md overflow-hidden">
-          <div className="px-3 md:px-4 py-1 text-xs md:text-xs flex items-center justify-center gap-2 bg-gradient-to-r from-red-600 to-red-700 text-white">
+    <header className="bg-white border-b" data-testid='header'>
+      <div className="bg-red-600 text-white" data-testid='header-top-info'>
+        <div className="max-w-7xl mx-auto px-3 md:px-6 py-1.5 flex items-center justify-center relative text-[11px] md:text-xs">
+          <span className="text-center truncate">
+            Інтернет-магазин знаходиться на стадії наповнення товару. Уточнюйте усю інформацію у наших менеджерів.
+          </span>
+        </div>
+      </div>
+
+      <div className="bg-gray-50 border-t border-gray-100 hidden md:block" data-testid='header-nav-row'>
+        <div className="max-w-7xl mx-auto px-3 md:px-6 py-2 flex items-center justify-between gap-6">
+          <nav className="flex-1 flex items-center justify-center gap-5 text-[12px] uppercase tracking-wide text-gray-600" data-testid='header-nav'>
+            {navLinks.map((l)=>(
+              <button
+                key={l.label}
+                type="button"
+                className="hover:text-black transition"
+                onClick={()=> navigate(l.to)}
+                data-testid={`header-nav-${l.label}`}
+              >
+                {l.label}
+              </button>
+            ))}
+          </nav>
+        </div>
+      </div>
+
+      <div className="max-w-7xl mx-auto px-3 md:px-6 py-3" data-testid='header-main-row'>
+        <div className="hidden md:grid grid-cols-[auto_auto_1fr_auto_auto] grid-rows-2 gap-x-4 gap-y-2 items-center">
+          <div className="row-span-2 flex items-center cursor-pointer p-0 m-0" onClick={() => navigate("/") } data-testid='header-logo'>
+            <img src="/logo.png" alt="БудЕксперт" className="block shrink-0 h-[86px] lg:h-[100px] w-auto object-contain" />
+          </div>
+
+          <div className="col-start-2 row-start-1 flex items-center justify-center">
             <button
               type="button"
-              aria-label="Адмін логін"
-              className="inline-flex items-center justify-center w-6 h-6 rounded-full border border-white/30 select-none shrink-0 hover:bg-white/10 active:scale-95 transition"
-              onClick={() => navigate('/admin/login')}
-              data-testid='header-admin-login'
+              className="inline-flex items-center justify-center gap-2 h-10 px-4 rounded-lg bg-red-600 text-white font-semibold text-sm hover:bg-red-700 transition whitespace-nowrap"
+              onClick={() => navigate("/")}
+              data-testid='header-catalog'
             >
-              🚚
+              <FiGrid className="w-4 h-4" />
+              <span>Каталог товарів</span>
             </button>
-            <span className="truncate">Безкоштовна доставка від 5000 грн по Франківську</span>
           </div>
 
-          <div className="hidden md:grid grid-cols-[auto_1fr] grid-rows-2 gap-x-6 gap-y-1.5 px-3 md:px-5 py-2.5 items-center">
-            <div className="row-span-2 flex items-center gap-2 md:gap-3 cursor-pointer shrink-0 -ml-2 md:-ml-3 -my-1 md:-my-2" onClick={() => navigate("/") } data-testid='header-logo'>
-              <img src="/logo.png" alt="БудЕксперт" className="w-24 h-24 md:w-32 md:h-32 object-contain rounded-lg" />
+          <div className="col-start-2 row-start-2 flex items-center justify-center gap-2">
+            <a
+              href="https://www.instagram.com/budexpert_if/"
+              target="_blank"
+              rel="noreferrer"
+              aria-label="Instagram"
+              className="w-9 h-9 inline-flex items-center justify-center rounded-lg ring-1 ring-gray-200 text-gray-700 hover:text-red-600 hover:ring-red-200 hover:bg-red-50 transition shrink-0"
+              data-testid='header-social-instagram'
+            >
+              <FaInstagram className="w-4 h-4" />
+            </a>
+            <a
+              href="https://www.tiktok.com/@budexpert_"
+              target="_blank"
+              rel="noreferrer"
+              aria-label="TikTok"
+              className="w-9 h-9 inline-flex items-center justify-center rounded-lg ring-1 ring-gray-200 text-gray-700 hover:text-red-600 hover:ring-red-200 hover:bg-red-50 transition shrink-0"
+              data-testid='header-social-tiktok'
+            >
+              <FaTiktok className="w-4 h-4" />
+            </a>
+            <a
+              href="https://t.me/budexpert_if"
+              target="_blank"
+              rel="noreferrer"
+              aria-label="Telegram"
+              className="w-9 h-9 inline-flex items-center justify-center rounded-lg ring-1 ring-gray-200 text-gray-700 hover:text-red-600 hover:ring-red-200 hover:bg-red-50 transition shrink-0"
+              data-testid='header-social-telegram'
+            >
+              <FaTelegramPlane className="w-4 h-4" />
+            </a>
+          </div>
+
+          <div className="col-start-3 row-start-1 min-w-0">
+            <SearchBar value={search} onChange={setQueryQ} onSelect={navigateWithQImmediate} />
+          </div>
+
+          <div
+            className="col-start-3 row-start-2 relative text-sm lg:text-base text-gray-600 flex justify-center"
+            onMouseEnter={openMapPreview}
+            onMouseLeave={closeMapPreview}
+            data-testid='header-address'
+          >
+            <button
+              type="button"
+              className="inline-flex items-center justify-center gap-1.5 hover:text-red-600 transition"
+              onClick={() => window.open(mapsUrl, '_blank')}
+              data-testid='header-address-link'
+            >
+              <span className="font-semibold">Наша адреса:</span>
+              <span className="underline decoration-dotted">Івано-Франківськ, {SHOP_ADDRESS}</span>
+            </button>
+
+            <div
+              className={
+                "hidden md:block absolute left-0 top-full mt-2 w-[380px] h-[240px] rounded-2xl overflow-hidden shadow-2xl ring-1 ring-gray-200 bg-white z-50 origin-top-left transition duration-200 " +
+                (mapOpen ? 'opacity-100 scale-100 pointer-events-auto' : 'opacity-0 scale-[0.98] pointer-events-none')
+              }
+              onMouseEnter={openMapPreview}
+              onMouseLeave={closeMapPreview}
+              data-testid='header-address-map'
+            >
+              <iframe
+                title="map"
+                src={mapsEmbedUrl}
+                className="w-full h-full"
+                loading="lazy"
+                referrerPolicy="no-referrer-when-downgrade"
+              />
             </div>
+          </div>
 
-            <div className="col-start-2 row-start-1 w-full min-w-0">
-              <div className="grid grid-cols-2 gap-4 items-center min-w-0">
-                <div className="min-w-0 grid grid-cols-[65%_35%] gap-3 items-center">
-                  <div className="min-w-0 flex flex-col gap-2 items-stretch">
-                    <div className="w-44 lg:w-48 flex justify-center">
-                      <a
-                        href={`tel:${SHOP_PHONE}`}
-                        onClick={() => {
-                          try {
-                            window.dataLayer = window.dataLayer || []
-                            window.dataLayer.push({ event: 'click_phone', phone_number: SHOP_PHONE, location: 'header_desktop' })
-                          } catch {}
-                        }}
-                        className="inline-flex items-center gap-2 text-sm lg:text-base text-gray-800 hover:text-red-600 transition whitespace-nowrap"
-                        data-testid='header-phone-link'
-                      >
-                        <FiPhoneCall className="w-4 h-4" />
-                        <span className="font-semibold">{SHOP_PHONE}</span>
-                      </a>
-                    </div>
+          <div className="col-start-4 row-start-1 flex items-center justify-center">
+            <button
+              type="button"
+              className="inline-flex items-center justify-center h-10 px-4 rounded-lg bg-red-600 text-white text-sm font-semibold hover:bg-red-700 transition whitespace-nowrap"
+              onClick={()=> setCallOpen(true)}
+              data-testid='header-call-me-open'
+            >
+              Зв’яжіться зі мною
+            </button>
+          </div>
 
-                    <button
-                      type="button"
-                      className="w-44 lg:w-48 inline-flex items-center justify-center gap-2 text-[10px] lg:text-[11px] px-2.5 py-1 lg:px-4 lg:py-1.5 rounded-lg bg-gray-900 text-white hover:bg-black transition font-semibold whitespace-nowrap"
-                      onClick={()=> setCallOpen(true)}
-                      data-testid='header-call-me-open'
-                    >
-                      <FiPhoneCall className="w-4 h-4 shrink-0" />
-                      <span>Зателефонувати мені</span>
-                    </button>
-                  </div>
+          <div className="col-start-4 row-start-2 flex items-center justify-center">
+            <a
+              href={`tel:${SHOP_PHONE}`}
+              onClick={() => {
+                try {
+                  window.dataLayer = window.dataLayer || []
+                  window.dataLayer.push({ event: 'click_phone', phone_number: SHOP_PHONE, location: 'header_desktop' })
+                } catch {}
+              }}
+              className="text-base lg:text-lg text-gray-900 hover:text-red-600 transition font-extrabold whitespace-nowrap"
+              data-testid='header-phone-link'
+            >
+              {SHOP_PHONE}
+            </a>
+          </div>
 
-                  <div className="inline-flex items-center justify-end gap-1.5 lg:gap-2">
-                    <a
-                      href="https://www.instagram.com/budexpert_if/"
-                      target="_blank"
-                      rel="noreferrer"
-                      aria-label="Instagram"
-                      className="w-7 h-7 lg:w-9 lg:h-9 inline-flex items-center justify-center rounded-lg ring-1 ring-gray-200 text-gray-700 hover:text-red-600 hover:ring-red-200 hover:bg-red-50 transition shrink-0"
-                    >
-                      <FaInstagram className="w-4 h-4" />
-                    </a>
-                    <a
-                      href="https://www.tiktok.com/@budexpert_"
-                      target="_blank"
-                      rel="noreferrer"
-                      aria-label="TikTok"
-                      className="w-7 h-7 lg:w-9 lg:h-9 inline-flex items-center justify-center rounded-lg ring-1 ring-gray-200 text-gray-700 hover:text-red-600 hover:ring-red-200 hover:bg-red-50 transition shrink-0"
-                    >
-                      <FaTiktok className="w-4 h-4" />
-                    </a>
-                    <a
-                      href="https://t.me/budexpert_if"
-                      target="_blank"
-                      rel="noreferrer"
-                      aria-label="Telegram"
-                      className="w-7 h-7 lg:w-9 lg:h-9 inline-flex items-center justify-center rounded-lg ring-1 ring-gray-200 text-gray-700 hover:text-red-600 hover:ring-red-200 hover:bg-red-50 transition shrink-0"
-                    >
-                      <FaTelegramPlane className="w-4 h-4" />
-                    </a>
-                  </div>
-                </div>
-
-                <button
-                  type="button"
-                  className="inline-flex items-center justify-center gap-2 text-[11px] lg:text-[12px] font-semibold uppercase tracking-wide text-gray-900 hover:text-red-600 whitespace-nowrap max-w-full text-center p-1.5 rounded-xl hover:ring-1 hover:ring-red-200 transition"
-                  onClick={() => window.open(mapsUrl, '_blank')}
-                  data-testid='header-address'
-                >
-                  <FiMapPin className="w-5 h-5" />
-                  <span className="truncate">Івано-Франківськ, вул.Білозіра 8</span>
-                </button>
-              </div>
-            </div>
-
-            <div className="col-start-2 row-start-2 w-full flex items-center gap-4 min-w-0">
-              <button
-                className="w-44 lg:w-48 inline-flex items-center justify-center gap-2 h-11 px-5 rounded-xl bg-red-600 text-white border border-red-600 shadow-sm hover:bg-red-700 hover:border-red-700 hover:-translate-y-0.5 transition whitespace-nowrap font-semibold text-sm lg:text-sm"
-                onClick={() => navigate("/")}
-                data-testid='header-catalog'
-              >
-                <FiGrid className="w-5 h-5" />
-                <span>Каталог товарів</span>
-              </button>
-
-              <div className="flex-1 min-w-0">
-                <SearchBar value={search} onChange={setQueryQ} onSelect={navigateWithQImmediate} />
-              </div>
-
-              <button
-                type="button"
-                className="inline-flex items-center justify-center h-11 px-4 lg:px-5 rounded-xl bg-red-600 text-white font-semibold text-[12px] lg:text-sm tracking-wide shadow-md hover:shadow-lg hover:bg-red-700 transition whitespace-nowrap"
-                onClick={() => navigate('/services')}
-                data-testid='header-blog'
-              >
-                Блог
-              </button>
-
-              <div
-                className="relative shrink-0"
-                onMouseEnter={()=>{ if (!isCartPage && isLgUp()) setMiniOpen(true) }}
-                onMouseLeave={()=>{ if (!isCartPage && isLgUp()) setMiniOpen(false) }}
-              >
-                <button
-                  aria-label="Кошик"
-                  className={`relative p-2 rounded-lg transition active:scale-95 ${count > 0 ? 'bg-red-50 text-red-600 animate-pulse' : 'hover:bg-red-50 hover:text-red-600'}`}
-                  onClick={() => { setMiniOpen(false); navigate("/cart") } }
-                  data-testid='header-cart'
-                >
-                  <FiShoppingCart className="w-6 h-6" />
-                  {count > 0 && (
-                    <span className="absolute -top-1 -right-1 bg-red-600 text-white text-[10px] rounded-full px-1.5 py-0.5 leading-none min-w-[18px] text-center" data-testid='header-cart-count'>
-                      {count}
-                    </span>
-                  )}
-                </button>
-                {miniOpen && !isCartPage && (
-                  <div
-                    className="hidden md:block md:absolute right-0 md:mt-2 w-96 bg-white rounded-xl shadow-2xl ring-1 ring-gray-200 z-50 overflow-hidden"
-                    onClick={(e)=> e.stopPropagation()}
-                    data-testid='header-mini-cart'
-                  >
-                    <div className="p-4">
-                      <div className="font-semibold mb-3 text-gray-800">Мій кошик</div>
-                      {items.length === 0 ? (
-                        <div className="text-sm text-gray-600">Кошик порожній</div>
-                      ) : (
-                        <div className="divide-y max-h-64 overflow-auto">
-                          {items.slice(0,5).map(i => (
-                            <div key={i._id} className="py-2 flex items-center gap-3">
-                              <div className="flex items-center gap-2 min-w-0 flex-1">
-                                <img src={resolveThumbSrc(i.image) || NO_IMG_56} alt={i.name} className="w-12 h-12 object-cover rounded" />
-                                <div className="min-w-0">
-                                  <div className="text-sm font-medium break-words">{i.name}</div>
-                                  <div className="text-xs text-gray-600">
-                                    {i.quantity || 1} × {fmt.format(i.price)} ₴/шт
-                                  </div>
-                                </div>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                      {items.length > 0 && (
-                        <div className="mt-3 flex items-center justify-between text-sm text-gray-700">
-                          <span className="text-xs text-gray-500">Всього:</span>
-                          <span className="inline-flex items-center px-3 py-1.5 rounded-full bg-red-600 text-white text-base font-semibold tracking-wide shadow">
-                            {fmt.format(items.reduce((s,i)=>s+i.price*(i.quantity||1),0))} ₴
-                          </span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
+          <div
+            className="row-span-2 relative shrink-0"
+            onMouseEnter={()=>{ if (!isCartPage && isLgUp()) setMiniOpen(true) }}
+            onMouseLeave={()=>{ if (!isCartPage && isLgUp()) setMiniOpen(false) }}
+          >
+            <button
+              aria-label="Кошик"
+              className={`w-[74px] h-[74px] p-0 inline-flex flex-col items-center justify-center rounded-xl transition active:scale-95 ${count > 0 ? 'text-red-600' : 'text-gray-700 hover:text-red-600'}`}
+              onClick={() => { setMiniOpen(false); navigate("/cart") } }
+              data-testid='header-cart'
+            >
+              <div className="relative w-8 h-8 flex items-center justify-center">
+                <FiShoppingCart className="w-8 h-8" />
+                {count > 0 && (
+                  <span className="absolute -top-1 -right-1 bg-red-600 text-white text-[10px] rounded-full px-1.5 py-0.5 leading-none min-w-[18px] text-center" data-testid='header-cart-count'>
+                    {count}
+                  </span>
                 )}
               </div>
-            </div>
+              <div className="mt-2.5 text-[11px] leading-none text-gray-700 text-center w-full">{fmt.format(items.reduce((s,i)=>s+i.price*(i.quantity||1),0))} грн</div>
+            </button>
+            {miniOpen && !isCartPage && (
+              <div
+                className="hidden md:block md:absolute right-0 md:mt-2 w-96 bg-white rounded-xl shadow-2xl ring-1 ring-gray-200 z-50 overflow-hidden"
+                onClick={(e)=> e.stopPropagation()}
+                data-testid='header-mini-cart'
+              >
+                <div className="p-4">
+                  <div className="font-semibold mb-3 text-gray-800">Мій кошик</div>
+                  {items.length === 0 ? (
+                    <div className="text-sm text-gray-600">Кошик порожній</div>
+                  ) : (
+                    <div className="divide-y max-h-64 overflow-auto">
+                      {items.slice(0,5).map(i => (
+                        <div key={i._id} className="py-2 flex items-center gap-3">
+                          <div className="flex items-center gap-2 min-w-0 flex-1">
+                            <img src={resolveThumbSrc(i.image) || NO_IMG_56} alt={i.name} className="w-12 h-12 object-cover rounded" />
+                            <div className="min-w-0">
+                              <div className="text-sm font-medium break-words">{i.name}</div>
+                              <div className="text-xs text-gray-600">
+                                {i.quantity || 1} × {fmt.format(i.price)} ₴/шт
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {items.length > 0 && (
+                    <div className="mt-3 flex items-center justify-between text-sm text-gray-700">
+                      <span className="text-xs text-gray-500">Всього:</span>
+                      <span className="inline-flex items-center px-3 py-1.5 rounded-full bg-red-600 text-white text-base font-semibold tracking-wide shadow">
+                        {fmt.format(items.reduce((s,i)=>s+i.price*(i.quantity||1),0))} ₴
+                      </span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
+        </div>
 
-          <div className="md:hidden px-3 py-3">
-            <div className="grid grid-cols-2 gap-3 items-center">
-              <div className="flex flex-col items-center justify-center gap-1 min-w-0">
-                <a
-                  href={`tel:${SHOP_PHONE}`}
+        <div className="md:hidden">
+          <div className="grid grid-cols-2 gap-3 items-center">
+            <div className="flex flex-col items-center justify-center gap-1 min-w-0">
+              <a
+                href={`tel:${SHOP_PHONE}`}
                   onClick={() => {
                     try {
                       window.dataLayer = window.dataLayer || []
@@ -586,7 +660,6 @@ export default function Header() {
           </div>,
           document.body
         )}
-      </div>
     </header>
   );
 }
