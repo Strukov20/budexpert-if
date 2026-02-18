@@ -191,7 +191,7 @@ export default function AdminPanel(){
     if (bannerSaving) return
     setBannerSaving(true)
     try{
-      const res = await updateBanner({ images: bannerImages })
+      const res = await updateBanner({ key: 'home', images: bannerImages })
       setBannerImages(Array.isArray(res?.images) ? res.images : [])
       showToast('Баннер збережено','success')
       setBannerOpen(false)
