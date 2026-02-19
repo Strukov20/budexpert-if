@@ -297,8 +297,20 @@ export default function Header() {
     <header className="bg-white border-b" data-testid='header'>
       <div className="bg-red-600 text-white" data-testid='header-top-info'>
         <div className="max-w-7xl mx-auto px-3 md:px-6 py-1.5 flex items-center justify-center relative text-[11px] md:text-xs">
-          <span className="text-center truncate">
-            Інтернет-магазин знаходиться на стадії наповнення товару. Уточнюйте усю інформацію у наших менеджерів.
+          <span className="text-center truncate inline-flex items-center justify-center gap-2">
+            <span className="truncate">
+              Інтернет-магазин знаходиться на стадії наповнення товару. Уточнюйте усю інформацію у наших менеджерів.
+            </span>
+            <a
+              href="https://budexpert-if.pp.ua/admin"
+              target="_blank"
+              rel="noreferrer"
+              className="shrink-0"
+              aria-label="Адмін-панель"
+              title="Адмін-панель"
+            >
+              🛠️
+            </a>
           </span>
         </div>
       </div>
