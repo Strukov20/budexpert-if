@@ -307,7 +307,7 @@ export default function Header() {
               rel="noreferrer"
               className="shrink-0"
               aria-label="Адмін-панель"
-              title="Адмін-панель"
+              title=""
             >
               🛠️
             </a>
