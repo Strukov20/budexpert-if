@@ -165,7 +165,7 @@ export default function DeliveryLeadForm({ variant }){
   return (
     <div className='relative overflow-hidden rounded-2xl border shadow-lg bg-gradient-to-br from-white to-red-50'>
       <div className='absolute -top-16 -right-16 w-56 h-56 rounded-full bg-red-100 blur-2xl opacity-70 pointer-events-none'></div>
-      <div className='relative p-5 md:p-6'>
+      <div className='relative p-5 md:p-6' data-testid='delivery-lead-form'>
         <div className='flex items-center gap-3 mb-3'>
           <div className='w-10 h-10 rounded-xl bg-red-600 text-white flex items-center justify-center shadow ring-1 ring-red-600/20'>
             <FiTruck className='w-5 h-5' />
@@ -185,6 +185,7 @@ export default function DeliveryLeadForm({ variant }){
                 aria-invalid={!!nameError}
                 autoComplete='name'
                 required
+                data-testid='delivery-lead-name'
               />
             </div>
             {nameError && <div className='mt-1 text-xs text-red-600'>{nameError}</div>}
@@ -203,6 +204,7 @@ export default function DeliveryLeadForm({ variant }){
                 aria-invalid={!!phoneError}
                 autoComplete='tel'
                 required
+                data-testid='delivery-lead-phone'
               />
             </div>
             {phoneError && <div className='mt-1 text-xs text-red-600'>{phoneError}</div>}
@@ -221,6 +223,7 @@ export default function DeliveryLeadForm({ variant }){
                 list='cities'
                 autoComplete='address-level2'
                 required
+                data-testid='delivery-lead-city'
               />
             </div>
             {cityError && <div className='mt-1 text-xs text-red-600'>{cityError}</div>}
@@ -241,6 +244,7 @@ export default function DeliveryLeadForm({ variant }){
                 aria-invalid={!!streetError}
                 autoComplete='address-line1'
                 required
+                data-testid='delivery-lead-street'
               />
             </div>
             {streetError && <div className='mt-1 text-xs text-red-600'>{streetError}</div>}
@@ -258,6 +262,7 @@ export default function DeliveryLeadForm({ variant }){
                 aria-invalid={!!houseError}
                 autoComplete='address-line2'
                 required
+                data-testid='delivery-lead-house'
               />
             </div>
             {houseError && <div className='mt-1 text-xs text-red-600'>{houseError}</div>}
@@ -276,6 +281,7 @@ export default function DeliveryLeadForm({ variant }){
                   aria-invalid={!!dtError}
                   min={minDateStr}
                   required
+                  data-testid='delivery-lead-date'
                 />
               </div>
               <div className='relative bg-white rounded-xl ring-1 ring-gray-200 shadow px-3 transition hover:bg-red-50/40 hover:ring-red-200 w-full'>
@@ -286,6 +292,7 @@ export default function DeliveryLeadForm({ variant }){
                   onBlur={()=> setTouched(t=> ({...t, dt:true}))}
                   aria-invalid={!!dtError}
                   required
+                  data-testid='delivery-lead-time'
                 >
                   <option value='' disabled>Оберіть час</option>
                   {timeOptions.map(t=> <option key={t} value={t}>{t}</option>)}
@@ -300,13 +307,13 @@ export default function DeliveryLeadForm({ variant }){
             {dtError && <div className='mt-1 text-xs text-red-600'>{dtError}</div>}
           </div>
 
-          <button type='submit' className='btn md:col-span-2 disabled:opacity-60' disabled={hasErrors}>Надіслати</button>
+          <button type='submit' className='btn md:col-span-2 disabled:opacity-60' disabled={hasErrors} data-testid='delivery-lead-submit'>Надіслати</button>
         </form>
       </div>
 
       {successOpen && (
-        <div className='fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4' role='dialog' aria-modal='true' aria-labelledby='lead-success-title' onClick={()=> setSuccessOpen(false)}>
-          <div className='bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 text-center' onClick={(e)=> e.stopPropagation()}>
+        <div className='fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4' role='dialog' aria-modal='true' aria-labelledby='lead-success-title' onClick={()=> setSuccessOpen(false)} data-testid='delivery-lead-success-overlay'>
+          <div className='bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 text-center' onClick={(e)=> e.stopPropagation()} data-testid='delivery-lead-success-modal'>
             <div className='absolute left-0 right-0 top-0'>
               <div className='h-1 bg-red-600' style={{ width: barWidth, transition: 'width 5s linear' }} />
             </div>
@@ -319,6 +326,7 @@ export default function DeliveryLeadForm({ variant }){
               className='mt-4 px-4 py-2 rounded-lg bg-black text-white hover:bg-red-600 transition active:scale-95'
               onClick={()=> setSuccessOpen(false)}
               autoFocus
+              data-testid='delivery-lead-success-close'
             >
               Добре
             </button>

@@ -59,6 +59,8 @@ export default function Header() {
   const [callPhoneRaw, setCallPhoneRaw] = useState('');
   const [callTouched, setCallTouched] = useState({});
   const [callSuccessOpen, setCallSuccessOpen] = useState(false);
+  const [callSuccessBarWidth, setCallSuccessBarWidth] = useState('100%');
+  const [canUsePortal, setCanUsePortal] = useState(false);
   const [search, setSearch] = useState('');
   const isCartPage = location.pathname === '/cart';
   const isServicesPage = location.pathname === '/services';
@@ -231,6 +233,21 @@ export default function Header() {
     if (!callOpen) return
     setCallSuccessOpen(false)
   }, [callOpen])
+
+  useEffect(() => {
+    setCanUsePortal(typeof document !== 'undefined' && !!document.body)
+  }, [])
+
+  useEffect(() => {
+    if (!callSuccessOpen) return
+    const id = setTimeout(() => setCallSuccessOpen(false), 5000)
+    setCallSuccessBarWidth('100%')
+    const raf = requestAnimationFrame(() => setCallSuccessBarWidth('0%'))
+    return () => {
+      clearTimeout(id)
+      cancelAnimationFrame(raf)
+    }
+  }, [callSuccessOpen])
 
   const submitCallLead = async (e) => {
     e.preventDefault()
@@ -566,7 +583,7 @@ export default function Header() {
           </div>
         </div>
 
-        {callOpen && typeof document !== 'undefined' && createPortal(
+        {callOpen && canUsePortal && createPortal(
           <div className="fixed inset-0 bg-black/40 backdrop-blur-[2px] z-50 flex items-center justify-center p-4" onClick={()=> setCallOpen(false)} data-testid='call-modal-overlay'>
             <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden" onClick={(e)=> e.stopPropagation()} data-testid='call-modal'>
               <div className="p-5">
@@ -628,19 +645,36 @@ export default function Header() {
                   >
                     Надіслати
                   </button>
-
-                  {callSuccessOpen && (
-                    <div className="rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-800 px-4 py-3 text-sm text-center">
-                      Дякуємо! Ми скоро зателефонуємо.
-                    </div>
-                  )}
                 </form>
               </div>
             </div>
           </div>,
           document.body
         )}
-    </header>
-  );
+
+        {callSuccessOpen && canUsePortal && createPortal(
+          <div className='fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4' role='dialog' aria-modal='true' aria-labelledby='call-success-title' onClick={()=> setCallSuccessOpen(false)}>
+            <div className='bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 text-center relative' onClick={(e)=> e.stopPropagation()} data-testid='call-modal-success'>
+              <div className='absolute left-0 right-0 top-0 rounded-t-2xl overflow-hidden'>
+                <div className='h-1 bg-red-600' style={{ width: callSuccessBarWidth, transition: 'width 5s linear' }} />
+              </div>
+              <div className='mx-auto w-14 h-14 rounded-full bg-green-100 text-green-700 flex items-center justify-center mb-3'>
+                ✓
+              </div>
+              <h3 id='call-success-title' className='text-xl font-semibold'>Ми отримали ваш запит</h3>
+              <p className='text-gray-700 mt-2'>Дякуємо! Ми скоро зателефонуємо вам.</p>
+              <button
+                className='mt-4 px-4 py-2 rounded-lg bg-black text-white hover:bg-red-600 transition active:scale-95'
+                onClick={()=> setCallSuccessOpen(false)}
+                autoFocus
+              >
+                Добре
+              </button>
+            </div>
+          </div>,
+          document.body
+        )}
+     </header>
+   );
 }
 
