@@ -27,3 +27,15 @@ rm -rf "$WORK_DIR"
 
 # залишаємо останні 8 архівів
 ls -1t "$BACKUP_DIR"/budexpert_*.tgz 2>/dev/null | tail -n +9 | xargs -r rm -f
+
+
+#-------------------------------------------------- 
+#MAKE BACKUP
+# mongodump --uri "mongodb+srv://budexpert-if:Qwe123456_@budexpert-if.94ramqp.mongodb.net/budexpert?retryWrites=true&w=majority" --out dump_prod
+
+# restore from dump
+# mongorestore --uri "mongodb+srv://budexpert_dev:Qwe123456_@budexpert-if.94ramqp.mongodb.net/?retryWrites=true&w=majority" `
+#   --drop `
+#   --nsFrom "budexpert.*" `
+#   --nsTo   "budexpert_dev.*" `
+#   dump_prod

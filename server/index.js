@@ -19,6 +19,7 @@ import mongoSanitize from "express-mongo-sanitize";
 import rateLimit from "express-rate-limit";
 import Category from "./models/Category.js";
 import { fileURLToPath } from "url";
+import dns from "dns";
 
 dotenv.config();
 const __filename = fileURLToPath(import.meta.url);
@@ -64,6 +65,16 @@ const TEST_ENV = process.env.TEST_ENV || "";
 const isTestMode = NODE_ENV === "test" || TEST_ENV === "test";
 const allowRemoteDbInTest = String(process.env.ALLOW_REMOTE_DB_IN_TEST || "").toLowerCase() === "true";
 
+const maskMongoUri = (uri) => {
+  try {
+    const raw = (uri || '').toString();
+    if (!raw) return raw;
+    return raw.replace(/(mongodb(?:\+srv)?:\/\/[^:\/]+:)([^@]+)(@)/i, '$1***$3');
+  } catch {
+    return uri;
+  }
+}
+
 if (isTestMode && !allowRemoteDbInTest) {
   const uri = String(MONGO_URI || "");
   const isRemote = /mongodb\+srv:\/\//i.test(uri) || /@/i.test(uri);
@@ -76,16 +87,33 @@ if (isTestMode && !allowRemoteDbInTest) {
     );
   }
 }
-console.log("[BOOT] process.env.MONGO_URI =", process.env.MONGO_URI);
-console.log("[BOOT] Using MONGO_URI =", MONGO_URI);
+console.log("[BOOT] process.env.MONGO_URI =", maskMongoUri(process.env.MONGO_URI));
+console.log("[BOOT] Using MONGO_URI =", maskMongoUri(MONGO_URI));
 
-mongoose
-  .connect(MONGO_URI, {
-    useNewUrlParser: true,
-    useUnifiedTopology: true,
-  })
-  .then(async () => {
+const dnsServersEnv = (process.env.DNS_SERVERS || '').toString().trim();
+if (dnsServersEnv) {
+  const servers = dnsServersEnv
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
+  if (servers.length) {
+    try {
+      dns.setServers(servers);
+      console.log('[BOOT] Using DNS_SERVERS =', servers.join(', '));
+    } catch {
+      console.log('[BOOT] Failed to apply DNS_SERVERS');
+    }
+  }
+}
+
+const startServer = async () => {
+  try {
+    await mongoose.connect(MONGO_URI, {
+      useNewUrlParser: true,
+      useUnifiedTopology: true,
+    })
     console.log("MongoDB connected");
+
     // Remove legacy unique index on Category.name that may still exist in MongoDB
     // after switching to compound uniqueness (parent, name).
     try {
@@ -98,41 +126,46 @@ mongoose
         console.log('[BOOT] Could not drop legacy categories index name_1:', msg);
       }
     }
-  })
-  .catch((err) => console.error("MongoDB connection error:", err));
 
-app.use("/api/products", productsRouter);
-app.use("/api/orders", ordersRouter);
-app.use("/api/categories", categoryRoutes);
-app.use("/api/auth", authLimiter, authRoutes);
-// статика для завантажених файлів
-const uploadsDir = path.join(projectRoot, "server", "uploads");
-if (!fs.existsSync(uploadsDir)) { fs.mkdirSync(uploadsDir, { recursive: true }); }
-app.use("/uploads", express.static(uploadsDir));
-app.use("/api/uploads", uploadLimiter, uploadsRoutes);
-app.use("/api/leads", leadsRoutes);
-app.use("/api/post", postRoutes);
-app.use("/api/banner", bannerRoutes);
+    app.use("/api/products", productsRouter);
+    app.use("/api/orders", ordersRouter);
+    app.use("/api/categories", categoryRoutes);
+    app.use("/api/auth", authLimiter, authRoutes);
+    // статика для завантажених файлів
+    const uploadsDir = path.join(projectRoot, "server", "uploads");
+    if (!fs.existsSync(uploadsDir)) { fs.mkdirSync(uploadsDir, { recursive: true }); }
+    app.use("/uploads", express.static(uploadsDir));
+    app.use("/api/uploads", uploadLimiter, uploadsRoutes);
+    app.use("/api/leads", leadsRoutes);
+    app.use("/api/post", postRoutes);
+    app.use("/api/banner", bannerRoutes);
 
-// Google Merchant Center feeds (public)
-app.use("/", merchantRoutes);
+    // Google Merchant Center feeds (public)
+    app.use("/", merchantRoutes);
 
-// Serve client (Vite build) in production with SPA fallback
-const clientDistDir = path.join(projectRoot, "client", "dist");
-if (fs.existsSync(clientDistDir)) {
-  app.use(express.static(clientDistDir));
-  app.get("*", (req, res, next) => {
-    if (req.path.startsWith("/api") || req.path.startsWith("/uploads")) return next();
-    return res.sendFile(path.join(clientDistDir, "index.html"));
-  });
+    // Serve client (Vite build) in production with SPA fallback
+    const clientDistDir = path.join(projectRoot, "client", "dist");
+    if (fs.existsSync(clientDistDir)) {
+      app.use(express.static(clientDistDir));
+      app.get("*", (req, res, next) => {
+        if (req.path.startsWith("/api") || req.path.startsWith("/uploads")) return next();
+        return res.sendFile(path.join(clientDistDir, "index.html"));
+      });
+    }
+
+    // Global error handler (fallback)
+    // eslint-disable-next-line no-unused-vars
+    app.use((err, _req, res, _next) => {
+      console.error("Unhandled error:", err);
+      res.status(500).json({ message: "Server error" });
+    });
+
+    const PORT = process.env.PORT || 5001;
+    app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+  } catch (err) {
+    console.error("MongoDB connection error:", err);
+    process.exit(1)
+  }
 }
 
-const PORT = process.env.PORT || 5001;
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
-
-// Global error handler (fallback)
-// eslint-disable-next-line no-unused-vars
-app.use((err, _req, res, _next) => {
-  console.error("Unhandled error:", err);
-  res.status(500).json({ message: "Server error" });
-});
+startServer()

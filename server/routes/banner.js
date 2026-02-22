@@ -32,7 +32,6 @@ const normalizeImagesInput = (images) => {
 
 // GET /api/banner (public)
 router.get('/', async (req, res) => {
-  console.log('[BANNER][GET]', { url: req.originalUrl, query: req.query })
   const key = normalizeKey(req.query?.key)
   const doc = await Banner.findOne({ key }).lean()
   res.json({ key, images: Array.isArray(doc?.images) ? doc.images : [] })
@@ -40,7 +39,6 @@ router.get('/', async (req, res) => {
 
 // PUT /api/banner (admin)
 router.put('/', requireAdmin, async (req, res) => {
-  console.log('[BANNER][PUT]', { url: req.originalUrl, query: req.query, bodyKey: req.body?.key })
   const key = normalizeKey(req.body?.key ?? req.query?.key)
   const images = normalizeImagesInput(req.body?.images)
   const updated = await Banner.findOneAndUpdate(
