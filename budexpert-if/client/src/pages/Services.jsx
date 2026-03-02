@@ -143,7 +143,14 @@ export default function Services(){
     else local = digits.slice(-9)
     return '+380' + (local ? local : '')
   }
-  const isUaPhoneValid = (v) => /^\+380\d{9}$/.test(v)
+  const uaMobileOperatorCodes = useMemo(() => new Set([
+    '39','50','63','66','67','68','73','89','91','92','93','94','95','96','97','98','99'
+  ]), [])
+  const isUaMobilePhoneValid = (v) => {
+    if (!/^\+380\d{9}$/.test(v)) return false
+    const code = v.slice(4, 6)
+    return uaMobileOperatorCodes.has(code)
+  }
   const ukNameRegex = useMemo(()=> /^[А-ЩЬЮЯІЇЄҐа-щьюяіїєґ'’\- ]{2,}$/u, [])
   const callPhone = useMemo(()=> normalizeUaPhone(callPhoneRaw), [callPhoneRaw])
 
@@ -170,9 +177,9 @@ export default function Services(){
   }, [callName, callTouched.name, ukNameRegex])
   const callPhoneError = useMemo(()=>{
     if (!callTouched.phone) return ''
-    if (!isUaPhoneValid(callPhone)) return 'Телефон у форматі +380XXXXXXXXX'
+    if (!isUaMobilePhoneValid(callPhone)) return 'Некоректний телефон (формат +380 та код оператора України)'
     return ''
-  }, [callPhone, callTouched.phone])
+  }, [callPhone, callTouched.phone, isUaMobilePhoneValid])
   const callHasErrors = !!(callNameError || callPhoneError)
 
   const submitCallLead = async (e) => {

@@ -1,18 +1,55 @@
-import React, { useMemo, useState, useEffect } from 'react'
+import React, { useMemo, useState, useEffect, useRef } from 'react'
 import { FiTruck } from 'react-icons/fi'
-import { createLead } from '../api'
+import { createLead, getIfStreetSuggestions } from '../api'
 
 export default function DeliveryLeadForm({ variant }){
   const [name, setName] = useState('')
   const [phoneRaw, setPhoneRaw] = useState('')
   const [city, setCity] = useState('')
   const [street, setStreet] = useState('')
+  const [streetSuggestions, setStreetSuggestions] = useState([])
+  const [streetLoading, setStreetLoading] = useState(false)
+  const [streetOpen, setStreetOpen] = useState(false)
+  const skipNextStreetSuggestRef = useRef(false)
   const [house, setHouse] = useState('')
   const [dtDate, setDtDate] = useState('')
   const [dtTime, setDtTime] = useState('')
   const [touched, setTouched] = useState({})
   const [successOpen, setSuccessOpen] = useState(false)
   const [barWidth, setBarWidth] = useState('100%')
+
+  useEffect(() => {
+    const q = (street || '').trim()
+    if (skipNextStreetSuggestRef.current) {
+      skipNextStreetSuggestRef.current = false
+      return
+    }
+    if (q.length < 4) {
+      setStreetSuggestions([])
+      setStreetLoading(false)
+      return
+    }
+
+    setStreetOpen(true)
+    setStreetLoading(true)
+
+    const controller = new AbortController()
+    const t = setTimeout(async () => {
+      try {
+        const items = await getIfStreetSuggestions({ q }, { signal: controller.signal })
+        setStreetSuggestions(Array.isArray(items) ? items : [])
+      } catch {
+        setStreetSuggestions([])
+      } finally {
+        setStreetLoading(false)
+      }
+    }, 200)
+
+    return () => {
+      controller.abort()
+      clearTimeout(t)
+    }
+  }, [street])
 
   useEffect(()=>{
     if (!successOpen) return;
@@ -24,10 +61,26 @@ export default function DeliveryLeadForm({ variant }){
   }, [successOpen])
 
   const cities = useMemo(()=>[
-    'Івано-Франківськ','Київ','Львів','Тернопіль','Чернівці','Калуш','Коломия','Надвірна','Долина','Бурштин'
+    'Івано-Франківськ',
+    'Калуш',
+    'Коломия',
+    'Надвірна',
+    'Долина',
+    'Бурштин',
+    'Яремче',
+    'Косів',
+    'Верховина',
+    'Богородчани',
+    'Тисмениця',
+    'Снятин',
+    'Городенка',
+    'Рогатин'
   ], [])
 
   const ukNameRegex = useMemo(()=> /^[А-ЩЬЮЯІЇЄҐа-щьюяіїєґ'’\- ]{2,}$/u, [])
+  const uaMobileOperatorCodes = useMemo(() => new Set([
+    '39','50','63','66','67','68','73','89','91','92','93','94','95','96','97','98','99'
+  ]), [])
   const normalizeUaPhone = (v) => {
     const digits = (v || '').replace(/\D/g, '')
     // допускаємо: 0XXXXXXXXX, 380XXXXXXXXX, +380XXXXXXXXX, поступове введення
@@ -41,7 +94,11 @@ export default function DeliveryLeadForm({ variant }){
     }
     return '+380' + (local ? local : '')
   }
-  const isUaPhoneValid = (v) => /^\+380\d{9}$/.test(v)
+  const isUaMobilePhoneValid = (v) => {
+    if (!/^\+380\d{9}$/.test(v)) return false
+    const code = v.slice(4, 6)
+    return uaMobileOperatorCodes.has(code)
+  }
 
   const phone = useMemo(()=> normalizeUaPhone(phoneRaw), [phoneRaw])
   const formatUaPhone = (p) => {
@@ -69,9 +126,9 @@ export default function DeliveryLeadForm({ variant }){
 
   const phoneError = useMemo(()=>{
     if (!touched.phone) return ''
-    if (!isUaPhoneValid(phone)) return 'Телефон у форматі +380XXXXXXXXX'
+    if (!isUaMobilePhoneValid(phone)) return 'Некоректний телефон (формат +380 та код оператора України)'
     return ''
-  }, [phone, touched.phone])
+  }, [phone, touched.phone, isUaMobilePhoneValid])
 
   const cityError = useMemo(()=>{
     if (!touched.city) return ''
@@ -79,7 +136,7 @@ export default function DeliveryLeadForm({ variant }){
     // Дозволяємо складені назви міст з дефісом/апострофом
     if (!/^[А-ЩЬЮЯІЇЄҐа-щьюяіїєґ'’\- ]+$/u.test(city.trim())) return 'Лише українські літери'
     return ''
-  }, [city, touched.city])
+  }, [city, touched.city, cities])
 
   const streetError = useMemo(()=>{
     if (!touched.street) return ''
@@ -241,11 +298,38 @@ export default function DeliveryLeadForm({ variant }){
                 value={street}
                 onChange={(e)=> setStreet(e.target.value)}
                 onBlur={()=> setTouched(t=> ({...t, street:true}))}
+                onFocus={()=> setStreetOpen(true)}
                 aria-invalid={!!streetError}
                 autoComplete='address-line1'
                 required
                 data-testid='delivery-lead-street'
               />
+              {streetOpen && (streetLoading || streetSuggestions.length > 0) && (
+                <div className='absolute left-0 right-0 top-full mt-1 bg-white rounded-xl ring-1 ring-gray-200 shadow-lg overflow-hidden z-20'>
+                  <div className='max-h-48 overflow-y-auto p-1'>
+                    {streetLoading && (
+                      <div className='px-2 py-2 text-sm text-gray-500'>Пошук...</div>
+                    )}
+                    {streetSuggestions.map(s => (
+                      <button
+                        key={s}
+                        type='button'
+                        className='w-full text-left px-2 py-2 text-sm rounded-lg hover:bg-red-50'
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={() => {
+                          skipNextStreetSuggestRef.current = true
+                          setStreet(s)
+                          setStreetOpen(false)
+                          setStreetSuggestions([])
+                          setStreetLoading(false)
+                        }}
+                      >
+                        {s}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
             {streetError && <div className='mt-1 text-xs text-red-600'>{streetError}</div>}
           </div>

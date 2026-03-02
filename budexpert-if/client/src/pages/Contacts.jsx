@@ -17,6 +17,25 @@ export default function Contacts(){
   const [callTouched, setCallTouched] = useState({})
   const [callSuccessOpen, setCallSuccessOpen] = useState(false)
 
+  const uaMobileOperatorCodes = useMemo(() => new Set([
+    '39','50','63','66','67','68','73','89','91','92','93','94','95','96','97','98','99'
+  ]), [])
+
+  const normalizeUaPhone = (v) => {
+    const digits = (v || '').toString().replace(/\D+/g, '')
+    let local = ''
+    if (digits.startsWith('380')) local = digits.slice(3, 12)
+    else if (digits.startsWith('0')) local = digits.slice(1, 10)
+    else local = digits.slice(-9)
+    return '+380' + (local ? local : '')
+  }
+
+  const isUaMobilePhoneValid = (v) => {
+    if (!/^\+380\d{9}$/.test(v)) return false
+    const code = v.slice(4, 6)
+    return uaMobileOperatorCodes.has(code)
+  }
+
   const formatUaPhone = (raw) => {
     const s = (raw || '').toString()
     const digits = s.replace(/\D+/g, '')
@@ -42,6 +61,7 @@ export default function Contacts(){
   }
 
   const callPhoneFormatted = useMemo(()=> formatUaPhone(callPhone), [callPhone])
+  const callPhoneNormalized = useMemo(()=> normalizeUaPhone(callPhone), [callPhone])
 
   const callNameError = useMemo(()=>{
     if (!callTouched.name) return ''
@@ -55,9 +75,9 @@ export default function Contacts(){
     if (!callTouched.phone) return ''
     const d = (callPhone || '').toString().replace(/\D+/g,'')
     if (!d) return 'Вкажіть телефон'
-    if (d.length < 10) return 'Некоректний телефон'
+    if (!isUaMobilePhoneValid(callPhoneNormalized)) return 'Некоректний телефон (формат +380 та код оператора України)'
     return ''
-  }, [callPhone, callTouched.phone])
+  }, [callPhone, callTouched.phone, callPhoneNormalized, isUaMobilePhoneValid])
 
   const callHasErrors = !!(callNameError || callPhoneError)
 
@@ -69,7 +89,7 @@ export default function Contacts(){
       await createLead({
         type: 'call',
         name: callName.trim(),
-        phone: callPhone.replace(/\s+/g, ''),
+        phone: callPhoneNormalized.replace(/\s+/g, ''),
       })
       setCallSuccessOpen(true)
       setCallName('')

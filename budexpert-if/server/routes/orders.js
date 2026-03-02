@@ -5,6 +5,25 @@ import requireAdmin from "../middleware/auth.js";
 
 const router = express.Router();
 
+const UA_MOBILE_OPERATOR_CODES = new Set([
+  '39','50','63','66','67','68','73','89','91','92','93','94','95','96','97','98','99'
+]);
+
+const normalizeUaPhone = (v) => {
+  const digits = (v || '').toString().replace(/\D+/g, '')
+  let local = ''
+  if (digits.startsWith('380')) local = digits.slice(3, 12)
+  else if (digits.startsWith('0')) local = digits.slice(1, 10)
+  else local = digits.slice(-9)
+  return '+380' + (local ? local : '')
+};
+
+const isUaMobilePhoneValid = (v) => {
+  if (!/^\+380\d{9}$/.test(v)) return false
+  const code = v.slice(4, 6)
+  return UA_MOBILE_OPERATOR_CODES.has(code)
+};
+
 // GET all orders (admin only)
 router.get("/", requireAdmin, async (req, res) => {
   try {
@@ -31,6 +50,11 @@ router.post("/", async (req, res) => {
   try {
     const { customerName, phone, address, items } = req.body;
 
+    const normalizedPhone = normalizeUaPhone(phone);
+    if (!isUaMobilePhoneValid(normalizedPhone)) {
+      return res.status(400).json({ message: 'Invalid phone' });
+    }
+
     // Підрахунок totalPrice
     const productIds = items.map((i) => i.productId);
     const products = await Product.find({ _id: { $in: productIds } });
@@ -41,7 +65,7 @@ router.post("/", async (req, res) => {
       if (prod) totalPrice += prod.price * item.quantity;
     });
 
-    const order = new Order({ customerName, phone, address, items, totalPrice });
+    const order = new Order({ customerName, phone: normalizedPhone, address, items, totalPrice });
     const saved = await order.save();
     res.status(201).json(saved);
   } catch (error) {

@@ -101,6 +101,13 @@ export async function deleteLead(id){ const r = await api.delete(`/leads/${id}`)
 export async function getPostCities(params){ const r = await api.get('/post/cities', { params }); return r.data; }
 export async function getPostOffices(params){ const r = await api.get('/post/offices', { params }); return r.data; }
 
+export async function getIfStreetSuggestions(params, options = {}){
+  const q = (params && params.q != null) ? String(params.q) : ''
+  if (q.trim().length < 4) return []
+  const r = await api.get('/geo/if/streets', { params: { q }, signal: options?.signal })
+  return Array.isArray(r.data) ? r.data : []
+}
+
 // Баннер (картинки на головній)
 export async function getBanner(key = 'home'){
   const r = await api.get('/banner', { params: { key } })

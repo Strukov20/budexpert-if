@@ -1,5 +1,5 @@
-import React, { useEffect, useMemo, useState } from 'react'
-import { createOrder, getPostCities, getPostOffices } from '../api'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
+import { createOrder, getIfStreetSuggestions, getPostCities, getPostOffices } from '../api'
 import { useNavigate } from 'react-router-dom'
 
 export default function Checkout(){
@@ -14,6 +14,10 @@ export default function Checkout(){
   const [phoneRaw, setPhoneRaw] = useState('')
   const [city, setCity] = useState('')
   const [street, setStreet] = useState('')
+  const [streetSuggestions, setStreetSuggestions] = useState([])
+  const [streetLoading, setStreetLoading] = useState(false)
+  const [streetOpen, setStreetOpen] = useState(false)
+  const skipNextStreetSuggestRef = useRef(false)
   const [house, setHouse] = useState('')
   const [touched, setTouched] = useState({})
   const [dtDate, setDtDate] = useState('')
@@ -39,8 +43,28 @@ export default function Checkout(){
   const cartTotal = useMemo(() => cart.reduce((sum, item) => sum + (item.price || 0) * (item.quantity || 1), 0), [cart])
   const moneyFmt = useMemo(() => new Intl.NumberFormat('uk-UA', { minimumFractionDigits: 2, maximumFractionDigits: 2 }), [])
 
+  const deliveryCities = useMemo(()=>[
+    'Івано-Франківськ',
+    'Калуш',
+    'Коломия',
+    'Надвірна',
+    'Долина',
+    'Бурштин',
+    'Яремче',
+    'Косів',
+    'Верховина',
+    'Богородчани',
+    'Тисмениця',
+    'Снятин',
+    'Городенка',
+    'Рогатин'
+  ], [])
+
   // Валідатори (як у DeliveryLeadForm)
   const ukNameRegex = useMemo(()=> /^[А-ЩЬЮЯІЇЄҐа-щьюяіїєґ'’\- ]{2,}$/u, [])
+  const uaMobileOperatorCodes = useMemo(() => new Set([
+    '39','50','63','66','67','68','73','89','91','92','93','94','95','96','97','98','99'
+  ]), [])
   const normalizeUaPhone = (v) => {
     const digits = (v || '').replace(/\D/g, '')
     let local = ''
@@ -49,7 +73,11 @@ export default function Checkout(){
     else local = digits.slice(-9)
     return '+380' + (local ? local : '')
   }
-  const isUaPhoneValid = (v) => /^\+380\d{9}$/.test(v)
+  const isUaMobilePhoneValid = (v) => {
+    if (!/^\+380\d{9}$/.test(v)) return false
+    const code = v.slice(4, 6)
+    return uaMobileOperatorCodes.has(code)
+  }
   const phone = useMemo(()=> normalizeUaPhone(phoneRaw), [phoneRaw])
   const formatUaPhone = (p) => {
     const local = (p || '').replace(/^\+?380/, '')
@@ -66,15 +94,15 @@ export default function Checkout(){
   }, [name, touched.name, ukNameRegex])
   const phoneError = useMemo(()=>{
     if (!touched.phone) return ''
-    if (!isUaPhoneValid(phone)) return 'Телефон у форматі +380XXXXXXXXX'
+    if (!isUaMobilePhoneValid(phone)) return 'Некоректний телефон (формат +380 та код оператора України)'
     return ''
-  }, [phone, touched.phone])
+  }, [phone, touched.phone, isUaMobilePhoneValid])
   const cityError = useMemo(()=>{
     if (!touched.city) return ''
     if (!city || city.trim().length < 2) return 'Вкажіть місто'
     if (!/^[А-ЩЬЮЯІЇЄҐа-щьюяіїєґ'’\- ]+$/u.test(city.trim())) return 'Лише українські літери'
     return ''
-  }, [city, touched.city])
+  }, [city, touched.city, method, deliveryCities])
   const streetError = useMemo(()=>{
     if (!touched.street) return ''
     if (!street || street.trim().length < 3) return 'Вкажіть вулицю (мін. 3 символи)'
@@ -102,6 +130,44 @@ export default function Checkout(){
     if (hour < 8 || hour > 20) return 'Доставка з 08:00 до 20:00'
     return ''
   }, [dtStr, touched.dt])
+
+  useEffect(() => {
+    if (method !== 'delivery') {
+      setStreetSuggestions([])
+      setStreetLoading(false)
+      return
+    }
+    const q = (street || '').trim()
+    if (skipNextStreetSuggestRef.current) {
+      skipNextStreetSuggestRef.current = false
+      return
+    }
+    if (q.length < 4) {
+      setStreetSuggestions([])
+      setStreetLoading(false)
+      return
+    }
+
+    setStreetOpen(true)
+    setStreetLoading(true)
+
+    const controller = new AbortController()
+    const t = setTimeout(async () => {
+      try {
+        const items = await getIfStreetSuggestions({ q }, { signal: controller.signal })
+        setStreetSuggestions(Array.isArray(items) ? items : [])
+      } catch {
+        setStreetSuggestions([])
+      } finally {
+        setStreetLoading(false)
+      }
+    }, 200)
+
+    return () => {
+      controller.abort()
+      clearTimeout(t)
+    }
+  }, [street, method])
 
   const handleSubmit = async e => {
     e.preventDefault();
@@ -406,6 +472,7 @@ export default function Checkout(){
                 onChange={e=> setCity(e.target.value)}
                 onBlur={()=> setTouched(t=> ({...t, city:true}))}
                 required
+                list={method === 'delivery' ? 'delivery-cities' : undefined}
                 autoComplete='address-level2'
                 data-testid='checkout-city'
               />
@@ -414,6 +481,11 @@ export default function Checkout(){
           {method==='delivery' && cityError && <div className='text-xs text-red-600 mt-1'>{cityError}</div>}
           {method==='post' && npTouched && !npCityRef && <div className='text-xs text-red-600 mt-1'>Оберіть місто Нової пошти</div>}
         </div>
+        )}
+        {method==='delivery' && (
+          <datalist id='delivery-cities'>
+            {deliveryCities.map(c=> <option key={c} value={c} />)}
+          </datalist>
         )}
         {method==='post' && (
         <div>
@@ -494,10 +566,37 @@ export default function Checkout(){
               value={street}
               onChange={e=> setStreet(e.target.value)}
               onBlur={()=> setTouched(t=> ({...t, street:true}))}
+              onFocus={()=> setStreetOpen(true)}
               required
               autoComplete='address-line1'
               data-testid='checkout-street'
             />
+            {streetOpen && (streetLoading || streetSuggestions.length > 0) && (
+              <div className='absolute left-0 right-0 top-full mt-1 bg-white rounded-xl ring-1 ring-gray-200 shadow-lg overflow-hidden z-20'>
+                <div className='max-h-48 overflow-y-auto p-1'>
+                  {streetLoading && (
+                    <div className='px-2 py-2 text-sm text-gray-500'>Пошук...</div>
+                  )}
+                  {streetSuggestions.map(s => (
+                    <button
+                      key={s}
+                      type='button'
+                      className='w-full text-left px-2 py-2 text-sm rounded-lg hover:bg-red-50'
+                      onMouseDown={(e) => e.preventDefault()}
+                      onClick={() => {
+                        skipNextStreetSuggestRef.current = true
+                        setStreet(s)
+                        setStreetOpen(false)
+                        setStreetSuggestions([])
+                        setStreetLoading(false)
+                      }}
+                    >
+                      {s}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
           {streetError && <div className='text-xs text-red-600 mt-1'>{streetError}</div>}
         </div>
