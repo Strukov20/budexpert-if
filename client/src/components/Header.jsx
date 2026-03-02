@@ -68,6 +68,13 @@ export default function Header() {
   const fmt = new Intl.NumberFormat('uk-UA', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   const SHOP_PHONE = '+380980095577'
   const SHOP_ADDRESS = 'вул. Білозіра 8'
+  const SHOP_CITY = 'Івано-Франківськ'
+  const SHOP_ADDRESS_FULL = `${SHOP_CITY}, ${SHOP_ADDRESS}`
+  const SHOP_HOURS = [
+    'Пн–Пт: 9:00–19:00',
+    'Сб: 9:00–15:00',
+    'Нд: вихідний',
+  ]
 
   const readQueryQ = (s) => {
     try {
@@ -232,9 +239,9 @@ export default function Header() {
   }, [isCartPage]);
   const mapsUrl = 'https://maps.app.goo.gl/V6mLeSS4EXGmaSe56';
   const mapsEmbedUrl = useMemo(() => {
-    const q = `Івано-Франківськ, ${SHOP_ADDRESS}`
+    const q = SHOP_ADDRESS_FULL
     return `https://www.google.com/maps?q=${encodeURIComponent(q)}&output=embed`
-  }, [SHOP_ADDRESS])
+  }, [SHOP_ADDRESS_FULL])
 
   useEffect(()=>{
     if (!callOpen) return
@@ -307,7 +314,7 @@ export default function Header() {
     mapCloseTimerRef.current = setTimeout(() => {
       mapCloseTimerRef.current = null
       setMapOpen(false)
-    }, 200)
+    }, 650)
   }
 
   useEffect(() => {
@@ -425,22 +432,59 @@ export default function Header() {
               data-testid='header-address-link'
             >
               <span className="font-semibold">Наша адреса:</span>
-              <span className="underline decoration-dotted">Івано-Франківськ, {SHOP_ADDRESS}</span>
+              <span className="underline decoration-dotted">{SHOP_ADDRESS_FULL}</span>
             </button>
 
             <div
               className={
-                "hidden md:block absolute left-0 top-full mt-2 w-[380px] h-[240px] rounded-2xl overflow-hidden shadow-2xl ring-1 ring-gray-200 bg-white z-50 origin-top-left transition duration-200 " +
+                "hidden md:block absolute left-1/2 top-full mt-2 -translate-x-1/2 w-[520px] h-[380px] rounded-2xl overflow-hidden shadow-2xl ring-1 ring-gray-200 bg-white z-50 origin-top transition duration-200 " +
                 (mapOpen ? 'opacity-100 scale-100 pointer-events-auto' : 'opacity-0 scale-[0.98] pointer-events-none')
               }
               onMouseEnter={openMapPreview}
               onMouseLeave={closeMapPreview}
               data-testid='header-address-map'
             >
+              <div className='p-3 border-b bg-white'>
+                <div className='flex flex-col items-center justify-center text-center gap-2'>
+                  <div className='min-w-0 flex flex-col items-center'>
+                    <div className='text-[11px] uppercase tracking-wide text-gray-500'>Адреса</div>
+                    <button
+                      type='button'
+                      className='text-sm font-semibold text-gray-900 break-words underline decoration-dotted hover:text-black'
+                      onClick={() => window.open(mapsUrl, '_blank')}
+                    >
+                      {SHOP_ADDRESS_FULL}
+                    </button>
+                    <div className='text-xs text-gray-600'>
+                      <a
+                        href={`tel:${SHOP_PHONE}`}
+                        className='inline-flex items-center justify-center underline decoration-dotted hover:text-black'
+                        onClick={() => {
+                          try {
+                            window.dataLayer = window.dataLayer || []
+                            window.dataLayer.push({ event: 'click_phone', phone_number: SHOP_PHONE, location: 'header_address_hover' })
+                          } catch {}
+                        }}
+                      >
+                        {SHOP_PHONE}
+                      </a>
+                    </div>
+                  </div>
+                </div>
+
+                <div className='mt-3 flex flex-wrap items-center justify-center gap-2 text-[11px] text-gray-700'>
+                  {SHOP_HOURS.map((x) => (
+                    <div key={x} className='rounded-full bg-gray-50 border border-gray-200 px-3 py-1 text-center shadow-sm'>
+                      {x}
+                    </div>
+                  ))}
+                </div>
+              </div>
+
               <iframe
                 title="map"
                 src={mapsEmbedUrl}
-                className="w-full h-full"
+                className="w-full h-[calc(100%-120px)]"
                 loading="lazy"
                 referrerPolicy="no-referrer-when-downgrade"
               />
