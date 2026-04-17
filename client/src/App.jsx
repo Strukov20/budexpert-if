@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useEffect } from 'react'
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import Header from './components/Header'
 import Footer from './components/Footer'
@@ -18,6 +18,18 @@ import ProductsSearch from './pages/ProductsSearch'
 export default function App(){
   const location = useLocation()
   const isAdminRoute = location.pathname === '/admin' || location.pathname.startsWith('/admin/')
+
+  useEffect(() => {
+    try {
+      const params = new URLSearchParams(location.search || '')
+      const promo = (params.get('promo') || '').toString().trim().toUpperCase()
+      if (!promo) return
+      if (promo === 'SOCIAL5') {
+        localStorage.setItem('active_promo', JSON.stringify({ code: 'SOCIAL5', percent: 5, appliedAt: Date.now() }))
+      }
+    } catch {}
+  }, [location.search])
+
   function RequireAdmin({ children }){
     const token = typeof window !== 'undefined' ? localStorage.getItem('admin_token') : null;
     if (!token) return <Navigate to="/admin/login" replace />

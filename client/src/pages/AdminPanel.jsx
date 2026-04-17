@@ -24,7 +24,8 @@ import {
   exportProductsXlsx, 
   importProductsXlsx, 
   getBanner, 
-  updateBanner 
+  updateBanner,
+  getPromos,
 } from '../api'
 import { FiEdit2, FiPlus, FiX, FiCheckCircle, FiAlertTriangle, FiEye, FiTrash2, FiRefreshCcw, FiMaximize2, FiMinimize2, FiSearch, FiDownload } from 'react-icons/fi'
 import ProductCard from '../components/ProductCard'
@@ -34,6 +35,7 @@ export default function AdminPanel(){
   const [products, setProducts] = useState([])
   const [categories, setCategories] = useState([])
   const [orders, setOrders] = useState([])
+  const [promos, setPromos] = useState([])
   const [leads, setLeads] = useState([])
   const [bannerImages, setBannerImages] = useState([])
   const [bannerOpen, setBannerOpen] = useState(false)
@@ -149,7 +151,7 @@ export default function AdminPanel(){
       const uploaded = []
       for (const f of files) {
         const { url, filename } = await uploadImage(f)
-        uploaded.push({ url, publicId: filename || '', link: '' })
+        uploaded.push({ url, filename })
       }
       setBannerImages(prev => ([...prev, ...uploaded]))
     } finally {
@@ -220,7 +222,7 @@ export default function AdminPanel(){
       const uploaded = []
       for (const f of files) {
         const { url, filename } = await uploadImage(f)
-        uploaded.push({ url, publicId: filename || '', link: '' })
+        uploaded.push({ url, filename })
       }
       setAboutGalleryImages(prev => ([...prev, ...uploaded]))
     } finally {
@@ -649,6 +651,15 @@ export default function AdminPanel(){
       } else {
         showToast(getErrMsg(bRes.reason), 'error')
       }
+
+      try {
+        const ps = await getPromos()
+        setPromos(Array.isArray(ps) ? ps : [])
+      } catch {
+        setPromos([])
+      }
+    }catch(err){
+      showToast(getErrMsg(err),'error')
     } finally {
       setLoadingAll(false)
     }
@@ -3190,6 +3201,7 @@ export default function AdminPanel(){
         </div>
       )}
       {/* Список товарів замінено на вибір у дропдауні зверху форми */}
+
       <div className={`${ordersFull ? 'fixed inset-0 z-50 bg-white p-4 overflow-auto' : 'mt-6'}`} data-testid='admin-orders-section'>
         <div className='flex items-center justify-between mb-2' data-testid='admin-orders-header'>
           <h3 className='text-lg font-semibold'>Замовлення</h3>
@@ -3268,7 +3280,20 @@ export default function AdminPanel(){
                       <td className='px-3 py-2'>{fmtDate(o.createdAt)}</td>
                       <td className='px-3 py-2'>{o.customerName}</td>
                       <td className='px-3 py-2'><a href={`tel:${o.phone}`} className='hover:underline'>{o.phone}</a></td>
-                      <td className='px-3 py-2 text-right font-semibold'>{(o.totalPrice||o.total||0).toFixed(2)} ₴</td>
+                      <td className='px-3 py-2 text-right font-semibold'>
+                        <div className='inline-flex items-center justify-end gap-2'>
+                          {(o.promoCode || o.promoPercent) && (
+                            <span
+                              className='px-2 py-0.5 rounded-full bg-red-600 text-white text-[10px] font-semibold'
+                              title={`Промокод: ${String(o.promoCode || '').toUpperCase()}${o.promoPercent ? ` (-${Number(o.promoPercent || 0)}%)` : ''}`}
+                              data-testid={`admin-order-${o._id}-promo-badge`}
+                            >
+                              SOCIAL
+                            </span>
+                          )}
+                          <span>{(o.totalPrice||o.total||0).toFixed(2)} ₴</span>
+                        </div>
+                      </td>
                       <td className='px-3 py-2 text-center'>
                         <select
                           className={`border rounded px-2 pr-8 py-1 text-sm font-medium cursor-pointer
@@ -3368,6 +3393,19 @@ export default function AdminPanel(){
                     })}
                   </tbody>
                 </table>
+                {((selectedOrder.promoCode || selectedOrder.promoPercent || selectedOrder.discountAmount || selectedOrder.subtotalPrice) ? (
+                  <div className='mt-2 text-right text-sm text-gray-700' data-testid='admin-order-details-promo'>
+                    {selectedOrder.subtotalPrice != null && (
+                      <div>Сума: {Number(selectedOrder.subtotalPrice || 0).toFixed(2)} ₴</div>
+                    )}
+                    {(selectedOrder.promoCode || selectedOrder.promoPercent) && (
+                      <div>Знижка: {String(selectedOrder.promoCode || '').toUpperCase()} {selectedOrder.promoPercent ? `-${Number(selectedOrder.promoPercent || 0)}%` : ''}</div>
+                    )}
+                    {selectedOrder.discountAmount != null && (
+                      <div>Знижка сума: −{Number(selectedOrder.discountAmount || 0).toFixed(2)} ₴</div>
+                    )}
+                  </div>
+                ) : null)}
                 <div className='mt-2 text-right font-semibold'>Разом: {(selectedOrder.totalPrice||0).toFixed(2)} ₴</div>
               </div>
               <div className='mt-4 flex justify-end gap-2'>
@@ -3377,6 +3415,68 @@ export default function AdminPanel(){
             </div>
           </div>
         )}
+
+      </div>
+
+      <div className='mt-6' data-testid='admin-promos-section'>
+        <div className='flex items-center justify-between mb-2' data-testid='admin-promos-header'>
+          <h3 className='text-lg font-semibold'>Промокоди</h3>
+          <button
+            className='w-10 h-10 inline-flex items-center justify-center border rounded hover:bg-gray-50 active:scale-95'
+            onClick={async ()=>{
+              try {
+                const ps = await getPromos()
+                setPromos(Array.isArray(ps) ? ps : [])
+                showToast('Промокоди оновлено', 'success')
+              } catch (err) {
+                showToast(getErrMsg(err), 'error')
+              }
+            }}
+            title='Оновити'
+            aria-label='Оновити'
+            data-testid='admin-promos-refresh'
+          >
+            <FiRefreshCcw />
+          </button>
+        </div>
+
+        <div className='bg-white rounded-2xl border shadow-sm overflow-hidden' data-testid='admin-promos-card'>
+          <div className='rounded-lg border m-3 overflow-auto' data-testid='admin-promos-table-scroll'>
+            <table className='min-w-full text-sm' data-testid='admin-promos-table'>
+              <thead className='bg-gray-50 sticky top-0 z-10'>
+                <tr>
+                  <th className='text-left px-3 py-2'>Активний</th>
+                  <th className='text-left px-3 py-2'>Промокод</th>
+                  <th className='text-center px-3 py-2'>%</th>
+                  <th className='text-center px-3 py-2'>Тип</th>
+                  <th className='text-center px-3 py-2'>Обмеження</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(Array.isArray(promos) && promos.length ? promos : []).map((p, idx) => (
+                  <tr key={(p?.code || idx) + '__promo'} className='h-12 border-t odd:bg-gray-50/40' data-testid={`admin-promo-${p?.code || idx}`}>
+                    <td className='px-3 py-2'>
+                      <span className='inline-flex items-center'>
+                        <span className='px-2 py-0.5 rounded-full bg-red-600 text-white text-[10px] font-semibold'>ACTIVE</span>
+                      </span>
+                    </td>
+                    <td className='px-3 py-2 font-mono text-xs'>
+                      {String(p?.code || '').toUpperCase()}
+                    </td>
+                    <td className='px-3 py-2 text-center font-semibold'>{Number(p?.percent || 0) || 0}%</td>
+                    <td className='px-3 py-2 text-center'>{p?.source === 'social' ? 'Соцмережі' : (p?.source || '')}</td>
+                    <td className='px-3 py-2 text-center'>{p?.oneTime === 'per_phone' ? '1 раз на телефон' : (p?.oneTime || '')}</td>
+                  </tr>
+                ))}
+                {(!Array.isArray(promos) || promos.length === 0) && (
+                  <tr>
+                    <td colSpan='5' className='px-3 py-6 text-center text-gray-500' data-testid='admin-promos-empty'>Немає активних промокодів</td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
       </div>
       
     </div>

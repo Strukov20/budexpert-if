@@ -15,6 +15,7 @@ import postRoutes from "./routes/post.js";
 import bannerRoutes from "./routes/banner.js";
 import merchantRoutes from "./routes/merchant.js";
 import geoRoutes from "./routes/geo.js";
+import promosRoutes from "./routes/promos.js";
 import helmet from "helmet";
 import mongoSanitize from "express-mongo-sanitize";
 import rateLimit from "express-rate-limit";
@@ -141,6 +142,7 @@ const startServer = async () => {
     app.use("/api/post", postRoutes);
     app.use("/api/banner", bannerRoutes);
     app.use("/api/geo", geoRoutes);
+    app.use("/api/promos", promosRoutes);
 
     // Google Merchant Center feeds (public)
     app.use("/", merchantRoutes);

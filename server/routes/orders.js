@@ -48,27 +48,61 @@ router.get("/:id", requireAdmin, async (req, res) => {
 // POST create order
 router.post("/", async (req, res) => {
   try {
-    const { customerName, phone, address, items } = req.body;
+    const { customerName, phone, address, items, promoCode } = req.body;
 
     const normalizedPhone = normalizeUaPhone(phone);
     if (!isUaMobilePhoneValid(normalizedPhone)) {
       return res.status(400).json({ message: 'Invalid phone' });
     }
 
-    // Підрахунок totalPrice
+    // Підрахунок subtotalPrice (завжди з актуальних цін з БД)
     const productIds = items.map((i) => i.productId);
     const products = await Product.find({ _id: { $in: productIds } });
-    let totalPrice = 0;
+    let subtotalPrice = 0;
 
     items.forEach((item) => {
       const prod = products.find((p) => p._id.equals(item.productId));
-      if (prod) totalPrice += prod.price * item.quantity;
+      if (prod) subtotalPrice += prod.price * item.quantity;
     });
 
-    const order = new Order({ customerName, phone: normalizedPhone, address, items, totalPrice });
+    const normalizedPromo = (promoCode || '').toString().trim().toUpperCase();
+    let promoPercent = 0;
+    let promoKey;
+    if (normalizedPromo) {
+      if (normalizedPromo === 'SOCIAL5') promoPercent = 5;
+      else {
+        return res.status(400).json({ message: 'Invalid promo code' });
+      }
+
+      // One-time promo: allow only once per phone number
+      promoKey = `${normalizedPromo}::${normalizedPhone}`;
+      const alreadyUsed = await Order.exists({ promoKey });
+      if (alreadyUsed) {
+        return res.status(400).json({ message: 'Promo code already used' });
+      }
+    }
+
+    const discountAmount = promoPercent > 0 ? (subtotalPrice * promoPercent) / 100 : 0;
+    const totalPrice = Math.max(0, subtotalPrice - discountAmount);
+
+    const order = new Order({
+      customerName,
+      phone: normalizedPhone,
+      address,
+      items,
+      promoCode: promoPercent ? normalizedPromo : undefined,
+      promoPercent: promoPercent ? promoPercent : undefined,
+      promoKey: promoPercent ? promoKey : undefined,
+      subtotalPrice,
+      discountAmount,
+      totalPrice,
+    });
     const saved = await order.save();
     res.status(201).json(saved);
   } catch (error) {
+    if (error && (error.code === 11000 || error.code === 11001)) {
+      return res.status(400).json({ message: 'Promo code already used' });
+    }
     res.status(500).json({ message: error.message });
   }
 });

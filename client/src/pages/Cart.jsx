@@ -45,6 +45,7 @@ const resolveSrc = (raw) => {
 
 export default function CartPage(){
   const navigate = useNavigate()
+  const [promo, setPromo] = useState(null)
   const [cart, setCart] = useState(() => {
     try {
       return JSON.parse(localStorage.getItem('cart')||'[]')
@@ -64,6 +65,20 @@ export default function CartPage(){
     return ()=> window.removeEventListener('add-to-cart', handler);
   },[]);
 
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem('active_promo')
+      if (!raw) return setPromo(null)
+      const parsed = JSON.parse(raw)
+      const code = (parsed?.code || '').toString().trim().toUpperCase()
+      const percent = Number(parsed?.percent || 0) || 0
+      if (code === 'SOCIAL5' && percent === 5) setPromo({ code, percent })
+      else setPromo(null)
+    } catch {
+      setPromo(null)
+    }
+  }, [])
+
   useEffect(()=> {
     localStorage.setItem('cart', JSON.stringify(cart));
     const ev = new Event('cart-updated');
@@ -80,7 +95,10 @@ export default function CartPage(){
     return q > 0 ? [{ ...x, quantity: q }] : [];
   }))
 
-  const total = cart.reduce((s,i)=> s + i.price * i.quantity, 0)
+  const subtotal = cart.reduce((s,i)=> s + i.price * i.quantity, 0)
+  const promoPercent = promo?.percent ? Number(promo.percent) : 0
+  const discountAmount = promoPercent > 0 ? (subtotal * promoPercent) / 100 : 0
+  const total = Math.max(0, subtotal - discountAmount)
   const fmt = new Intl.NumberFormat('uk-UA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 
   return (
@@ -133,7 +151,14 @@ export default function CartPage(){
               ))}
             </div>
             <div className='mt-2 md:mt-3 p-3 md:p-4 bg-gray-50 border border-gray-200 rounded-lg shadow-md flex flex-row items-center justify-between gap-2 md:gap-3'>
-              <div className='text-base md:text-lg font-bold' data-testid='cart-total'>Всього: {fmt.format(total)} ₴</div>
+              <div className='text-base md:text-lg font-bold' data-testid='cart-total'>
+                <div>Всього: {fmt.format(total)} ₴</div>
+                {promoPercent > 0 && (
+                  <div className='text-xs md:text-sm font-medium text-gray-600' data-testid='cart-discount'>
+                    Знижка ({promo?.code} -{promoPercent}%): −{fmt.format(discountAmount)} ₴
+                  </div>
+                )}
+              </div>
               <div className='flex gap-2 w-auto items-center justify-end md:justify-center'>
                 {/* Mobile: іконка кошика замість тексту */}
                 <a href='/checkout' aria-label='Оформити замовлення' className='btn btn--sm transition active:scale-95 w-10 h-10 flex items-center justify-center md:hidden' data-testid='cart-checkout-mobile'>
