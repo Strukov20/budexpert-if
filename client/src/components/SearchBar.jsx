@@ -209,15 +209,26 @@ export default function SearchBar({value, onChange, onSelect}){
           }
         }}
         placeholder='Пошук товарів...'
-        className='h-11 w-full bg-transparent border-0 pl-9 pr-9 text-base focus:ring-0 focus:outline-none'
+        className='h-11 w-full bg-transparent border-0 pl-9 pr-24 text-base focus:ring-0 focus:outline-none'
         data-testid='search-input'
       />
+
+      <button
+        type='button'
+        onClick={submitSearch}
+        className='absolute right-1 top-1 bottom-1 px-3 rounded-lg bg-white border border-gray-200 text-gray-700 text-sm font-semibold hover:bg-gray-50 hover:border-red-200 hover:text-red-700 active:scale-95 transition disabled:opacity-50 disabled:cursor-not-allowed'
+        disabled={!String(value || '').trim()}
+        data-testid='search-submit'
+      >
+        Пошук
+      </button>
+
       {value && (
         <button
           type='button'
           aria-label='Очистити'
           onClick={()=> onChange('')}
-          className='absolute inset-y-0 right-3 flex items-center text-gray-500 hover:text-black'
+          className='absolute inset-y-0 right-[76px] flex items-center text-gray-500 hover:text-black'
           data-testid='search-clear'
         >
           {/* Х */}

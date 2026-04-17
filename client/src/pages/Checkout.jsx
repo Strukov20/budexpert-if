@@ -9,6 +9,8 @@ export default function Checkout(){
   const [showThanks, setShowThanks] = useState(false)
   const [barWidth, setBarWidth] = useState('100%')
 
+  const [promo, setPromo] = useState(null)
+
   // Поля як у DeliveryLeadForm
   const [name, setName] = useState('')
   const [phoneRaw, setPhoneRaw] = useState('')
@@ -40,7 +42,24 @@ export default function Checkout(){
 
   useEffect(()=>{ const stored = JSON.parse(localStorage.getItem('cart')||'[]'); setCart(stored); },[])
 
-  const cartTotal = useMemo(() => cart.reduce((sum, item) => sum + (item.price || 0) * (item.quantity || 1), 0), [cart])
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem('active_promo')
+      if (!raw) return setPromo(null)
+      const parsed = JSON.parse(raw)
+      const code = (parsed?.code || '').toString().trim().toUpperCase()
+      const percent = Number(parsed?.percent || 0) || 0
+      if (code === 'SOCIAL5' && percent === 5) setPromo({ code, percent })
+      else setPromo(null)
+    } catch {
+      setPromo(null)
+    }
+  }, [])
+
+  const cartSubtotal = useMemo(() => cart.reduce((sum, item) => sum + (item.price || 0) * (item.quantity || 1), 0), [cart])
+  const promoPercent = promo?.percent ? Number(promo.percent) : 0
+  const discountAmount = useMemo(() => promoPercent > 0 ? (cartSubtotal * promoPercent) / 100 : 0, [cartSubtotal, promoPercent])
+  const cartTotal = useMemo(() => Math.max(0, cartSubtotal - discountAmount), [cartSubtotal, discountAmount])
   const moneyFmt = useMemo(() => new Intl.NumberFormat('uk-UA', { minimumFractionDigits: 2, maximumFractionDigits: 2 }), [])
 
   const deliveryCities = useMemo(()=>[
@@ -203,11 +222,16 @@ export default function Checkout(){
       phone: phone.replace(/\s+/g,'') ,
       address,
       items: cart.map(c=>({ productId: c._id, quantity: c.quantity })),
+      promoCode: promo?.code,
       total: cartTotal
     }
     try{
       setLoading(true)
       await createOrder(payload);
+
+      try {
+        localStorage.removeItem('active_promo')
+      } catch {}
 
       try {
         const orderId = `local_${Date.now()}`
@@ -258,6 +282,23 @@ export default function Checkout(){
         <div className='absolute -top-16 -right-16 w-56 h-56 rounded-full bg-red-100 blur-2xl opacity-70 pointer-events-none'></div>
         <div className='relative p-5 md:p-6'>
           <h2 className='text-2xl font-semibold mb-3'>Оформлення замовлення</h2>
+
+          <div className='mb-4 p-3 rounded-xl border bg-white/80 shadow-sm' data-testid='checkout-summary'>
+            <div className='flex items-center justify-between text-sm text-gray-700'>
+              <span>Сума</span>
+              <span className='font-semibold'>{moneyFmt.format(cartSubtotal)} ₴</span>
+            </div>
+            {promoPercent > 0 && (
+              <div className='flex items-center justify-between text-sm text-gray-700 mt-1' data-testid='checkout-summary-discount'>
+                <span>Знижка ({promo?.code} -{promoPercent}%)</span>
+                <span className='font-semibold text-red-700'>−{moneyFmt.format(discountAmount)} ₴</span>
+              </div>
+            )}
+            <div className='flex items-center justify-between text-base mt-2'>
+              <span className='font-semibold'>До сплати</span>
+              <span className='font-bold'>{moneyFmt.format(cartTotal)} ₴</span>
+            </div>
+          </div>
 
           {/* Прогрес-бар кроків: Кошик -> Дані та доставка -> Підтвердження */}
           <div className='mb-4 md:mb-5 flex justify-center'>

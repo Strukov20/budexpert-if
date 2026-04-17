@@ -170,12 +170,26 @@ export default function ProductCard({p, onAdd, categories, hideBadges}){
   const isOutOfStock = typeof p.stock === 'number' ? p.stock <= 0 : false;
   const inCart = qty > 0;
 
+  let promoPercent = 0;
+  try {
+    const raw = localStorage.getItem('active_promo')
+    if (raw) {
+      const parsed = JSON.parse(raw)
+      const code = (parsed?.code || '').toString().trim().toUpperCase()
+      const percent = Number(parsed?.percent || 0) || 0
+      if (code === 'SOCIAL5' && percent === 5) promoPercent = 5
+    }
+  } catch {}
+
   const rawDiscount = typeof p.discount === 'number'
     ? p.discount
     : Number(((p.discount ?? '') + '').replace('%', '').trim() || 0) || 0;
   const discount = Math.min(100, Math.max(0, rawDiscount));
   const hasDiscount = discount > 0;
-  const finalPrice = hasDiscount ? (p.price * (100 - discount)) / 100 : p.price;
+  const basePrice = hasDiscount ? (p.price * (100 - discount)) / 100 : p.price;
+  const hasPromo = promoPercent > 0;
+  const finalPrice = hasPromo ? (basePrice * (100 - promoPercent)) / 100 : basePrice;
+  const hasAnyDiscount = hasDiscount || hasPromo;
 
   const hasGallery = images.length > 1
   const goPrevImg = () => {
@@ -236,11 +250,18 @@ export default function ProductCard({p, onAdd, categories, hideBadges}){
               </div>
             </div>
           )}
-          {!hideBadges && hasDiscount && (
-            <div className="absolute top-1 left-1">
-              <div className="px-2 py-0.5 rounded-full bg-red-600 text-white text-[10px] md:text-xs font-semibold shadow">
-                АКЦІЯ -{discount}%
-              </div>
+          {!hideBadges && (hasDiscount || hasPromo) && (
+            <div className="absolute top-1 left-1 flex flex-col gap-1">
+              {hasDiscount && (
+                <div className="px-2 py-0.5 rounded-full bg-red-600 text-white text-[10px] md:text-xs font-semibold shadow">
+                  АКЦІЯ -{discount}%
+                </div>
+              )}
+              {hasPromo && (
+                <div className="px-2 py-0.5 rounded-full bg-black/80 text-white text-[10px] md:text-xs font-semibold shadow">
+                  SOCIAL -{promoPercent}%
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -286,17 +307,13 @@ export default function ProductCard({p, onAdd, categories, hideBadges}){
         </button>
         <div className="pt-2 md:pt-3 flex items-center justify-between">
           <div className="flex flex-col items-start">
-            {hasDiscount ? (
+            {hasAnyDiscount && (
               <div className="text-xs md:text-sm text-gray-400 line-through">
                 {fmt.format(p.price)} ₴
               </div>
-            ) : (
-              <div className="text-xs md:text-sm text-gray-400 line-through opacity-0" aria-hidden="true">
-                {fmt.format(p.price)} ₴
-              </div>
             )}
-            <div className={"font-bold text-base md:text-xl " + (hasDiscount ? 'text-red-600' : '')}>
-              {fmt.format(hasDiscount ? finalPrice : p.price)} ₴
+            <div className={"font-bold text-base md:text-xl " + (hasAnyDiscount ? 'text-red-600' : '')}>
+              {fmt.format(finalPrice)} ₴
             </div>
           </div>
           {/* Мобільні: кнопка "+", яка стає галочкою, якщо товар вже в кошику */}

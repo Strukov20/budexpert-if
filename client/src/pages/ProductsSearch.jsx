@@ -19,6 +19,20 @@ export default function ProductsSearch(){
   const [loadingCategories, setLoadingCategories] = useState(false)
   const topRef = useRef(null)
 
+  const [qInput, setQInput] = useState('')
+
+  const addToCart = (p) => {
+    try {
+      const stored = JSON.parse(localStorage.getItem('cart') || '[]')
+      const idx = stored.findIndex(x => x._id === p._id)
+      if (idx >= 0) stored[idx] = { ...stored[idx], quantity: (stored[idx].quantity || 1) + 1 }
+      else stored.push({ ...p, quantity: 1 })
+      localStorage.setItem('cart', JSON.stringify(stored))
+      const ev = new CustomEvent('add-to-cart', { detail: p })
+      window.dispatchEvent(ev)
+    } catch {}
+  }
+
   const q = useMemo(()=>{
     try {
       const params = new URLSearchParams(location.search || '')
@@ -27,6 +41,20 @@ export default function ProductsSearch(){
       return ''
     }
   }, [location.search])
+
+  useEffect(() => {
+    setQInput(q)
+  }, [q])
+
+  const applySearch = () => {
+    const next = (qInput || '').toString().trim()
+    let params
+    try { params = new URLSearchParams(location.search || '') } catch { params = new URLSearchParams() }
+    if (next) params.set('q', next)
+    else params.delete('q')
+    const qs = params.toString()
+    navigate('/products' + (qs ? `?${qs}` : ''))
+  }
 
   const shuffle = (arr)=>{
     const a = Array.isArray(arr) ? arr.slice() : []
@@ -242,6 +270,30 @@ export default function ProductsSearch(){
         </div>
 
         <div className='flex items-center gap-2 flex-wrap justify-end'>
+          <div className='min-w-[260px] relative'>
+            <input
+              value={qInput}
+              onChange={(e)=> setQInput(e.target.value)}
+              onKeyDown={(e)=>{
+                if (e.key === 'Enter') {
+                  e.preventDefault()
+                  applySearch()
+                }
+              }}
+              placeholder='Пошук товарів'
+              className='h-10 w-full rounded-lg border bg-white pl-3 pr-20 text-sm hover:bg-gray-50'
+              data-testid='products-search-input'
+            />
+            <button
+              type='button'
+              onClick={applySearch}
+              className='absolute right-1 top-1 bottom-1 px-3 rounded-md bg-red-600 text-white text-sm font-semibold hover:bg-red-700 active:scale-95 transition'
+              data-testid='products-search-submit'
+            >
+              Пошук
+            </button>
+          </div>
+
           <div className='min-w-[220px] relative'>
             <select
               value={category}
@@ -357,7 +409,7 @@ export default function ProductsSearch(){
           <>
             <div className='grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-4'>
               {items.map((p)=>(
-                <ProductCard key={p._id} p={p} />
+                <ProductCard key={p._id} p={p} onAdd={addToCart} categories={categories} />
               ))}
             </div>
 

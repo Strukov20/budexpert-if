@@ -92,6 +92,8 @@ export async function createOrder(payload){ const r = await api.post('/orders', 
 export async function deleteOrder(id){ const r = await api.delete(`/orders/${id}`); return r.data; }
 export async function updateOrder(id, payload){ const r = await api.put(`/orders/${id}`, payload); return r.data; }
 
+export async function getPromos(){ const r = await api.get('/promos'); return r.data; }
+
 // Заявки (доставка)
 export async function getLeads(params){ const r = await api.get('/leads', { params }); return r.data; }
 export async function createLead(payload){ const r = await api.post('/leads', payload); return r.data; }
