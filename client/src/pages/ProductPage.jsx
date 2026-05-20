@@ -48,6 +48,7 @@ export default function ProductPage(){
       }
       localStorage.setItem('cart', JSON.stringify(stored))
       window.dispatchEvent(new Event('cart-updated'))
+      window.dispatchEvent(new CustomEvent('add-to-cart', { detail: prod }))
     } catch {}
   }
 

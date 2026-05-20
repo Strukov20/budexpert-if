@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { getCategories, getProducts } from '../api'
+import { capFirst } from '../utils'
 import ProductCard from '../components/ProductCard'
 
 export default function ProductsSearch(){
@@ -311,7 +312,7 @@ export default function ProductsSearch(){
               <option value='__reset_cat'>Скинути категорію</option>
               {mainCategories.map((c)=> (
                 <option key={c?._id || c?.name} value={c?._id || ''}>
-                  {(c?.name || '').toString()}
+                  {capFirst((c?.name || '').toString())}
                 </option>
               ))}
             </select>
@@ -352,7 +353,7 @@ export default function ProductsSearch(){
               <option value='__reset_sub'>Скинути підкатегорію</option>
               {subcategoryOptions.map((c)=> (
                 <option key={c?._id || c?.name} value={c?._id || ''}>
-                  {(c?.name || '').toString()}
+                  {capFirst((c?.name || '').toString())}
                 </option>
               ))}
             </select>

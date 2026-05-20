@@ -2,6 +2,9 @@ import React, { useEffect } from 'react'
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import Header from './components/Header'
 import Footer from './components/Footer'
+import CartToast from './components/CartToast'
+import ScrollTopButton from './components/ScrollTopButton'
+import FloatingCart from './components/FloatingCart'
 import Home from './pages/Home'
 import CartPage from './pages/Cart'
 import Admin from './pages/AdminPanel'
@@ -18,6 +21,7 @@ import ProductsSearch from './pages/ProductsSearch'
 export default function App(){
   const location = useLocation()
   const isAdminRoute = location.pathname === '/admin' || location.pathname.startsWith('/admin/')
+  const isProductsPage = location.pathname === '/products'
 
   useEffect(() => {
     try {
@@ -59,6 +63,9 @@ export default function App(){
         </Routes>
       </main>
       <Footer />
+      <CartToast />
+      {isProductsPage && <FloatingCart />}
+      {isProductsPage && <ScrollTopButton />}
     </div>
   )
 }

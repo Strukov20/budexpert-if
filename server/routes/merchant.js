@@ -19,6 +19,22 @@ function stripHtml(input) {
     .trim()
 }
 
+const CUSTOM_LABEL_RULES = [
+  { match: 'будівельні суміші',    label: 'будівельні суміші' },
+  { match: 'матеріали для ремонту', label: 'матеріали для ремонту' },
+  { match: 'електротовари',         label: 'електротовари' },
+  { match: 'витратні матеріали',    label: 'витратні матеріали' },
+  { match: 'сантехніка',            label: 'сантехніка' },
+  { match: 'клеї',                  label: 'клеї' },
+]
+
+function resolveCustomLabel0(categoryName) {
+  const name = (categoryName || '').toString().toLowerCase().trim()
+  if (!name) return ''
+  const rule = CUSTOM_LABEL_RULES.find(r => name.includes(r.match))
+  return rule ? rule.label : ''
+}
+
 function pickBrandFromSpecs(specs) {
   if (!specs) return ''
   const obj = specs instanceof Map ? Object.fromEntries(specs) : specs
@@ -104,6 +120,9 @@ router.get('/google-shopping.xml', async (req, res) => {
 
       if (mpn) parts.push(`<g:mpn>${xmlEscape(mpn)}</g:mpn>`)
       if (categoryName) parts.push(`<g:product_type>${xmlEscape(categoryName)}</g:product_type>`)
+
+      const customLabel0 = resolveCustomLabel0(categoryName)
+      if (customLabel0) parts.push(`<g:custom_label_0>${xmlEscape(customLabel0)}</g:custom_label_0>`)
 
       parts.push('</item>')
       return parts.join('')

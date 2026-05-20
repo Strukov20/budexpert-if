@@ -1,6 +1,7 @@
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { FiShoppingCart, FiChevronLeft, FiChevronRight } from 'react-icons/fi'
+import { capFirst } from '../utils'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import rehypeSanitize from 'rehype-sanitize'
@@ -123,8 +124,8 @@ export default function ProductCard({p, onAdd, categories, hideBadges}){
       if (nextQ > 0) stored[idx] = { ...cur, quantity: nextQ };
       else stored.splice(idx, 1);
       localStorage.setItem('cart', JSON.stringify(stored));
-      const ev = new Event('cart-updated');
-      window.dispatchEvent(ev);
+      window.dispatchEvent(new Event('cart-updated'));
+      window.dispatchEvent(new CustomEvent('remove-from-cart', { detail: p }));
     } catch {}
   }
   const resolveSrc = (raw)=>{
@@ -205,21 +206,21 @@ export default function ProductCard({p, onAdd, categories, hideBadges}){
     const list = Array.isArray(categories) ? categories : []
     const id = p?.category
     const found = list.find(c => String(c?._id) === String(id))
-    return (found?.name || '').toString()
+    return capFirst((found?.name || '').toString())
   }, [categories, p?.category])
 
   const subcatName = useMemo(()=> {
     const list = Array.isArray(categories) ? categories : []
     const id = p?.subcategory
     const found = list.find(c => String(c?._id) === String(id))
-    return (found?.name || '').toString()
+    return capFirst((found?.name || '').toString())
   }, [categories, p?.subcategory])
 
   const typeName = useMemo(()=> {
     const list = Array.isArray(categories) ? categories : []
     const id = p?.type
     const found = list.find(c => String(c?._id) === String(id))
-    return (found?.name || '').toString()
+    return capFirst((found?.name || '').toString())
   }, [categories, p?.type])
 
   const goToProduct = ()=> {

@@ -85,15 +85,23 @@ export default function CartPage(){
     window.dispatchEvent(ev);
   }, [cart])
 
-  const remove = id => setCart(c=> c.filter(x=> x._id!==id))
+  const remove = id => {
+    const item = cart.find(x => x._id === id)
+    setCart(c => c.filter(x => x._id !== id))
+    if (item) window.dispatchEvent(new CustomEvent('remove-from-cart', { detail: item }))
+  }
   const clear = ()=> setCart([])
 
   const inc = id => setCart(c=> c.map(x=> x._id===id ? { ...x, quantity: (x.quantity||1)+1 } : x))
-  const dec = id => setCart(c=> c.flatMap(x=> {
-    if(x._id!==id) return [x];
-    const q = (x.quantity||1) - 1;
-    return q > 0 ? [{ ...x, quantity: q }] : [];
-  }))
+  const dec = id => {
+    const item = cart.find(x => x._id === id)
+    setCart(c => c.flatMap(x => {
+      if (x._id !== id) return [x]
+      const q = (x.quantity || 1) - 1
+      return q > 0 ? [{ ...x, quantity: q }] : []
+    }))
+    if (item) window.dispatchEvent(new CustomEvent('remove-from-cart', { detail: item }))
+  }
 
   const subtotal = cart.reduce((s,i)=> s + i.price * i.quantity, 0)
   const promoPercent = promo?.percent ? Number(promo.percent) : 0
@@ -123,7 +131,7 @@ export default function CartPage(){
               {cart.map(i=> (
                 <div key={i._id} className='p-3 bg-white rounded shadow flex flex-col sm:flex-row sm:flex-wrap md:flex-nowrap sm:items-center justify-between gap-3' data-testid={`cart-item-${i._id}`}>
                   <div className='flex items-center gap-3 min-w-0 flex-1 cursor-pointer pr-1 sm:pr-3 md:pr-4' onClick={()=> setSelected(i)} data-testid={`cart-item-${i._id}-open`}>
-                    <img src={resolveSrc(i.image) || NO_IMG_80} alt={i.name} className='w-14 h-14 sm:w-16 sm:h-16 md:w-20 md:h-20 object-cover rounded' />
+                    <img src={resolveSrc(i.images?.[0]?.url || i.image) || NO_IMG_80} alt={i.name} className='w-14 h-14 sm:w-16 sm:h-16 md:w-20 md:h-20 object-cover rounded' />
                     <div className='flex flex-col min-w-0'>
                       <div className='font-medium truncate' data-testid={`cart-item-${i._id}-name`}>{i.name}</div>
                       {i.sku && (
@@ -190,7 +198,7 @@ export default function CartPage(){
               </button>
               <div className='p-4 md:p-6'>
                 <div className='bg-gray-50 border rounded-xl shadow-sm p-2'>
-                  <img src={resolveSrc(live.image) || NO_IMG_LARGE} className='mx-auto w-full md:w-4/5 max-h-[32vh] md:max-h-[38vh] object-contain rounded-md' alt={live.name} data-testid='cart-item-modal-image' />
+                  <img src={resolveSrc(live.images?.[0]?.url || live.image) || NO_IMG_LARGE} className='mx-auto w-full md:w-4/5 max-h-[32vh] md:max-h-[38vh] object-contain rounded-md' alt={live.name} data-testid='cart-item-modal-image' />
                 </div>
                 <h3 className='mt-4 text-2xl font-semibold tracking-tight text-center' data-testid='cart-item-modal-title'>{live.name}</h3>
                 {live.sku && (

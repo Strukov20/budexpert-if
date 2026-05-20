@@ -554,7 +554,7 @@ export default function Header() {
                       {items.slice(0,5).map(i => (
                         <div key={i._id} className="py-2 flex items-center gap-3">
                           <div className="flex items-center gap-2 min-w-0 flex-1">
-                            <img src={resolveThumbSrc(i.image) || NO_IMG_56} alt={i.name} className="w-12 h-12 object-cover rounded" />
+                            <img src={resolveThumbSrc(i.images?.[0]?.url || i.image) || NO_IMG_56} alt={i.name} className="w-12 h-12 object-cover rounded" />
                             <div className="min-w-0">
                               <div className="text-sm font-medium break-words">{i.name}</div>
                               <div className="text-xs text-gray-600">

@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import { getProducts, getCategories, getProductCounts } from '../api'
+import { capFirst } from '../utils'
 import ProductCard from '../components/ProductCard'
 import Pagination from '../components/Pagination'
 import DeliveryLeadForm from '../components/DeliveryLeadForm'
@@ -699,7 +700,7 @@ export default function Home(){
                       <option value=''>Всі категорії</option>
                       {mainCategories.map(c=> (
                         <option key={c._id} value={c._id}>
-                          {`${c.name}${countFor(c._id, counts.byCategory) ? ` (${countFor(c._id, counts.byCategory)})` : ''}`}
+                          {`${capFirst(c.name)}${countFor(c._id, counts.byCategory) ? ` (${countFor(c._id, counts.byCategory)})` : ''}`}
                         </option>
                       ))}
                     </select>
@@ -764,7 +765,7 @@ export default function Home(){
                                     onClick={()=> pickCategory(c._id)}
                                   >
                                     <div className='flex items-center justify-between gap-3 min-w-0'>
-                                      <span className='truncate flex-1 min-w-0'>{c.name}</span>
+                                      <span className='truncate flex-1 min-w-0'>{capFirst(c.name)}</span>
                                       {n > 0 && (
                                         <span className='ml-3 text-xs font-semibold text-gray-600 bg-gray-100 border border-gray-200 rounded-full px-2 py-0.5'>
                                           {n}
@@ -811,7 +812,7 @@ export default function Home(){
                                         >
                                           <div className='flex items-center gap-3 min-w-0'>
                                             <span className={`h-5 w-1 rounded-full ${String(subcat)===String(sc._id) && !type ? 'bg-red-500' : 'bg-transparent group-hover:bg-red-300'}`} />
-                                            <div className='text-[15px] leading-snug text-gray-900 truncate flex-1'>{sc.name}</div>
+                                            <div className='text-[15px] leading-snug text-gray-900 truncate flex-1'>{capFirst(sc.name)}</div>
                                             {n > 0 && (
                                               <span className='ml-2 text-xs font-semibold text-gray-600 bg-gray-100 border border-gray-200 rounded-full px-2 py-0.5 flex-shrink-0'>
                                                 {n}
@@ -858,7 +859,7 @@ export default function Home(){
                                         >
                                           <div className='flex items-center gap-3 min-w-0'>
                                             <span className={`h-5 w-1 rounded-full ${String(type)===String(t._id) ? 'bg-red-500' : 'bg-transparent group-hover:bg-red-300'}`} />
-                                            <div className='text-[15px] leading-snug text-gray-900 truncate flex-1'>{t.name}</div>
+                                            <div className='text-[15px] leading-snug text-gray-900 truncate flex-1'>{capFirst(t.name)}</div>
                                             {n > 0 && (
                                               <span className='ml-2 text-xs font-semibold text-gray-600 bg-gray-100 border border-gray-200 rounded-full px-2 py-0.5 flex-shrink-0'>
                                                 {n}
@@ -889,9 +890,9 @@ export default function Home(){
                         type='button'
                         className={`px-1.5 py-1 rounded-md transition font-medium truncate max-w-[260px] ${cat && !subcat && !type ? 'text-primary font-semibold' : 'text-gray-700 hover:text-gray-900 hover:underline'}`}
                         onClick={()=> pickCategory(cat)}
-                        title={catObj?.name || 'Категорія'}
+                        title={capFirst(catObj?.name || 'Категорія')}
                       >
-                        {catObj?.name || 'Категорія'}
+                        {capFirst(catObj?.name || 'Категорія')}
                       </button>
                     )}
 
@@ -906,9 +907,9 @@ export default function Home(){
                           type='button'
                           className={`px-1.5 py-1 rounded-md transition font-medium truncate max-w-[260px] ${subcat && !type ? 'text-primary font-semibold' : 'text-gray-700 hover:text-gray-900 hover:underline'}`}
                           onClick={()=> pickSubcategory(cat, subcat)}
-                          title={subObj?.name || 'Підкатегорія'}
+                          title={capFirst(subObj?.name || 'Підкатегорія')}
                         >
-                          {subObj?.name || 'Підкатегорія'}
+                          {capFirst(subObj?.name || 'Підкатегорія')}
                         </button>
                       </>
                     )}
@@ -922,9 +923,9 @@ export default function Home(){
                         </span>
                         <span
                           className='px-1.5 py-1 rounded-md text-primary font-semibold truncate max-w-[280px]'
-                          title={typeObj?.name || 'Тип'}
+                          title={capFirst(typeObj?.name || 'Тип')}
                         >
-                          {typeObj?.name || 'Тип'}
+                          {capFirst(typeObj?.name || 'Тип')}
                         </span>
                       </>
                     )}
