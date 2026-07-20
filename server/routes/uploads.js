@@ -3,6 +3,7 @@ import multer from 'multer'
 import path from 'path'
 import fs from 'fs'
 import { v2 as cloudinary } from 'cloudinary'
+import requireAdmin from '../middleware/auth.js'
 
 const router = express.Router()
 
@@ -36,8 +37,8 @@ const upload = multer({
   }
 })
 
-// POST /api/uploads (form-data: file)
-router.post('/', upload.single('file'), async (req, res) => {
+// POST /api/uploads (form-data: file, admin only)
+router.post('/', requireAdmin, upload.single('file'), async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ message: 'Файл не отримано' })
 

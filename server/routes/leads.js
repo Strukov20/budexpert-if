@@ -58,8 +58,8 @@ router.post('/', async (req, res) => {
   }
 })
 
-// List leads (latest first)
-router.get('/', async (req, res) => {
+// List leads (latest first, admin only)
+router.get('/', requireAdmin, async (req, res) => {
   try {
     const { active } = req.query
     const query = {}
@@ -83,8 +83,8 @@ router.get('/', async (req, res) => {
   }
 })
 
-// Update lead (status)
-router.put('/:id', async (req, res) => {
+// Update lead (status, admin only)
+router.put('/:id', requireAdmin, async (req, res) => {
   try {
     const { id } = req.params
     const { status } = req.body

@@ -3300,7 +3300,16 @@ export default function AdminPanel(){
                       </td>
                       <td className='px-3 py-2 text-right'>
                         <button className='px-2 py-1 border rounded hover:bg-black hover:text-white transition' onClick={()=>{ setSelectedOrder({ ...o }); setOrderStatusEdit(o.status||'new'); setOrderNote(o.note||'') }} data-testid={`admin-order-${o._id}-details`}>Деталі</button>
-                        <button className='ml-2 px-2 py-1 border rounded text-red-600 hover:bg-red-600 hover:text-white transition' onClick={()=> handleDeleteOrder(o._id)} data-testid={`admin-order-${o._id}-delete`}>Видалити</button>
+                        <button
+                          type='button'
+                          className='ml-2 inline-flex items-center justify-center w-9 h-9 border rounded-lg text-red-600 hover:bg-red-600 hover:text-white transition'
+                          onClick={()=> handleDeleteOrder(o._id)}
+                          title='Видалити'
+                          aria-label='Видалити'
+                          data-testid={`admin-order-${o._id}-delete`}
+                        >
+                          <FiTrash2 size={16} />
+                        </button>
                       </td>
                     </tr>
                   ))

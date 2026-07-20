@@ -31,3 +31,5 @@ npm run test:api:docker  # mongo:test:up + test:api
 - `ADMIN_USER=admin`, `ADMIN_PASS=admin123`, `ADMIN_JWT_SECRET=dev-admin-secret`
 
 **How to apply:** Нові тести писати як `*.api.spec.js`. Ніколи не запускати тести проти prod URI.
+
+**Update (2026-07-20):** директорія `tests/` (testDir у `playwright.config.js`) у поточному чекауті відсутня, хоча скрипти (`test:api` тощо) та конфіг лишились — тестів реально нема. Перш ніж покладатись на `npm run test:api`, перевірити `ls tests/`.

@@ -65,6 +65,14 @@ const MONGO_URI = process.env.MONGO_URI || "mongodb://localhost:27017/shop";
 const NODE_ENV = process.env.NODE_ENV || "development";
 const TEST_ENV = process.env.TEST_ENV || "";
 const isTestMode = NODE_ENV === "test" || TEST_ENV === "test";
+
+// У продакшені небезпечно мовчки падати на дефолтні admin-креденшли/JWT-секрет
+if (NODE_ENV === "production") {
+  const missing = ["ADMIN_USER", "ADMIN_PASS", "ADMIN_JWT_SECRET"].filter(k => !process.env[k]);
+  if (missing.length) {
+    throw new Error(`Відсутні обов'язкові env-змінні для продакшену: ${missing.join(", ")}`);
+  }
+}
 const allowRemoteDbInTest = String(process.env.ALLOW_REMOTE_DB_IN_TEST || "").toLowerCase() === "true";
 
 const maskMongoUri = (uri) => {
