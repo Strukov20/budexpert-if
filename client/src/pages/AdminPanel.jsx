@@ -6,8 +6,7 @@ import {
   createProduct,
   updateProduct,
   deleteProduct,
-  deleteAllProducts,
-  createCategory, 
+  createCategory,
   getOrders, 
   deleteOrder, 
   uploadImage, 
@@ -48,7 +47,6 @@ export default function AdminPanel(){
   const [loadingAll, setLoadingAll] = useState(false)
   const [savingProduct, setSavingProduct] = useState(false)
   const [deletingProductId, setDeletingProductId] = useState('')
-  const [deletingAllProductsLoading, setDeletingAllProductsLoading] = useState(false)
   const [deletingLeadId, setDeletingLeadId] = useState('')
   const [leadsFull, setLeadsFull] = useState(false)
   const [ordersFull, setOrdersFull] = useState(false)
@@ -299,25 +297,39 @@ export default function AdminPanel(){
     }
   }
 
-  // CSV простий парсер (підтримка лапок)
+  // CSV парсер (підтримка лапок, ком та переносів рядків всередині квотованих полів)
   function parseCsv(text){
-    const lines = text.split(/\r?\n/).filter(l=> l.trim().length>0)
-    if (lines.length===0) return []
-    const split = (row)=>{
-      const out=[]; let cur=''; let inQ=false
-      for(let i=0;i<row.length;i++){
-        const ch=row[i]
+    const rows = []
+    let row = []
+    let cur = ''
+    let inQ = false
+    for(let i=0;i<text.length;i++){
+      const ch = text[i]
+      if(inQ){
         if(ch==='"'){
-          if(inQ && row[i+1]==='"'){ cur+='"'; i++; }
-          else inQ=!inQ
-        } else if(ch===',' && !inQ){ out.push(cur); cur=''; }
-        else { cur+=ch }
+          if(text[i+1]==='"'){ cur+='"'; i++; }
+          else inQ=false
+        } else {
+          cur+=ch
+        }
+      } else if(ch==='"'){
+        inQ=true
+      } else if(ch===','){
+        row.push(cur); cur=''
+      } else if(ch==='\r'){
+        // ignore, обробляється разом з \n
+      } else if(ch==='\n'){
+        row.push(cur); cur=''; rows.push(row); row=[]
+      } else {
+        cur+=ch
       }
-      out.push(cur); return out
     }
-    const header = split(lines[0]).map(h=> h.trim())
-    return lines.slice(1).map(line=>{
-      const cols = split(line)
+    if(cur.length>0 || row.length>0){ row.push(cur); rows.push(row) }
+
+    const dataRows = rows.filter(r=> r.some(c=> c.trim().length>0))
+    if (dataRows.length===0) return []
+    const header = dataRows[0].map(h=> h.trim())
+    return dataRows.slice(1).map(cols=>{
       const obj = {}
       header.forEach((h,idx)=>{ obj[h] = (cols[idx]||'').trim() })
       return obj
@@ -734,21 +746,6 @@ export default function AdminPanel(){
       showToast(getErrMsg(err),'error')
     } finally {
       setDeletingProductId('')
-    }
-  }
-
-  const handleDeleteAllProducts = async ()=>{
-    if (deletingAllProductsLoading) return
-    if(!confirm('Видалити всі товари? Дію не можна скасувати.')) return;
-    setDeletingAllProductsLoading(true)
-    try{
-      const res = await deleteAllProducts();
-      loadAll();
-      showToast(`Видалено товарів: ${res?.deletedCount ?? 0}`,'success')
-    } catch(err){
-      showToast(getErrMsg(err),'error')
-    } finally {
-      setDeletingAllProductsLoading(false)
     }
   }
 
@@ -1721,7 +1718,7 @@ export default function AdminPanel(){
                 data-testid='admin-products-import-open'
               >
                 <FiPlus size={18} />
-                <span>Імпорт товарів</span>
+                <span>Імпорт Товарів CSV</span>
               </button>
               <button
                 type='button'
@@ -1749,16 +1746,6 @@ export default function AdminPanel(){
               >
                 <FiPlus size={18} />
                 <span>Імпорт XLSX</span>
-              </button>
-              <button
-                type='button'
-                onClick={handleDeleteAllProducts}
-                className='inline-flex items-center justify-center w-10 h-10 border rounded text-red-600 hover:bg-red-600 hover:text-white transition'
-                title='Видалити всі товари'
-                aria-label='Видалити всі товари'
-                data-testid='admin-products-delete-all'
-              >
-                <FiTrash2 size={18} />
               </button>
               <span className='inline-block w-px h-6 bg-gray-200' aria-hidden='true' />
               <button

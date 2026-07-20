@@ -10,6 +10,19 @@ const router = express.Router();
 
 const escapeRegExp = (s) => String(s || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
+// Прибирає поля з порожнім значенням, щоб імпорт (CSV/XLSX) не затирав
+// наявні дані товару, коли колонка відсутня або порожня у файлі.
+const stripEmptyForUpdate = (obj) => {
+  const out = {};
+  for (const [key, value] of Object.entries(obj)) {
+    if (value === '' || value === undefined || value === null) continue;
+    if (Array.isArray(value) && value.length === 0) continue;
+    if (typeof value === 'object' && !Array.isArray(value) && Object.keys(value).length === 0) continue;
+    out[key] = value;
+  }
+  return out;
+};
+
 const importUpload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 10 * 1024 * 1024 },
@@ -438,7 +451,7 @@ router.post('/import/xlsx', requireAdmin, importUpload.single('file'), async (re
         ops.push({
           updateOne: {
             filter: { _id: idRaw },
-            update: { $set: base },
+            update: { $set: stripEmptyForUpdate(base) },
             upsert: false,
           }
         });
@@ -446,7 +459,7 @@ router.post('/import/xlsx', requireAdmin, importUpload.single('file'), async (re
         ops.push({
           updateOne: {
             filter: { sku },
-            update: { $set: base, $setOnInsert: { sku } },
+            update: { $set: stripEmptyForUpdate(base), $setOnInsert: { sku } },
             upsert: true,
           }
         });
@@ -588,11 +601,9 @@ router.post("/bulk", requireAdmin, async (req, res) => {
       if (uniqueBySku.length) {
         const ops = uniqueBySku.map(d => {
           const { sku, _id, __v, ...rest } = d;
-          const update = { $set: { ...rest }, $setOnInsert: { sku } };
-          // Гарантуємо, що name теж оновиться, якщо передано
-          if (rest.name) {
-            update.$set.name = rest.name;
-          }
+          // Порожні/відсутні поля з файлу імпорту не повинні затирати наявні
+          // дані товару (напр. опис) при оновленні за sku.
+          const update = { $set: stripEmptyForUpdate(rest), $setOnInsert: { sku } };
           return {
             updateOne: {
               filter: { sku },
