@@ -1,8 +1,12 @@
 import express from 'express'
+import rateLimit from 'express-rate-limit'
 import Lead from '../models/Lead.js'
 import requireAdmin from '../middleware/auth.js'
 
 const router = express.Router()
+
+// Публічне створення заявки без авторизації — обмежуємо від спаму
+const createLeadLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 30 })
 
 const UA_MOBILE_OPERATOR_CODES = new Set([
   '39','50','63','66','67','68','73','89','91','92','93','94','95','96','97','98','99'
@@ -24,7 +28,7 @@ const isUaMobilePhoneValid = (v) => {
 }
 
 // Create lead
-router.post('/', async (req, res) => {
+router.post('/', createLeadLimiter, async (req, res) => {
   try {
     const { type, name, phone, city, street, house, datetime } = req.body
     const t = (type || 'delivery').toString()

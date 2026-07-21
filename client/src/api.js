@@ -68,13 +68,14 @@ export async function deleteProduct(id){ const r = await api.delete(`/products/$
 export async function bulkCreateProducts(items){ const r = await api.post('/products/bulk', items); return r.data; }
 export async function deleteAllProducts(){ const r = await api.delete('/products', { params: { confirm: true } }); return r.data; }
 export async function exportProductsCsv(){ return api.get('/products/export/all', { responseType: 'blob' }); }
-export async function exportProductsXlsx(){ return api.get('/products/export/xlsx', { responseType: 'blob' }); }
-export async function importProductsXlsx(file){
-  const fd = new FormData();
-  fd.append('file', file);
-  const r = await api.post('/products/import/xlsx', fd, { headers: { 'Content-Type': 'multipart/form-data' } });
-  return r.data;
-}
+// XLSX імпорт/експорт вимкнено на бекенді (вразливий пакет "xlsx") — залишено тільки CSV.
+// export async function exportProductsXlsx(){ return api.get('/products/export/xlsx', { responseType: 'blob' }); }
+// export async function importProductsXlsx(file){
+//   const fd = new FormData();
+//   fd.append('file', file);
+//   const r = await api.post('/products/import/xlsx', fd, { headers: { 'Content-Type': 'multipart/form-data' } });
+//   return r.data;
+// }
 
 export async function syncProductsBySku({ skus, dryRun } = {}){
   const r = await api.post('/products/sync/sku', { skus, dryRun: Boolean(dryRun) });

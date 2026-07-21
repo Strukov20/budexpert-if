@@ -1,9 +1,13 @@
 import express from "express";
+import rateLimit from "express-rate-limit";
 import Order from "../models/Order.js";
 import Product from "../models/Product.js";
 import requireAdmin from "../middleware/auth.js";
 
 const router = express.Router();
+
+// Публічне створення замовлення без авторизації — обмежуємо від спаму
+const createOrderLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 30 });
 
 const UA_MOBILE_OPERATOR_CODES = new Set([
   '39','50','63','66','67','68','73','89','91','92','93','94','95','96','97','98','99'
@@ -46,7 +50,7 @@ router.get("/:id", requireAdmin, async (req, res) => {
 });
 
 // POST create order
-router.post("/", async (req, res) => {
+router.post("/", createOrderLimiter, async (req, res) => {
   try {
     const { customerName, phone, address, items, promoCode } = req.body;
 

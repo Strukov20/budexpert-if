@@ -3,8 +3,9 @@ import Product from "../models/Product.js";
 import requireAdmin from "../middleware/auth.js";
 import Category from "../models/Category.js";
 import { v2 as cloudinary } from "cloudinary";
-import multer from "multer";
-import * as XLSX from "xlsx";
+// XLSX import/export вимкнено (вразливий пакет "xlsx", CVE) — залишено тільки CSV.
+// import multer from "multer";
+// import * as XLSX from "xlsx";
 
 const router = express.Router();
 
@@ -23,10 +24,10 @@ const stripEmptyForUpdate = (obj) => {
   return out;
 };
 
-const importUpload = multer({
-  storage: multer.memoryStorage(),
-  limits: { fileSize: 10 * 1024 * 1024 },
-});
+// const importUpload = multer({
+//   storage: multer.memoryStorage(),
+//   limits: { fileSize: 10 * 1024 * 1024 },
+// });
 
 const normalizeImagesInput = (images) => {
   if (!Array.isArray(images)) return undefined;
@@ -261,54 +262,56 @@ router.post('/sync/sku', requireAdmin, async (req, res) => {
   }
 });
 
-// GET /api/products/export/xlsx
-// Експорт усіх товарів у XLSX
-router.get('/export/xlsx', requireAdmin, async (_req, res) => {
-  try {
-    const items = await Product.find({})
-      .populate('category')
-      .populate('subcategory')
-      .populate('type')
-      .sort({ createdAt: -1 })
-      .lean();
+// GET /api/products/export/xlsx — вимкнено разом з XLSX-імпортом (див. коментар біля import вгорі)
+// router.get('/export/xlsx', requireAdmin, async (_req, res) => {
+//   try {
+//     const items = await Product.find({})
+//       .populate('category')
+//       .populate('subcategory')
+//       .populate('type')
+//       .sort({ createdAt: -1 })
+//       .lean();
+//
+//     const rows = (Array.isArray(items) ? items : []).map((p) => {
+//       const specsObj = p?.specs ? Object.fromEntries(Object.entries(p.specs)) : {};
+//       const imagesArr = Array.isArray(p?.images) ? p.images : [];
+//       return {
+//         _id: p?._id ? String(p._id) : '',
+//         name: p?.name || '',
+//         price: p?.price ?? '',
+//         discount: p?.discount ?? '',
+//         stock: p?.stock ?? '',
+//         unit: p?.unit || '',
+//         sku: p?.sku || '',
+//         description: p?.description || '',
+//         specs: JSON.stringify(specsObj),
+//         images: JSON.stringify(imagesArr),
+//         image: p?.image || '',
+//         imagePublicId: p?.imagePublicId || '',
+//         categoryName: p?.category?.name || '',
+//         subcategoryName: p?.subcategory?.name || '',
+//         typeName: p?.type?.name || '',
+//         createdAt: p?.createdAt ? new Date(p.createdAt).toISOString() : '',
+//         updatedAt: p?.updatedAt ? new Date(p.updatedAt).toISOString() : '',
+//       };
+//     });
+//
+//     const wb = XLSX.utils.book_new();
+//     const ws = XLSX.utils.json_to_sheet(rows, { skipHeader: false });
+//     XLSX.utils.book_append_sheet(wb, ws, 'Products');
+//
+//     const buffer = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
+//     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+//     res.setHeader('Content-Disposition', 'attachment; filename="products-export.xlsx"');
+//     res.send(buffer);
+//   } catch (e) {
+//     res.status(500).json({ message: 'Не вдалося сформувати XLSX', error: e?.message });
+//   }
+// });
 
-    const rows = (Array.isArray(items) ? items : []).map((p) => {
-      const specsObj = p?.specs ? Object.fromEntries(Object.entries(p.specs)) : {};
-      const imagesArr = Array.isArray(p?.images) ? p.images : [];
-      return {
-        _id: p?._id ? String(p._id) : '',
-        name: p?.name || '',
-        price: p?.price ?? '',
-        discount: p?.discount ?? '',
-        stock: p?.stock ?? '',
-        unit: p?.unit || '',
-        sku: p?.sku || '',
-        description: p?.description || '',
-        specs: JSON.stringify(specsObj),
-        images: JSON.stringify(imagesArr),
-        image: p?.image || '',
-        imagePublicId: p?.imagePublicId || '',
-        categoryName: p?.category?.name || '',
-        subcategoryName: p?.subcategory?.name || '',
-        typeName: p?.type?.name || '',
-        createdAt: p?.createdAt ? new Date(p.createdAt).toISOString() : '',
-        updatedAt: p?.updatedAt ? new Date(p.updatedAt).toISOString() : '',
-      };
-    });
-
-    const wb = XLSX.utils.book_new();
-    const ws = XLSX.utils.json_to_sheet(rows, { skipHeader: false });
-    XLSX.utils.book_append_sheet(wb, ws, 'Products');
-
-    const buffer = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
-    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.setHeader('Content-Disposition', 'attachment; filename="products-export.xlsx"');
-    res.send(buffer);
-  } catch (e) {
-    res.status(500).json({ message: 'Не вдалося сформувати XLSX', error: e?.message });
-  }
-});
-
+// XLSX-імпорт вимкнено разом з експортом (вразливий пакет "xlsx"). Хелпери й маршрут
+// нижче лишені закоментованими на випадок повернення до XLSX у майбутньому.
+/*
 const normalizeString = (v) => {
   if (v === null || v === undefined) return '';
   return String(v).trim();
@@ -488,6 +491,7 @@ router.post('/import/xlsx', requireAdmin, importUpload.single('file'), async (re
     return res.status(500).json({ message: 'Не вдалося імпортувати XLSX', error: e?.message });
   }
 });
+*/
 
 // POST /api/products
 router.post("/", requireAdmin, async (req, res) => {

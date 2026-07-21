@@ -19,10 +19,10 @@ import {
   updateLead, 
   deleteLead, // <--- added import
   bulkCreateProducts, 
-  exportProductsCsv, 
-  exportProductsXlsx, 
-  importProductsXlsx, 
-  getBanner, 
+  exportProductsCsv,
+  // exportProductsXlsx, // XLSX вимкнено, залишено тільки CSV
+  // importProductsXlsx,
+  getBanner,
   updateBanner,
   getPromos,
 } from '../api'
@@ -108,7 +108,7 @@ export default function AdminPanel(){
   const [uploading, setUploading] = useState(false)
   const [toasts, setToasts] = useState([]) // {id, open, type, message}
   const importInputRef = useRef(null)
-  const importXlsxInputRef = useRef(null)
+  // const importXlsxInputRef = useRef(null) // XLSX вимкнено, залишено тільки CSV
 
   const [imgModalOpen, setImgModalOpen] = useState(false)
   const [imgModalIndex, setImgModalIndex] = useState(0)
@@ -280,22 +280,23 @@ export default function AdminPanel(){
     }
   }
 
-  async function handleExportXlsx(){
-    try{
-      const res = await exportProductsXlsx();
-      const blob = new Blob([res.data], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'products-export.xlsx';
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      window.URL.revokeObjectURL(url);
-    }catch(err){
-      showToast(getErrMsg(err),'error');
-    }
-  }
+  // XLSX-експорт вимкнено разом з імпортом (вразливий пакет "xlsx" на бекенді) — залишено тільки CSV.
+  // async function handleExportXlsx(){
+  //   try{
+  //     const res = await exportProductsXlsx();
+  //     const blob = new Blob([res.data], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+  //     const url = window.URL.createObjectURL(blob);
+  //     const a = document.createElement('a');
+  //     a.href = url;
+  //     a.download = 'products-export.xlsx';
+  //     document.body.appendChild(a);
+  //     a.click();
+  //     a.remove();
+  //     window.URL.revokeObjectURL(url);
+  //   }catch(err){
+  //     showToast(getErrMsg(err),'error');
+  //   }
+  // }
 
   // CSV парсер (підтримка лапок, ком та переносів рядків всередині квотованих полів)
   function parseCsv(text){
@@ -340,9 +341,9 @@ export default function AdminPanel(){
     importInputRef.current?.click()
   }
 
-  async function handleImportXlsxClick(){
-    importXlsxInputRef.current?.click()
-  }
+  // async function handleImportXlsxClick(){
+  //   importXlsxInputRef.current?.click()
+  // }
 
   async function handleImportFile(e){
     const file = e.target.files?.[0]
@@ -426,47 +427,47 @@ export default function AdminPanel(){
     }
   }
 
-  async function handleImportXlsxFile(e){
-    const file = e.target.files?.[0]
-    if(!file) return
-    try{
-      const res = await importProductsXlsx(file)
-      const inserted = Number(res?.inserted ?? 0)
-      const updated = Number(res?.updated ?? 0)
-      const skipped = Number(res?.skipped ?? 0)
-      showToast(`XLSX імпорт: додано ${inserted}, оновлено ${updated}, пропущено ${skipped}`,'success')
-
-      // 3) SKU sync: проставити stock=0 для товарів з SKU, яких немає у XLSX
-      try {
-        const keepSkus = Array.from(new Set(
-          (Array.isArray(res?.skus) ? res.skus : [])
-            .map(s=> (s||'').toString().trim())
-            .filter(Boolean)
-        ))
-
-        if (keepSkus.length > 0) {
-          const preview = await syncProductsBySku({ skus: keepSkus, dryRun: true })
-          const toMarkCount = Number(preview?.toMarkCount ?? 0)
-          if (toMarkCount > 0) {
-            const ok = confirm(`XLSX імпорт завершено. Знайдено ${toMarkCount} товар(ів) з SKU, яких немає у файлі. Проставити кількість = 0 (немає в наявності) та знижку = 0?`)
-            if (ok) {
-              const delRes = await syncProductsBySku({ skus: keepSkus, dryRun: false })
-              const markedCount = Number(delRes?.markedCount ?? 0)
-              showToast(`Синхронізація SKU: кількість=0 і знижка=0 для ${markedCount}`,'success')
-            }
-          }
-        }
-      } catch (err) {
-        showToast(getErrMsg(err),'error')
-      }
-
-      loadAll()
-    } catch(err){
-      showToast(getErrMsg(err),'error')
-    } finally {
-      if (importXlsxInputRef.current) importXlsxInputRef.current.value = ''
-    }
-  }
+  // async function handleImportXlsxFile(e){
+  //   const file = e.target.files?.[0]
+  //   if(!file) return
+  //   try{
+  //     const res = await importProductsXlsx(file)
+  //     const inserted = Number(res?.inserted ?? 0)
+  //     const updated = Number(res?.updated ?? 0)
+  //     const skipped = Number(res?.skipped ?? 0)
+  //     showToast(`XLSX імпорт: додано ${inserted}, оновлено ${updated}, пропущено ${skipped}`,'success')
+  //
+  //     // 3) SKU sync: проставити stock=0 для товарів з SKU, яких немає у XLSX
+  //     try {
+  //       const keepSkus = Array.from(new Set(
+  //         (Array.isArray(res?.skus) ? res.skus : [])
+  //           .map(s=> (s||'').toString().trim())
+  //           .filter(Boolean)
+  //       ))
+  //
+  //       if (keepSkus.length > 0) {
+  //         const preview = await syncProductsBySku({ skus: keepSkus, dryRun: true })
+  //         const toMarkCount = Number(preview?.toMarkCount ?? 0)
+  //         if (toMarkCount > 0) {
+  //           const ok = confirm(`XLSX імпорт завершено. Знайдено ${toMarkCount} товар(ів) з SKU, яких немає у файлі. Проставити кількість = 0 (немає в наявності) та знижку = 0?`)
+  //           if (ok) {
+  //             const delRes = await syncProductsBySku({ skus: keepSkus, dryRun: false })
+  //             const markedCount = Number(delRes?.markedCount ?? 0)
+  //             showToast(`Синхронізація SKU: кількість=0 і знижка=0 для ${markedCount}`,'success')
+  //           }
+  //         }
+  //       }
+  //     } catch (err) {
+  //       showToast(getErrMsg(err),'error')
+  //     }
+  //
+  //     loadAll()
+  //   } catch(err){
+  //     showToast(getErrMsg(err),'error')
+  //   } finally {
+  //     if (importXlsxInputRef.current) importXlsxInputRef.current.value = ''
+  //   }
+  // }
 
   const STATUS = {
     new: 'Новий',
@@ -1729,24 +1730,6 @@ export default function AdminPanel(){
                 <FiDownload size={18} />
                 <span>Експорт CSV</span>
               </button>
-              <button
-                type='button'
-                onClick={handleExportXlsx}
-                className='inline-flex items-center gap-2 px-3 py-2 border rounded hover:bg-black hover:text-white transition'
-                data-testid='admin-products-export-xlsx'
-              >
-                <FiDownload size={18} />
-                <span>Експорт XLSX</span>
-              </button>
-              <button
-                type='button'
-                onClick={handleImportXlsxClick}
-                className='inline-flex items-center gap-2 px-3 py-2 border rounded hover:bg-black hover:text-white transition'
-                data-testid='admin-products-import-xlsx-open'
-              >
-                <FiPlus size={18} />
-                <span>Імпорт XLSX</span>
-              </button>
               <span className='inline-block w-px h-6 bg-gray-200' aria-hidden='true' />
               <button
                 type='button'
@@ -1769,7 +1752,6 @@ export default function AdminPanel(){
           </div>
           <div className='flex gap-2 items-center justify-center flex-wrap'>
             <input ref={importInputRef} type='file' accept='.csv,.json,text/csv,application/json' className='hidden' onChange={handleImportFile} data-testid='admin-products-import-file-input' />
-            <input ref={importXlsxInputRef} type='file' accept='.xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' className='hidden' onChange={handleImportXlsxFile} data-testid='admin-products-import-xlsx-input' />
           </div>
 
           {/* Modal: Edit Product */}

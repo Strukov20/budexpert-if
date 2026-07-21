@@ -11,7 +11,7 @@ metadata:
 
 | Маршрут | Файл | Призначення |
 |---|---|---|
-| `/api/products` | `routes/products.js` | CRUD товарів, bulk import/export (CSV, XLSX), sync by SKU |
+| `/api/products` | `routes/products.js` | CRUD товарів, bulk import/export (тільки CSV), sync by SKU |
 | `/api/categories` | `routes/categories.js` | CRUD категорій, reassign |
 | `/api/orders` | `routes/orders.js` | CRUD замовлень |
 | `/api/auth` | `routes/auth.js` | Login адміна (JWT) |
@@ -34,3 +34,5 @@ metadata:
 - Bounding box: Івано-Франківськ (24.55–24.90, 48.80–49.05)
 
 **How to apply:** Нові API-ендпоінти додавати в `server/routes/`, підключати в `server/index.js` після `app.use`. Відповідні функції — в `client/src/api.js`.
+
+**Update (2026-07-21):** XLSX імпорт/експорт товарів (`GET /export/xlsx`, `POST /import/xlsx`) навмисно закоментовано в `products.js` (і відповідні кнопки/функції в `AdminPanel.jsx`/`api.js`) — пакет `xlsx@0.18.5` має відомі CVE (prototype pollution, ReDoS) і знятий з npm. Код лишено закоментованим, не видаленим, на випадок повернення пізніше на безпечнішій бібліотеці (напр. `exceljs`). Наразі доступний тільки CSV імпорт/експорт.
