@@ -29,12 +29,12 @@ rm -rf "$WORK_DIR"
 ls -1t "$BACKUP_DIR"/budexpert_*.tgz 2>/dev/null | tail -n +9 | xargs -r rm -f
 
 
-#-------------------------------------------------- 
-#MAKE BACKUP
-# mongodump --uri "mongodb+srv://budexpert-if:***REDACTED***@budexpert-if.94ramqp.mongodb.net/budexpert?retryWrites=true&w=majority" --out dump_prod
+#--------------------------------------------------
+#MAKE BACKUP (приклад — реальний URI брати з $MONGO_URI, не хардкодити пароль)
+# mongodump --uri "$MONGO_URI" --out dump_prod
 
-# restore from dump
-# mongorestore --uri "mongodb+srv://budexpert_dev:***REDACTED***@budexpert-if.94ramqp.mongodb.net/?retryWrites=true&w=majority" `
+# restore from dump into a separate dev database
+# mongorestore --uri "<dev MONGO_URI>" `
 #   --drop `
 #   --nsFrom "budexpert.*" `
 #   --nsTo   "budexpert_dev.*" `
