@@ -16,6 +16,10 @@ client/dist/
 server/uploads/
 server/server/uploads/
 
+# Production DB dumps (містять PII клієнтів — ніколи не комітити)
+dump_prod/
+*.bson
+
 # Logs
 npm-debug.log*
 yarn-debug.log*
