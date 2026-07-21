@@ -680,6 +680,89 @@ export default function AdminPanel(){
 
   useEffect(()=>{ getLeads().then(setLeads).catch(()=>{}) }, [])
 
+  // Звуковий сигнал на нові замовлення/заявки — два коротких тони через Web Audio API,
+  // щоб не тягнути окремий аудіофайл. Браузери блокують звук без жесту користувача,
+  // тому AudioContext створюємо/резюмуємо на перший клік по сторінці.
+  const audioCtxRef = useRef(null)
+  useEffect(()=>{
+    const unlockAudio = ()=>{
+      try {
+        if (!audioCtxRef.current) {
+          const Ctx = window.AudioContext || window.webkitAudioContext
+          if (Ctx) audioCtxRef.current = new Ctx()
+        } else if (audioCtxRef.current.state === 'suspended') {
+          audioCtxRef.current.resume().catch(()=>{})
+        }
+      } catch {}
+    }
+    window.addEventListener('click', unlockAudio)
+    return ()=> window.removeEventListener('click', unlockAudio)
+  }, [])
+
+  const playNotificationSound = ()=>{
+    try {
+      const Ctx = window.AudioContext || window.webkitAudioContext
+      if (!Ctx) return
+      if (!audioCtxRef.current) audioCtxRef.current = new Ctx()
+      const ctx = audioCtxRef.current
+      if (ctx.state === 'suspended') ctx.resume().catch(()=>{})
+      const now = ctx.currentTime
+      ;[0, 0.18].forEach((delay, i)=>{
+        const osc = ctx.createOscillator()
+        const gain = ctx.createGain()
+        osc.type = 'sine'
+        osc.frequency.value = i === 0 ? 880 : 1046.5
+        gain.gain.setValueAtTime(0.0001, now + delay)
+        gain.gain.exponentialRampToValueAtTime(0.3, now + delay + 0.02)
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + delay + 0.15)
+        osc.connect(gain)
+        gain.connect(ctx.destination)
+        osc.start(now + delay)
+        osc.stop(now + delay + 0.16)
+      })
+    } catch {}
+  }
+
+  // Періодична перевірка нових замовлень/заявок (кожні 20с) — якщо з'явився
+  // новий запис, який ще не бачили в цій сесії, програти звук і оновити список.
+  const seenOrderIdsRef = useRef(null)
+  const seenLeadIdsRef = useRef(null)
+  useEffect(()=>{
+    let cancelled = false
+    const poll = async ()=>{
+      try{
+        const [freshOrders, freshLeads] = await Promise.all([getOrders(), getLeads()])
+        if (cancelled) return
+
+        const orderList = Array.isArray(freshOrders) ? freshOrders : []
+        const orderIds = new Set(orderList.map(o=> String(o._id)))
+        if (seenOrderIdsRef.current === null) {
+          seenOrderIdsRef.current = orderIds
+        } else if ([...orderIds].some(id=> !seenOrderIdsRef.current.has(id))) {
+          seenOrderIdsRef.current = orderIds
+          playNotificationSound()
+          showToast('Нове замовлення!', 'success')
+          setOrders(orderList)
+        }
+
+        const leadList = Array.isArray(freshLeads) ? freshLeads : []
+        const leadIds = new Set(leadList.map(l=> String(l._id)))
+        if (seenLeadIdsRef.current === null) {
+          seenLeadIdsRef.current = leadIds
+        } else if ([...leadIds].some(id=> !seenLeadIdsRef.current.has(id))) {
+          seenLeadIdsRef.current = leadIds
+          playNotificationSound()
+          showToast('Нова заявка!', 'success')
+          setLeads(leadList)
+        }
+      } catch {}
+    }
+
+    poll()
+    const intervalId = setInterval(poll, 20000)
+    return ()=>{ cancelled = true; clearInterval(intervalId) }
+  }, [])
+
   const LEAD_STATUS = { new:'Нова', in_progress:'В роботі', done:'Опрацьована', cancelled:'Відхилена' }
   const LEAD_STATUS_KEYS = ['new','in_progress','done','cancelled']
   const updateLeadStatus = async (id, status)=>{
@@ -887,32 +970,6 @@ export default function AdminPanel(){
       <div className='flex items-center justify-between mb-4' data-testid='admin-panel-header'>
         <h2 className='text-2xl font-semibold'>Адмін-панель</h2>
         <div className='flex items-center gap-2'>
-          <button
-            type='button'
-            onClick={()=>{ setBannerImages([]); setBannerOpen(true); loadBanner(); }}
-            className='px-4 py-2 rounded-lg bg-white text-gray-900 shadow ring-1 ring-gray-200 hover:bg-gray-50 hover:ring-gray-300 transition-all duration-200 active:scale-95'
-            title='Керування баннером на головній'
-            data-testid='admin-panel-banner-open'
-          >
-            Баннер
-          </button>
-          <button
-            type='button'
-            onClick={()=>{ setAboutGalleryImages([]); setAboutGalleryOpen(true); loadAboutGallery(); }}
-            className='px-4 py-2 rounded-lg bg-white text-gray-900 shadow ring-1 ring-gray-200 hover:bg-gray-50 hover:ring-gray-300 transition-all duration-200 active:scale-95'
-            title='Фото для сторінки "Про магазин"'
-            data-testid='admin-panel-about-gallery-open'
-          >
-            Фото (Про магазин)
-          </button>
-          <button
-            type='button'
-            onClick={()=> navigate('/')}
-            className='px-4 py-2 rounded-lg bg-white text-gray-900 shadow ring-1 ring-gray-200 hover:bg-gray-50 hover:ring-gray-300 transition-all duration-200 active:scale-95'
-            data-testid='admin-panel-go-catalog'
-          >
-            Каталог
-          </button>
           <button
             onClick={()=>{ localStorage.removeItem('admin_token'); navigate('/admin/login', { replace:true }) }}
             className='px-4 py-2 rounded-lg bg-red-600 text-white shadow ring-1 ring-red-700/30 hover:bg-red-700 hover:shadow-lg transition-all duration-200 active:scale-95 hover:animate-pulse'
@@ -1698,7 +1755,7 @@ export default function AdminPanel(){
       </div>
       
       
-      <h3 className='order-last text-xl font-semibold mt-6 mb-3'>Управління товаром</h3>
+      <h3 className='order-last text-xl font-semibold mt-6 mb-3'>Панель керування</h3>
       <div className={`${prodFull ? 'fixed inset-0 z-50 bg-white p-4 overflow-auto' : 'order-last mb-6'}`}>
         <div className='card p-4'>
           <div className='flex items-center justify-between mb-3'>
@@ -1739,6 +1796,33 @@ export default function AdminPanel(){
               >
                 <FiEye size={18} />
                 <span>Категорії</span>
+              </button>
+              <span className='inline-block w-px h-6 bg-gray-200' aria-hidden='true' />
+              <button
+                type='button'
+                onClick={()=>{ setBannerImages([]); setBannerOpen(true); loadBanner(); }}
+                className='inline-flex items-center gap-2 px-3 py-2 border rounded hover:bg-black hover:text-white transition'
+                title='Керування баннером на головній'
+                data-testid='admin-panel-banner-open'
+              >
+                Баннер
+              </button>
+              <button
+                type='button'
+                onClick={()=>{ setAboutGalleryImages([]); setAboutGalleryOpen(true); loadAboutGallery(); }}
+                className='inline-flex items-center gap-2 px-3 py-2 border rounded hover:bg-black hover:text-white transition'
+                title='Фото для сторінки "Про магазин"'
+                data-testid='admin-panel-about-gallery-open'
+              >
+                Фото (Про магазин)
+              </button>
+              <button
+                type='button'
+                onClick={()=> navigate('/')}
+                className='inline-flex items-center gap-2 px-3 py-2 border rounded hover:bg-black hover:text-white transition'
+                data-testid='admin-panel-go-catalog'
+              >
+                Каталог
               </button>
             </div>
             <button
