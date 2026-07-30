@@ -228,7 +228,7 @@ export default function SearchBar({value, onChange, onSelect}){
           type='button'
           aria-label='Очистити'
           onClick={()=> onChange('')}
-          className='absolute inset-y-0 right-[76px] flex items-center text-gray-500 hover:text-black'
+          className='absolute inset-y-0 right-[88px] flex items-center text-gray-500 hover:text-black'
           data-testid='search-clear'
         >
           {/* Х */}

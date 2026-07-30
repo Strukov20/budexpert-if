@@ -28,6 +28,7 @@ export default function Home(){
   const perPage = 12
   const [visibleCount, setVisibleCount] = useState(perPage)
   const [isMobile, setIsMobile] = useState(false)
+  const [isTablet, setIsTablet] = useState(false)
   const sentinelRef = useRef(null)
   const productsTopRef = useRef(null)
   const didMountScrollRef = useRef(false)
@@ -215,6 +216,7 @@ export default function Home(){
     const checkMobile = () => {
       if (typeof window === 'undefined') return
       setIsMobile(window.innerWidth < 768)
+      setIsTablet(window.innerWidth >= 768 && window.innerWidth < 1024)
     }
     checkMobile()
     window.addEventListener('resize', checkMobile)
@@ -375,13 +377,13 @@ export default function Home(){
     setCat(id)
     setSubcat('')
     setType('')
-    setMenuOpen(false)
+    if (subcategoriesByParent(id).length === 0) setMenuOpen(false)
   }
   const pickSubcategory = (parentId, subId)=>{
     setCat(parentId)
     setSubcat(subId)
     setType('')
-    setMenuOpen(false)
+    if (typesBySubcategory(subId).length === 0) setMenuOpen(false)
   }
   const pickType = (parentId, subId, typeId)=>{
     setCat(parentId)
@@ -548,7 +550,7 @@ export default function Home(){
     window.dispatchEvent(ev);
   }
 
-  const weekPerView = isMobile ? 2 : 4
+  const weekPerView = isMobile ? 2 : (isTablet ? 3 : 4)
   const canPrevWeek = weekStart > 0
   const canNextWeek = weekStart + weekPerView < weekProducts.length
   const scrollWeek = (dir)=>{
@@ -652,7 +654,9 @@ export default function Home(){
                     style={
                       isMobile
                         ? { flex: '0 0 calc((100% - 1rem) / 2)', minWidth: 0 }
-                        : { flex: '0 0 calc((100% - 3rem) / 4)', minWidth: 0 }
+                        : isTablet
+                          ? { flex: '0 0 calc((100% - 2rem) / 3)', minWidth: 0 }
+                          : { flex: '0 0 calc((100% - 3rem) / 4)', minWidth: 0 }
                     }
                   >
                     <div className='absolute top-2 left-2 z-10 flex flex-col gap-1'>
@@ -943,7 +947,7 @@ export default function Home(){
 
       <div ref={productsTopRef} />
 
-      <div className='grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-4' data-testid='product-grid'>
+      <div className='grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4' data-testid='product-grid'>
         {loadingProducts && itemsToRender.length === 0 ? (
           <div className='col-span-full flex items-center justify-center py-10 text-gray-700'>
             <div className='flex items-center gap-3'>

@@ -427,7 +427,7 @@ export default function Header() {
           >
             <button
               type="button"
-              className="inline-flex items-center justify-center gap-1.5 hover:text-red-600 transition"
+              className="inline-flex items-center justify-center gap-1.5 hover:text-red-600 transition whitespace-nowrap"
               onClick={() => window.open(mapsUrl, '_blank')}
               data-testid='header-address-link'
             >
@@ -606,7 +606,7 @@ export default function Header() {
                 </button>
               </div>
 
-              <div className="flex items-center justify-center gap-2 min-w-0">
+              <div className="flex items-center justify-end gap-4 min-w-0">
                 <button
                   type="button"
                   className={`inline-flex items-center justify-center h-10 px-3 rounded-xl font-semibold text-[11px] tracking-wide shadow-md transition whitespace-nowrap ${isServicesPage ? 'border border-gray-200 bg-white text-gray-900 hover:shadow-lg hover:bg-red-50 hover:border-red-200 hover:text-red-700' : 'bg-red-600 text-white hover:shadow-lg hover:bg-red-700'}`}
@@ -630,6 +630,9 @@ export default function Header() {
                   )}
                 </button>
               </div>
+            </div>
+            <div className="mt-3">
+              <SearchBar value={search} onChange={setQueryQ} onSelect={navigateToSearchResults} />
             </div>
           </div>
         </div>

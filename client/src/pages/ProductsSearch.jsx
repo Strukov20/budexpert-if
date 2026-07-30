@@ -270,8 +270,8 @@ export default function ProductsSearch(){
           )}
         </div>
 
-        <div className='flex items-center gap-2 flex-wrap justify-end'>
-          <div className='min-w-[260px] relative'>
+        <div className='grid grid-cols-1 sm:grid-cols-2 lg:flex lg:flex-wrap lg:items-center gap-2 lg:justify-end w-full lg:w-auto'>
+          <div className='relative w-full lg:min-w-[260px] lg:w-auto'>
             <input
               value={qInput}
               onChange={(e)=> setQInput(e.target.value)}
@@ -295,7 +295,7 @@ export default function ProductsSearch(){
             </button>
           </div>
 
-          <div className='min-w-[220px] relative'>
+          <div className='relative w-full lg:min-w-[220px] lg:w-auto'>
             <select
               value={category}
               onChange={(e)=>{
@@ -336,7 +336,7 @@ export default function ProductsSearch(){
             )}
           </div>
 
-          <div className='min-w-[220px] relative'>
+          <div className='relative w-full lg:min-w-[220px] lg:w-auto'>
             <select
               value={subcategory}
               onChange={(e)=>{
@@ -379,7 +379,7 @@ export default function ProductsSearch(){
 
           <button
             type='button'
-            className='h-10 px-4 rounded-lg border bg-white hover:bg-gray-50 active:scale-95 transition'
+            className='h-10 px-4 rounded-lg border bg-white hover:bg-gray-50 active:scale-95 transition w-full lg:w-auto'
             onClick={goHome}
             data-testid='products-go-home'
           >
@@ -390,7 +390,7 @@ export default function ProductsSearch(){
             type='button'
             disabled={!hasFilters}
             className={
-              'h-10 px-4 rounded-lg border bg-white transition ' +
+              'h-10 px-4 rounded-lg border bg-white transition w-full lg:w-auto sm:col-span-2 lg:col-span-1 ' +
               (hasFilters ? 'hover:bg-gray-50 active:scale-95' : 'opacity-50 cursor-not-allowed')
             }
             onClick={()=>{ if (hasFilters) reset() }}
@@ -408,7 +408,7 @@ export default function ProductsSearch(){
           <div className='py-10 text-gray-600'>Нічого не знайдено.</div>
         ) : (
           <>
-            <div className='grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-4'>
+            <div className='grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4'>
               {items.map((p)=>(
                 <ProductCard key={p._id} p={p} onAdd={addToCart} categories={categories} />
               ))}
