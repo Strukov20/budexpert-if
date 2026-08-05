@@ -34,13 +34,16 @@ export default defineConfig({
   timeout: 30_000,
   retries: 0,
   workers: 1,
+  reporter: process.env.CI ? 'html' : 'list',
   use: {
     baseURL: apiUrl,
   },
   webServer: {
     command: 'node server/index.js',
     url: 'http://127.0.0.1:5001/api/products',
-    reuseExistingServer: true,
+    // У CI завжди піднімати свіжий процес — reuse чужого/застряглого сервера
+    // на порту вже раз коштував години діагностики локально.
+    reuseExistingServer: !process.env.CI,
     timeout: 60_000,
     env: {
       PORT: '5001',
