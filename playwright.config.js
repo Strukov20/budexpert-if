@@ -1,6 +1,9 @@
 import { defineConfig } from '@playwright/test';
 
-const apiUrl = process.env.PW_API_URL || 'http://127.0.0.1:5001/api';
+// Обов'язково з кінцевим "/" — інакше відносні шляхи, що починаються з "/"
+// (напр. request.get('/products')) скидають "/api" при резолюції проти baseURL
+// (new URL('/products', 'http://x/api') === 'http://x/products', а не '.../api/products').
+const apiUrl = process.env.PW_API_URL || 'http://127.0.0.1:5001/api/';
 
 function assertNotProd(urlStr) {
   const url = new URL(urlStr);
