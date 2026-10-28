@@ -11,6 +11,7 @@ client/dist/
 **/.env
 .env.*
 **/.env.*
+!server/.env.example
 
 # Uploads
 server/uploads/

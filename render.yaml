@@ -1,0 +1,34 @@
+# Optional full-stack hosting blueprint. Nothing is deployed by this file alone.
+services:
+  - type: web
+    name: budexpert-fullstack
+    runtime: node
+    autoDeploy: false
+    buildCommand: npm ci && npm ci --prefix server && npm ci --prefix client && npm run client:build
+    startCommand: npm run server:start
+    healthCheckPath: /api/products?page=1&limit=1
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: NODE_ENV
+        value: production
+      - key: TRUST_PROXY_HOPS
+        value: 1
+      - key: PUBLIC_BASE_URL
+        sync: false
+      - key: MONGO_URI
+        sync: false
+      - key: ADMIN_USER
+        sync: false
+      - key: ADMIN_PASS
+        sync: false
+      - key: ADMIN_JWT_SECRET
+        generateValue: true
+      - key: CLOUDINARY_CLOUD_NAME
+        sync: false
+      - key: CLOUDINARY_API_KEY
+        sync: false
+      - key: CLOUDINARY_API_SECRET
+        sync: false
+      - key: NOVA_POSHTA_API_KEY
+        sync: false

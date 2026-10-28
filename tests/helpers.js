@@ -5,7 +5,7 @@ export async function getAdminToken(request) {
   const res = await request.post('auth/login', {
     data: {
       username: process.env.ADMIN_USER || 'admin',
-      password: process.env.ADMIN_PASS || 'admin123',
+      password: process.env.ADMIN_PASS || 'test-admin-password-2026',
     },
   });
   if (!res.ok()) {

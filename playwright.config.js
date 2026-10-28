@@ -43,18 +43,24 @@ export default defineConfig({
     url: 'http://127.0.0.1:5001/api/products',
     // У CI завжди піднімати свіжий процес — reuse чужого/застряглого сервера
     // на порту вже раз коштував години діагностики локально.
-    reuseExistingServer: !process.env.CI,
+    reuseExistingServer: false,
     timeout: 60_000,
     env: {
       PORT: '5001',
+      PUBLIC_BASE_URL: 'http://127.0.0.1:5001',
+      NOVA_POSHTA_API_KEY: '',
+      CLOUDINARY_CLOUD_NAME: '',
+      CLOUDINARY_API_KEY: '',
+      CLOUDINARY_API_SECRET: '',
       TEST_ENV: 'test',
       MONGO_URI: process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/budexpert_test',
       ADMIN_USER: process.env.ADMIN_USER || 'admin',
-      ADMIN_PASS: process.env.ADMIN_PASS || 'admin123',
-      ADMIN_JWT_SECRET: process.env.ADMIN_JWT_SECRET || 'dev-admin-secret',
+      ADMIN_PASS: process.env.ADMIN_PASS || 'test-admin-password-2026',
+      ADMIN_JWT_SECRET: process.env.ADMIN_JWT_SECRET || 'test-only-jwt-secret-with-at-least-32-characters',
     },
   },
   projects: [
+    { name: 'ui', testMatch: /.*\.ui\.spec\.js/, use: { baseURL: 'http://127.0.0.1:5001', browserName: 'chromium' } },
     {
       name: 'api',
       testMatch: /.*\.api\.spec\.js/,

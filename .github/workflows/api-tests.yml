@@ -26,8 +26,8 @@ jobs:
       TEST_ENV: test
       MONGO_URI: mongodb://127.0.0.1:27017/budexpert_test
       ADMIN_USER: admin
-      ADMIN_PASS: admin123
-      ADMIN_JWT_SECRET: dev-admin-secret
+      ADMIN_PASS: test-admin-password-2026
+      ADMIN_JWT_SECRET: test-only-jwt-secret-with-at-least-32-characters
       PORT: 5001
 
     steps:
@@ -37,7 +37,7 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
 
       - name: Install root deps (Playwright)
@@ -45,6 +45,21 @@ jobs:
 
       - name: Install server deps
         run: npm ci --prefix server
+
+      - name: Install client deps
+        run: npm ci --prefix client
+
+      - name: Install browser
+        run: npx playwright install --with-deps chromium
+
+      - name: Unit checks
+        run: npm run test:unit
+
+      - name: Browser checks and production build
+        run: npm run test:ui
+
+      - name: Dependency audits
+        run: npm audit && npm audit --prefix server && npm audit --prefix client
 
       - name: Run API tests
         run: npm run test:api

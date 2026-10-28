@@ -1,3 +1,4 @@
+import { priceInKopiykas } from '../../../shared/pricing.mjs'
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams, Link } from 'react-router-dom'
 import { getCategories, getProduct } from '../api'
@@ -30,12 +31,7 @@ export default function ProductPage(){
     return v
   }, [])
 
-  const finalPrice = useMemo(()=>{
-    const price = Number(p?.price || 0) || 0
-    const discount = Math.max(0, Math.min(100, Number(p?.discount || 0) || 0))
-    if (!discount) return price
-    return price * (1 - discount/100)
-  }, [p])
+  const finalPrice = useMemo(() => p ? priceInKopiykas(p) / 100 : 0, [p])
 
   const addToCart = (prod)=>{
     try {
@@ -286,7 +282,7 @@ export default function ProductPage(){
                   </div>
                 ) : (
                   <div className='rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-base text-gray-700 text-center'>
-                    <div className='text-gray-700'>Опис в процесі добавлення, незабаром все буде!</div>
+                    <div className='text-gray-700'>Опис незабаром буде додано.</div>
                     <div className='text-gray-700'>Дякуємо за розуміння!</div>
                   </div>
                 )}
@@ -308,7 +304,7 @@ export default function ProductPage(){
                   </div>
                 ) : (
                   <div className='rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-base text-gray-700 text-center'>
-                    <div className='text-gray-700'>Характеристики в процесі добавлення, незабаром все буде!</div>
+                    <div className='text-gray-700'>Характеристики незабаром буде додано.</div>
                     <div className='text-gray-700'>Дякуємо за розуміння!</div>
                   </div>
                 )}

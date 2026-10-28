@@ -1,3 +1,4 @@
+import { priceInKopiykas } from '../../../shared/pricing.mjs'
 import React, { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { FiShoppingCart } from 'react-icons/fi'
@@ -43,7 +44,7 @@ export default function FloatingCart() {
   }, [])
 
   const count = items.reduce((s, i) => s + (i.quantity || 1), 0)
-  const total = items.reduce((s, i) => s + i.price * (i.quantity || 1), 0)
+  const total = items.reduce((s, i) => s + priceInKopiykas(i) * (i.quantity || 1) / 100, 0)
 
   const handleMouseEnter = () => {
     clearTimeout(leaveTimer.current)
@@ -93,7 +94,7 @@ export default function FloatingCart() {
                     <div className="min-w-0 flex-1">
                       <div className="text-sm font-medium text-gray-900 line-clamp-2 leading-snug">{i.name}</div>
                       <div className="text-xs text-gray-500 mt-0.5">
-                        {i.quantity || 1} × {fmt.format(i.price)} ₴
+                        {i.quantity || 1} × {fmt.format(priceInKopiykas(i) / 100)} ₴
                       </div>
                     </div>
                   </div>

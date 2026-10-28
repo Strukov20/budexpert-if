@@ -15,7 +15,7 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (r) => r,
   (err) => {
-    if (err?.response?.status === 401) {
+    if (err?.response?.status === 401 && err.config?.url !== '/auth/login') {
       try { localStorage.removeItem('admin_token'); } catch {}
       if (typeof window !== 'undefined') {
         window.location.assign('/admin/login');
@@ -119,4 +119,23 @@ export async function getBanner(key = 'home'){
 export async function updateBanner({ key = 'home', ...payload } = {}){
   const r = await api.put('/banner', { key, ...payload })
   return r.data
+}
+
+export async function getPageMetadata(path, search, signal) {
+  try { return (await api.get('/seo', { params: { path, search }, signal })).data; }
+  catch (error) { if (error.response?.status === 404) return error.response.data; throw error; }
+}
+
+// The admin catalog is loaded in bounded requests; public pages load one page.
+export async function getAdminCatalog() {
+  const products = [];
+  let page = 1;
+  let pages = 1;
+  do {
+    const data = await getProducts({ page, limit: 100 });
+    products.push(...data.items);
+    pages = data.pages;
+    page += 1;
+  } while (page <= pages);
+  return products;
 }

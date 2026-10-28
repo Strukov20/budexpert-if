@@ -1,7 +1,10 @@
-import express from 'express'
+import { createRouter } from '../middleware/router.js';
+import { publicBaseUrl } from '../config.js'
+import { priceInKopiykas } from '../services/pricing.js'
+import { once } from 'node:events'
 import Product from '../models/Product.js'
 
-const router = express.Router()
+const router = createRouter()
 
 function xmlEscape(v) {
   return String(v ?? '')
@@ -57,27 +60,23 @@ function absoluteUrl(base, maybeRelative) {
   return base.replace(/\/$/, '') + '/' + u
 }
 
-function getBaseUrl(req) {
-  const envBase = (process.env.PUBLIC_BASE_URL || process.env.SITE_URL || '').toString().trim()
-  if (envBase) return envBase.replace(/\/$/, '')
-  const proto = (req.headers['x-forwarded-proto'] || req.protocol || 'https').toString().split(',')[0].trim()
-  const host = (req.headers['x-forwarded-host'] || req.get('host') || '').toString().split(',')[0].trim()
-  return `${proto}://${host}`.replace(/\/$/, '')
-}
-
 router.get('/google-shopping.xml', async (req, res) => {
   try {
-    const baseUrl = getBaseUrl(req)
+    const baseUrl = publicBaseUrl()
     const currency = (process.env.SHOP_CURRENCY || 'UAH').toString().trim() || 'UAH'
 
     const products = await Product.find({})
       .sort({ createdAt: -1 })
       .populate('category')
-      .lean()
+      .lean().cursor()
 
     const now = new Date().toUTCString()
 
-    const itemsXml = (Array.isArray(products) ? products : []).map((p) => {
+    res.setHeader('Content-Type', 'application/xml; charset=utf-8')
+    res.setHeader('Cache-Control', 'public, max-age=300')
+    res.write(`<?xml version="1.0" encoding="UTF-8"?><rss version="2.0" xmlns:g="http://base.google.com/ns/1.0"><channel><title>БудЕксперт</title><link>${xmlEscape(baseUrl)}</link><description>Каталог товарів БудЕксперт</description><lastBuildDate>${xmlEscape(now)}</lastBuildDate>`)
+    for await (const p of products) {
+      if (res.destroyed) break
       const id = (p?.sku || p?._id || '').toString()
       const title = (p?.name || '').toString().trim()
       const description = stripHtml(p?.description || '')
@@ -88,7 +87,7 @@ router.get('/google-shopping.xml', async (req, res) => {
 
       const priceRaw = Number(p?.price || 0) || 0
       const discount = Math.max(0, Math.min(100, Number(p?.discount || 0) || 0))
-      const finalPrice = discount ? (priceRaw * (1 - discount / 100)) : priceRaw
+      const finalPrice = priceInKopiykas(p) / 100
 
       const stock = Number(p?.stock ?? 0) || 0
       const availability = stock > 0 ? 'in_stock' : 'out_of_stock'
@@ -107,7 +106,7 @@ router.get('/google-shopping.xml', async (req, res) => {
       if (imageLink) parts.push(`<g:image_link>${xmlEscape(imageLink)}</g:image_link>`)
       parts.push(`<g:condition>new</g:condition>`)
       parts.push(`<g:availability>${availability}</g:availability>`)
-      parts.push(`<g:price>${finalPrice.toFixed(2)} ${xmlEscape(currency)}</g:price>`)
+      parts.push(`<g:price>${priceRaw.toFixed(2)} ${xmlEscape(currency)}</g:price>`)
       if (discount) {
         parts.push(`<g:sale_price>${finalPrice.toFixed(2)} ${xmlEscape(currency)}</g:sale_price>`)
       }
@@ -125,24 +124,11 @@ router.get('/google-shopping.xml', async (req, res) => {
       if (customLabel0) parts.push(`<g:custom_label_0>${xmlEscape(customLabel0)}</g:custom_label_0>`)
 
       parts.push('</item>')
-      return parts.join('')
-    }).join('')
-
-    const xml = `<?xml version="1.0" encoding="UTF-8"?>` +
-      `<rss version="2.0" xmlns:g="http://base.google.com/ns/1.0">` +
-      `<channel>` +
-      `<title>${xmlEscape('Product Feed')}</title>` +
-      `<link>${xmlEscape(baseUrl)}</link>` +
-      `<description>${xmlEscape('Google Merchant Center product feed')}</description>` +
-      `<lastBuildDate>${xmlEscape(now)}</lastBuildDate>` +
-      itemsXml +
-      `</channel>` +
-      `</rss>`
-
-    res.setHeader('Content-Type', 'application/xml; charset=utf-8')
-    res.setHeader('Cache-Control', 'no-store')
-    res.status(200).send(xml)
+      if (!res.write(parts.join(''))) await once(res, 'drain')
+    }
+    res.end('</channel></rss>')
   } catch (e) {
+    if (res.headersSent) return res.destroy()
     res.status(500).json({ error: 'Failed to generate merchant feed' })
   }
 })

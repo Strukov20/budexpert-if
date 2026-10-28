@@ -1,9 +1,9 @@
-import express from 'express';
-import dotenv from 'dotenv';
+import { createRouter } from '../middleware/router.js';
+import '../config.js';
 
-dotenv.config();
 
-const router = express.Router();
+
+const router = createRouter();
 
 const API_URL = 'https://api.novaposhta.ua/v2.0/json/';
 const API_KEY = process.env.NOVA_POSHTA_API_KEY || '';
@@ -22,6 +22,7 @@ async function callNovaPoshta(body){
     throw new Error('NOVA_POSHTA_API_KEY is not configured');
   }
   const res = await fetch(API_URL, {
+    signal: AbortSignal.timeout(5000),
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),

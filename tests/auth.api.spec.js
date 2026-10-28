@@ -5,7 +5,7 @@ test.describe('POST /auth/login', () => {
     const res = await request.post('auth/login', {
       data: {
         username: process.env.ADMIN_USER || 'admin',
-        password: process.env.ADMIN_PASS || 'admin123',
+        password: process.env.ADMIN_PASS || 'test-admin-password-2026',
       },
     });
     expect(res.status()).toBe(200);
@@ -25,7 +25,7 @@ test.describe('POST /auth/login', () => {
 
   test('невірний логін -> 401', async ({ request }) => {
     const res = await request.post('auth/login', {
-      data: { username: 'not-admin', password: process.env.ADMIN_PASS || 'admin123' },
+      data: { username: 'not-admin', password: process.env.ADMIN_PASS || 'test-admin-password-2026' },
     });
     expect(res.status()).toBe(401);
   });

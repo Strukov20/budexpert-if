@@ -1,7 +1,7 @@
-import express from "express";
+import { createRouter } from '../middleware/router.js';
 import requireAdmin from "../middleware/auth.js";
 
-const router = express.Router();
+const router = createRouter();
 
 router.get("/", requireAdmin, async (_req, res) => {
   // For now promos are configured statically in code.

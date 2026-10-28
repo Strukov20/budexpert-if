@@ -1,81 +1,41 @@
-import express from 'express'
-import multer from 'multer'
-import path from 'path'
-import fs from 'fs'
-import { v2 as cloudinary } from 'cloudinary'
-import requireAdmin from '../middleware/auth.js'
+import { createRouter } from '../middleware/router.js';
+import multer from 'multer';
+import sharp from 'sharp';
+import { v2 as cloudinary } from 'cloudinary';
+import requireAdmin from '../middleware/auth.js';
 
-const router = express.Router()
-
-// Локальна папка можна залишити як тимчасове сховище (multer зберігає сюди перед аплоудом у Cloudinary)
-const uploadsDir = path.join(process.cwd(), 'server', 'uploads')
-if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true })
-
-// Конфіг Cloudinary з env
+const router = createRouter();
 cloudinary.config({
-  cloud_name: (process.env.CLOUDINARY_CLOUD_NAME || '').trim(),
-  api_key: (process.env.CLOUDINARY_API_KEY || '').trim(),
-  api_secret: (process.env.CLOUDINARY_API_SECRET || '').trim(),
-})
-
-const storage = multer.diskStorage({
-  destination: (_req, _file, cb) => cb(null, uploadsDir),
-  filename: (_req, file, cb) => {
-    const ext = path.extname(file.originalname || '')
-    const base = path.basename(file.originalname || 'file', ext).replace(/[^a-zA-Z0-9_-]/g,'')
-    const name = `${base || 'file'}_${Date.now()}${ext || ''}`
-    cb(null, name)
-  }
-})
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME?.trim(),
+  api_key: process.env.CLOUDINARY_API_KEY?.trim(),
+  api_secret: process.env.CLOUDINARY_API_SECRET?.trim(),
+});
 const upload = multer({
-  storage,
-  limits: { fileSize: 5 * 1024 * 1024 },
-  fileFilter: (_req, file, cb) => {
-    const allowed = ['image/jpeg','image/png','image/webp','image/gif','image/svg+xml']
-    if (allowed.includes(file.mimetype)) return cb(null, true)
-    cb(new Error('Invalid file type'))
-  }
-})
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 5 * 1024 * 1024, files: 1, fields: 0, parts: 1 },
+});
 
-// POST /api/uploads (form-data: file, admin only)
 router.post('/', requireAdmin, upload.single('file'), async (req, res) => {
+  if (!req.file) return res.status(400).json({ message: 'Файл не отримано' });
+  // Decode and re-encode actual raster data. Do not trust a client-supplied MIME type
+  // or publish original HTML/SVG files on the application origin.
+  let buffer;
   try {
-    if (!req.file) return res.status(400).json({ message: 'Файл не отримано' })
-
-    // Шлях до тимчасового файлу, який зберіг multer
-    const localPath = req.file.path
-
-    const cloudName = (process.env.CLOUDINARY_CLOUD_NAME || '').trim()
-    const apiKey = (process.env.CLOUDINARY_API_KEY || '').trim()
-    const apiSecret = (process.env.CLOUDINARY_API_SECRET || '').trim()
-
-    // Cloudinary only: require env configuration
-    if (!cloudName || !apiKey || !apiSecret) {
-      return res.status(500).json({
-        message: 'Cloudinary не налаштовано. Додайте CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET у server/.env і перезапустіть бекенд.'
-      })
-    }
-
-    // Завантаження у Cloudinary в папку "products"
-    const result = await cloudinary.uploader.upload(localPath, {
-      folder: 'products',
-      resource_type: 'image',
-    })
-
-    const url = result.secure_url
-    const publicId = result.public_id
-
-    // Прибираємо тимчасовий локальний файл
-    try { fs.unlinkSync(localPath) } catch {}
-
-    // Відповідь у форматі, сумісному з адмінкою (url основний, filename залишаємо як publicId)
-    res.status(201).json({ url, filename: publicId })
-  } catch (err) {
-    console.error('Upload error (Cloudinary):', err)
-    const details = err?.message || 'Unknown error'
-    res.status(500).json({ message: 'Не вдалося завантажити зображення', error: details })
+    const image = sharp(req.file.buffer, { limitInputPixels: 40_000_000 });
+    const metadata = await image.metadata();
+    if (!['jpeg', 'png', 'webp', 'gif'].includes(metadata.format)) throw new Error('Invalid format');
+    buffer = await image.rotate().resize({ width: 2400, height: 2400, fit: 'inside', withoutEnlargement: true }).webp({ quality: 85 }).toBuffer();
+  } catch {
+    return res.status(400).json({ message: 'Потрібне зображення JPEG, PNG, WebP або GIF до 5 МБ' });
   }
-})
-
-export default router
-
+  if (!process.env.CLOUDINARY_CLOUD_NAME || !process.env.CLOUDINARY_API_KEY || !process.env.CLOUDINARY_API_SECRET) {
+    return res.status(503).json({ message: 'Завантаження зображень тимчасово недоступне' });
+  }
+  const result = await new Promise((resolve, reject) => {
+    cloudinary.uploader.upload_stream({ folder: 'products', resource_type: 'image', format: 'webp' }, (error, result) => {
+      if (error) reject(error); else resolve(result);
+    }).end(buffer);
+  });
+  res.status(201).json({ url: result.secure_url, filename: result.public_id });
+});
+export default router;

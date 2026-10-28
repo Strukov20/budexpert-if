@@ -1,10 +1,10 @@
-import express from "express";
+import { createRouter } from '../middleware/router.js';
 import rateLimit from "express-rate-limit";
 import Order from "../models/Order.js";
-import Product from "../models/Product.js";
+import { resolveOrderItems } from "../services/orderItems.js";
 import requireAdmin from "../middleware/auth.js";
 
-const router = express.Router();
+const router = createRouter();
 
 // Публічне створення замовлення без авторизації — обмежуємо від спаму
 const createOrderLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 30 });
@@ -14,11 +14,14 @@ const UA_MOBILE_OPERATOR_CODES = new Set([
 ]);
 
 const normalizeUaPhone = (v) => {
-  const digits = (v || '').toString().replace(/\D+/g, '')
+  if (typeof v !== 'string' || v.length > 32) return ''
+  const digits = v.replace(/\D+/g, '')
+  if (![9, 10, 12].includes(digits.length)) return ''
   let local = ''
-  if (digits.startsWith('380')) local = digits.slice(3, 12)
-  else if (digits.startsWith('0')) local = digits.slice(1, 10)
-  else local = digits.slice(-9)
+  if (digits.length === 12 && digits.startsWith('380')) local = digits.slice(3, 12)
+  else if (digits.length === 10 && digits.startsWith('0')) local = digits.slice(1, 10)
+  else if (digits.length === 9) local = digits
+  else return ''
   return '+380' + (local ? local : '')
 };
 
@@ -34,7 +37,7 @@ router.get("/", requireAdmin, async (req, res) => {
     const orders = await Order.find().populate("items.productId", "name price sku");
     res.json(orders);
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    res.status(error.status || 500).json({ message: error.status === 400 ? error.message : 'Не вдалося обробити замовлення' });
   }
 });
 
@@ -45,7 +48,7 @@ router.get("/:id", requireAdmin, async (req, res) => {
     if (!order) return res.status(404).json({ message: "Order not found" });
     res.json(order);
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    res.status(error.status || 500).json({ message: error.status === 400 ? error.message : 'Не вдалося обробити замовлення' });
   }
 });
 
@@ -59,15 +62,13 @@ router.post("/", createOrderLimiter, async (req, res) => {
       return res.status(400).json({ message: 'Invalid phone' });
     }
 
-    // Підрахунок subtotalPrice (завжди з актуальних цін з БД)
-    const productIds = items.map((i) => i.productId);
-    const products = await Product.find({ _id: { $in: productIds } });
-    let subtotalPrice = 0;
-
-    items.forEach((item) => {
-      const prod = products.find((p) => p._id.equals(item.productId));
-      if (prod) subtotalPrice += prod.price * item.quantity;
-    });
+    if (typeof customerName !== 'string' || !customerName.trim() || customerName.length > 200 ||
+        typeof address !== 'string' || !address.trim() || address.length > 1000 ||
+        (promoCode !== undefined && (typeof promoCode !== 'string' || promoCode.length > 50))) {
+      return res.status(400).json({ message: 'Невірні дані замовлення' });
+    }
+    const resolved = await resolveOrderItems(items);
+    const subtotalPrice = resolved.subtotal / 100;
 
     const normalizedPromo = (promoCode || '').toString().trim().toUpperCase();
     let promoPercent = 0;
@@ -86,14 +87,15 @@ router.post("/", createOrderLimiter, async (req, res) => {
       }
     }
 
-    const discountAmount = promoPercent > 0 ? (subtotalPrice * promoPercent) / 100 : 0;
-    const totalPrice = Math.max(0, subtotalPrice - discountAmount);
+    const discountKopiykas = Math.round(resolved.subtotal * promoPercent / 100);
+    const discountAmount = discountKopiykas / 100;
+    const totalPrice = (resolved.subtotal - discountKopiykas) / 100;
 
     const order = new Order({
-      customerName,
+      customerName: customerName.trim(),
       phone: normalizedPhone,
-      address,
-      items,
+      address: address.trim(),
+      items: resolved.items,
       promoCode: promoPercent ? normalizedPromo : undefined,
       promoPercent: promoPercent ? promoPercent : undefined,
       promoKey: promoPercent ? promoKey : undefined,
@@ -107,7 +109,7 @@ router.post("/", createOrderLimiter, async (req, res) => {
     if (error && (error.code === 11000 || error.code === 11001)) {
       return res.status(400).json({ message: 'Promo code already used' });
     }
-    res.status(500).json({ message: error.message });
+    res.status(error.status || 500).json({ message: error.status === 400 ? error.message : 'Не вдалося обробити замовлення' });
   }
 });
 
@@ -118,7 +120,7 @@ router.delete("/:id", requireAdmin, async (req, res) => {
     if (!deleted) return res.status(404).json({ message: "Order not found" });
     res.json({ message: "Order deleted successfully" });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    res.status(error.status || 500).json({ message: error.status === 400 ? error.message : 'Не вдалося обробити замовлення' });
   }
 });
 
@@ -128,7 +130,7 @@ router.put("/:id", requireAdmin, async (req, res) => {
     const allowed = {};
     if (typeof req.body.status === 'string') allowed.status = req.body.status;
     if (typeof req.body.note === 'string') allowed.note = req.body.note;
-    const updated = await Order.findByIdAndUpdate(req.params.id, allowed, { new: true });
+    const updated = await Order.findByIdAndUpdate(req.params.id, allowed, { new: true, runValidators: true });
     if (!updated) return res.status(404).json({ message: "Order not found" });
     res.json(updated);
   } catch (error) {

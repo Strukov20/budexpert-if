@@ -1,7 +1,8 @@
+import { parseCsv } from '../lib/csv'
 import React, { useEffect, useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
-  getProducts,
+  getAdminCatalog,
   getCategories,
   createProduct,
   updateProduct,
@@ -20,8 +21,6 @@ import {
   deleteLead, // <--- added import
   bulkCreateProducts, 
   exportProductsCsv,
-  // exportProductsXlsx, // XLSX вимкнено, залишено тільки CSV
-  // importProductsXlsx,
   getBanner,
   updateBanner,
   getPromos,
@@ -280,62 +279,7 @@ export default function AdminPanel(){
     }
   }
 
-  // XLSX-експорт вимкнено разом з імпортом (вразливий пакет "xlsx" на бекенді) — залишено тільки CSV.
-  // async function handleExportXlsx(){
-  //   try{
-  //     const res = await exportProductsXlsx();
-  //     const blob = new Blob([res.data], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-  //     const url = window.URL.createObjectURL(blob);
-  //     const a = document.createElement('a');
-  //     a.href = url;
-  //     a.download = 'products-export.xlsx';
-  //     document.body.appendChild(a);
-  //     a.click();
-  //     a.remove();
-  //     window.URL.revokeObjectURL(url);
-  //   }catch(err){
-  //     showToast(getErrMsg(err),'error');
-  //   }
-  // }
-
   // CSV парсер (підтримка лапок, ком та переносів рядків всередині квотованих полів)
-  function parseCsv(text){
-    const rows = []
-    let row = []
-    let cur = ''
-    let inQ = false
-    for(let i=0;i<text.length;i++){
-      const ch = text[i]
-      if(inQ){
-        if(ch==='"'){
-          if(text[i+1]==='"'){ cur+='"'; i++; }
-          else inQ=false
-        } else {
-          cur+=ch
-        }
-      } else if(ch==='"'){
-        inQ=true
-      } else if(ch===','){
-        row.push(cur); cur=''
-      } else if(ch==='\r'){
-        // ignore, обробляється разом з \n
-      } else if(ch==='\n'){
-        row.push(cur); cur=''; rows.push(row); row=[]
-      } else {
-        cur+=ch
-      }
-    }
-    if(cur.length>0 || row.length>0){ row.push(cur); rows.push(row) }
-
-    const dataRows = rows.filter(r=> r.some(c=> c.trim().length>0))
-    if (dataRows.length===0) return []
-    const header = dataRows[0].map(h=> h.trim())
-    return dataRows.slice(1).map(cols=>{
-      const obj = {}
-      header.forEach((h,idx)=>{ obj[h] = (cols[idx]||'').trim() })
-      return obj
-    })
-  }
 
   async function handleImportClick(){
     importInputRef.current?.click()
@@ -426,48 +370,6 @@ export default function AdminPanel(){
       if (importInputRef.current) importInputRef.current.value = ''
     }
   }
-
-  // async function handleImportXlsxFile(e){
-  //   const file = e.target.files?.[0]
-  //   if(!file) return
-  //   try{
-  //     const res = await importProductsXlsx(file)
-  //     const inserted = Number(res?.inserted ?? 0)
-  //     const updated = Number(res?.updated ?? 0)
-  //     const skipped = Number(res?.skipped ?? 0)
-  //     showToast(`XLSX імпорт: додано ${inserted}, оновлено ${updated}, пропущено ${skipped}`,'success')
-  //
-  //     // 3) SKU sync: проставити stock=0 для товарів з SKU, яких немає у XLSX
-  //     try {
-  //       const keepSkus = Array.from(new Set(
-  //         (Array.isArray(res?.skus) ? res.skus : [])
-  //           .map(s=> (s||'').toString().trim())
-  //           .filter(Boolean)
-  //       ))
-  //
-  //       if (keepSkus.length > 0) {
-  //         const preview = await syncProductsBySku({ skus: keepSkus, dryRun: true })
-  //         const toMarkCount = Number(preview?.toMarkCount ?? 0)
-  //         if (toMarkCount > 0) {
-  //           const ok = confirm(`XLSX імпорт завершено. Знайдено ${toMarkCount} товар(ів) з SKU, яких немає у файлі. Проставити кількість = 0 (немає в наявності) та знижку = 0?`)
-  //           if (ok) {
-  //             const delRes = await syncProductsBySku({ skus: keepSkus, dryRun: false })
-  //             const markedCount = Number(delRes?.markedCount ?? 0)
-  //             showToast(`Синхронізація SKU: кількість=0 і знижка=0 для ${markedCount}`,'success')
-  //           }
-  //         }
-  //       }
-  //     } catch (err) {
-  //       showToast(getErrMsg(err),'error')
-  //     }
-  //
-  //     loadAll()
-  //   } catch(err){
-  //     showToast(getErrMsg(err),'error')
-  //   } finally {
-  //     if (importXlsxInputRef.current) importXlsxInputRef.current.value = ''
-  //   }
-  // }
 
   const STATUS = {
     new: 'Новий',
@@ -638,7 +540,7 @@ export default function AdminPanel(){
     setLoadingAll(true)
     try {
       const [pRes, cRes, oRes, lRes, bRes] = await Promise.allSettled([
-        getProducts(),
+        getAdminCatalog(),
         getCategories(),
         getOrders(),
         getLeads(),
@@ -3428,8 +3330,8 @@ export default function AdminPanel(){
                       // 2) Старий: items.name/price напряму
                       // 3) Перехідний: items._id = productId, productId === null
 
-                      let name = it.productId?.name || it.name || '';
-                      let priceRaw = it.productId?.price ?? it.price;
+                      let name = it.name || it.productId?.name || '';
+                      let priceRaw = it.unitPrice ?? it.price ?? it.productId?.price;
 
                       // Якщо productId відсутній, але є _id, спробувати знайти товар у вже завантажених products
                       if ((!name || priceRaw == null) && it._id && Array.isArray(products) && products.length) {

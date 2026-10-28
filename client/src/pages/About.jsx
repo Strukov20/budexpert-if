@@ -27,11 +27,6 @@ const ABOUT_PHOTOS_FALLBACK = [
 export default function About(){
   const [gallery, setGallery] = useState([])
 
-  useEffect(()=>{
-    document.title = 'Про магазин — БудЕксперт'
-    const metaDesc = document.querySelector('meta[name="description"]') || (()=>{ const m=document.createElement('meta'); m.setAttribute('name','description'); document.head.appendChild(m); return m })()
-    metaDesc.setAttribute('content','Інформація про магазин БудЕксперт: графік роботи, адреса, карта, контакти та соціальні мережі.')
-  },[])
 
   useEffect(()=>{
     let alive = true
