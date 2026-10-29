@@ -5,7 +5,7 @@ import { authHeaders, getAdminToken, uniqueSuffix } from './helpers.js';
 // Prevent analytics, maps and remote images from leaving the test environment.
 test.beforeEach(async ({ context }) => {
   await context.route('**/*', route => {
-    if (new URL(route.request().url()).hostname === '127.0.0.1') return route.continue();
+    if (new URL(route.request().url()).origin === new URL(test.info().project.use.baseURL).origin) return route.continue();
     return route.abort();
   });
 });
@@ -22,7 +22,7 @@ test('public navigation updates metadata and handles unknown category URLs', asy
   await page.goto(`/p/${product._id}`);
   await expect(page.getByTestId('product-page-title')).toHaveText('Seed Product 2');
   await expect(page).toHaveTitle('Seed Product 2 — купити в БудЕксперт');
-  await expect(page.locator('link[rel="canonical"]')).toHaveAttribute('href', `http://127.0.0.1:5001/p/${product._id}`);
+  await expect(page.locator('link[rel="canonical"]')).toHaveAttribute('href', `${new URL(test.info().project.use.baseURL).origin}/p/${product._id}`);
   await expect(page.getByTestId('product-page')).toContainText('237.50');
   await page.getByTestId('product-page-add-to-cart').click();
   await page.getByTestId('product-page-go-to-cart').click();

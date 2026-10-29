@@ -685,10 +685,10 @@ export default function Checkout(){
           return (
             <div>
               <label className='text-sm text-gray-700 mb-1 block'>Бажана дата та час доставки</label>
-              <div className='flex gap-2'>
+              <div className='grid grid-cols-1 min-[420px]:grid-cols-2 gap-2'>
                 <input
                   type='date'
-                  className={`border rounded px-3 h-10 text-sm w-full ${dtError ? 'border-red-500' : ''}`}
+                  className={`border rounded px-3 h-11 text-base w-full min-w-0 ${dtError ? 'border-red-500' : ''}`}
                   value={dtDate}
                   onChange={(e)=> setDtDate(e.target.value)}
                   onBlur={()=> setTouched(t=> ({...t, dt:true}))}

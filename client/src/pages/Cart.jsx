@@ -191,7 +191,7 @@ export default function CartPage(){
         const live = cart.find(x=> x._id === selected._id) || selected;
         return (
           <div className='fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4' onClick={()=> setSelected(null)} data-testid='cart-item-modal-overlay'>
-            <div className='relative bg-white rounded-2xl shadow-2xl max-w-2xl w-full overflow-hidden transition' onClick={e=>e.stopPropagation()} data-testid='cart-item-modal'>
+            <div className='relative bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[calc(100dvh-2rem)] overflow-y-auto overscroll-contain transition' onClick={e=>e.stopPropagation()} data-testid='cart-item-modal'>
               <button
                 aria-label='Закрити'
                 onClick={()=> setSelected(null)}

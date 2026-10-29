@@ -884,7 +884,7 @@ export default function AdminPanel(){
 
       {bannerOpen && (
         <div className='fixed inset-0 z-[90] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4' onClick={()=>setBannerOpen(false)} data-testid='admin-banner-overlay'>
-          <div className='bg-white rounded-2xl shadow-2xl w-full max-w-4xl p-5' onClick={(e)=>e.stopPropagation()} data-testid='admin-banner-modal'>
+          <div className='bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[calc(100dvh-2rem)] overflow-y-auto p-5' onClick={(e)=>e.stopPropagation()} data-testid='admin-banner-modal'>
             <div className='flex items-center justify-between mb-3'>
               <h4 className='font-semibold'>Баннер (головна сторінка)</h4>
               <button aria-label='Закрити' onClick={()=> setBannerOpen(false)} className='w-8 h-8 rounded-lg border' data-testid='admin-banner-close'>✕</button>
@@ -982,7 +982,7 @@ export default function AdminPanel(){
 
       {aboutGalleryOpen && (
         <div className='fixed inset-0 z-[90] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4' onClick={()=>setAboutGalleryOpen(false)} data-testid='admin-about-gallery-overlay'>
-          <div className='bg-white rounded-2xl shadow-2xl w-full max-w-4xl p-5' onClick={(e)=>e.stopPropagation()} data-testid='admin-about-gallery-modal'>
+          <div className='bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[calc(100dvh-2rem)] overflow-y-auto p-5' onClick={(e)=>e.stopPropagation()} data-testid='admin-about-gallery-modal'>
             <div className='flex items-center justify-between mb-3'>
               <h4 className='font-semibold'>Фото (Про магазин)</h4>
               <button aria-label='Закрити' onClick={()=> setAboutGalleryOpen(false)} className='w-8 h-8 rounded-lg border' data-testid='admin-about-gallery-close'>✕</button>
@@ -1073,7 +1073,7 @@ export default function AdminPanel(){
 
       {imgModalOpen && (
         <div className='fixed inset-0 z-[80] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4' onClick={()=>setImgModalOpen(false)} data-testid='admin-product-image-modal-overlay'>
-          <div className='bg-white rounded-2xl shadow-2xl w-full max-w-3xl p-5' onClick={(e)=>e.stopPropagation()} data-testid='admin-product-image-modal'>
+          <div className='bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[calc(100dvh-2rem)] overflow-y-auto p-5' onClick={(e)=>e.stopPropagation()} data-testid='admin-product-image-modal'>
             <div className='flex items-center justify-between mb-3'>
               <h4 className='font-semibold'>Перегляд фото</h4>
               <button aria-label='Закрити' onClick={()=> setImgModalOpen(false)} className='w-8 h-8 rounded-lg border' data-testid='admin-product-image-modal-close'>✕</button>
@@ -1121,7 +1121,7 @@ export default function AdminPanel(){
       {/* Modal: Edit Category (active, not hidden) */}
       {showCatEdit && (
         <div className='fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4' onClick={()=> setShowCatEdit(false)} data-testid='admin-categories-edit-overlay'>
-          <div className='bg-white rounded-2xl shadow-2xl w-full max-w-6xl max-h-[96vh] overflow-auto' onClick={(e)=>e.stopPropagation()} data-testid='admin-categories-edit'>
+          <div className='bg-white rounded-2xl shadow-2xl w-full max-w-6xl max-h-[calc(100dvh-2rem)] overflow-auto' onClick={(e)=>e.stopPropagation()} data-testid='admin-categories-edit'>
             <div className='px-6 py-4 border-b bg-gradient-to-b from-gray-50 to-white rounded-t-2xl'>
               <div className='flex items-start justify-between gap-3'>
                 <div>
@@ -1538,7 +1538,7 @@ export default function AdminPanel(){
             {leadsFull ? <FiMinimize2 /> : <FiMaximize2 />}
           </button>
         </div>
-        <div className='p-3 bg-white rounded-lg border shadow-sm flex items-center justify-center gap-2 md:gap-3 mb-3 flex-wrap md:flex-nowrap' data-testid='admin-leads-filters'>
+        <div className='p-3 bg-white rounded-lg border shadow-sm flex items-center justify-center gap-2 md:gap-3 mb-3 flex-wrap' data-testid='admin-leads-filters'>
           <input className='border rounded w-[200px] md:w-[240px] shrink-0 h-10 px-3 text-sm' placeholder='Пошук (імʼя/телефон/місто)' value={leadSearch} onChange={e=> setLeadSearch(e.target.value)} data-testid='admin-leads-search' />
           <input type='date' className='border rounded w-[180px] shrink-0 h-10 px-3 text-sm' value={leadFrom} onChange={e=> setLeadFrom(e.target.value)} data-testid='admin-leads-date-from' />
           <input type='date' className='border rounded w-[180px] shrink-0 h-10 px-3 text-sm' value={leadTo} onChange={e=> setLeadTo(e.target.value)} data-testid='admin-leads-date-to' />
@@ -1743,22 +1743,22 @@ export default function AdminPanel(){
           {/* Modal: Edit Product */}
           {showProdEdit && (
             <div className='fixed inset-0 z-[60] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4' data-testid='admin-product-edit-overlay'>
-              <div className='bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[95vh] overflow-auto p-6' onClick={(e)=>e.stopPropagation()} data-testid='admin-product-edit'>
+              <div className='bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[calc(100dvh-2rem)] overflow-auto p-6' onClick={(e)=>e.stopPropagation()} data-testid='admin-product-edit'>
                 <div className='flex items-center justify-between mb-3'>
                   <h4 className='font-semibold'>Редагувати товар</h4>
                   <button aria-label='Закрити' onClick={()=> setShowProdEdit(false)} className='w-8 h-8 rounded-lg border' data-testid='admin-product-edit-close'>✕</button>
                 </div>
                 <div className='grid gap-3'>
-                  <div className='grid gap-2 md:grid-cols-[220px_1fr] md:items-center'>
+                  <div className='grid grid-cols-1 gap-2 md:grid-cols-[220px_minmax(0,1fr)] md:items-center'>
                     <div className='text-sm text-gray-700'>Назва:</div>
                     <input className='border p-2 rounded w-full' required value={prodForm.name} onChange={e=>setProdForm({...prodForm, name:e.target.value})} data-testid='admin-product-edit-name' />
                   </div>
 
-                  <div className='grid gap-2 md:grid-cols-[220px_1fr] md:items-center'>
+                  <div className='grid grid-cols-1 gap-2 md:grid-cols-[220px_minmax(0,1fr)] md:items-center'>
                     <div className='text-sm text-gray-700'>Ціна / Знижка (%):</div>
-                    <div className='grid grid-cols-[2fr_1fr] gap-2'>
+                    <div className='grid grid-cols-[minmax(0,2fr)_minmax(0,1fr)] gap-2'>
                       <input
-                        className='border p-2 rounded'
+                        className='border p-2 rounded min-w-0 w-full'
                         required
                         type='number'
                         value={prodForm.price}
@@ -1766,7 +1766,7 @@ export default function AdminPanel(){
                         data-testid='admin-product-edit-price'
                       />
                       <input
-                        className='border p-2 rounded'
+                        className='border p-2 rounded min-w-0 w-full'
                         type='number'
                         min='0'
                         max='100'
@@ -1777,12 +1777,12 @@ export default function AdminPanel(){
                     </div>
                   </div>
 
-                  <div className='grid gap-2 md:grid-cols-[220px_1fr] md:items-center'>
+                  <div className='grid grid-cols-1 gap-2 md:grid-cols-[220px_minmax(0,1fr)] md:items-center'>
                     <div className='text-sm text-gray-700'>SKU / Артикул:</div>
                     <input className='border p-2 rounded w-full' value={prodForm.sku} onChange={e=>setProdForm({...prodForm, sku:e.target.value})} data-testid='admin-product-edit-sku' />
                   </div>
 
-                  <div className='grid gap-2 md:grid-cols-[220px_1fr] md:items-center'>
+                  <div className='grid grid-cols-1 gap-2 md:grid-cols-[220px_minmax(0,1fr)] md:items-center'>
                     <div className='text-sm text-gray-700'>Кількість на складі:</div>
                     <input
                       className='border p-2 rounded w-full'
@@ -1794,12 +1794,12 @@ export default function AdminPanel(){
                     />
                   </div>
 
-                  <div className='grid gap-2 md:grid-cols-[220px_1fr] md:items-center'>
+                  <div className='grid grid-cols-1 gap-2 md:grid-cols-[220px_minmax(0,1fr)] md:items-center'>
                     <div className='text-sm text-gray-700'>Одиниця вимірювання:</div>
                     <input className='border p-2 rounded w-full' value={prodForm.unit} onChange={e=>setProdForm({...prodForm, unit:e.target.value})} data-testid='admin-product-edit-unit' />
                   </div>
 
-                  <div className='grid gap-2 md:grid-cols-[220px_1fr] md:items-center'>
+                  <div className='grid grid-cols-1 gap-2 md:grid-cols-[220px_minmax(0,1fr)] md:items-center'>
                     <div className='text-sm text-gray-700'>Товар тижня:</div>
                     <label className='inline-flex items-center gap-2 text-sm text-gray-700 select-none'>
                       <input
@@ -1812,7 +1812,7 @@ export default function AdminPanel(){
                     </label>
                   </div>
 
-                  <div className='grid gap-2 md:grid-cols-[220px_1fr] md:items-center'>
+                  <div className='grid grid-cols-1 gap-2 md:grid-cols-[220px_minmax(0,1fr)] md:items-center'>
                     <div className='text-sm text-gray-700'>Картинка (URL / файл):</div>
                     <div className='flex'>
                       <label className='inline-flex items-center justify-center gap-2 px-3 py-2 border rounded cursor-pointer w-full sm:w-auto' data-testid='admin-product-edit-images-upload'>
@@ -1823,7 +1823,7 @@ export default function AdminPanel(){
                   </div>
 
                   {Array.isArray(prodForm.images) && prodForm.images.length > 0 && (
-                    <div className='grid gap-2 md:grid-cols-[220px_1fr] md:items-center'>
+                    <div className='grid grid-cols-1 gap-2 md:grid-cols-[220px_minmax(0,1fr)] md:items-center'>
                       <div className='text-sm text-gray-700'>Превʼю:</div>
                       <div className='flex flex-wrap items-center gap-3'>
                         {prodForm.images.map((img, idx)=>(
@@ -1860,7 +1860,7 @@ export default function AdminPanel(){
                     </div>
                   )}
 
-                  <div className='grid gap-2 md:grid-cols-[220px_1fr] md:items-center'>
+                  <div className='grid grid-cols-1 gap-2 md:grid-cols-[220px_minmax(0,1fr)] md:items-center'>
                     <div className='text-sm text-gray-700'>Категорія:</div>
                     <div className='space-y-3'>
                       <div className='flex gap-2 items-center'>
@@ -1921,7 +1921,7 @@ export default function AdminPanel(){
                     </div>
                   </div>
 
-                  <div className='grid gap-2 md:grid-cols-[220px_1fr] md:items-center'>
+                  <div className='grid grid-cols-1 gap-2 md:grid-cols-[220px_minmax(0,1fr)] md:items-center'>
                     <div className='text-sm text-gray-700'>Підкатегорія:</div>
                     <div className='space-y-3'>
                       <div className='flex gap-2 items-center'>
@@ -1981,7 +1981,7 @@ export default function AdminPanel(){
                     </div>
                   </div>
 
-                  <div className='grid gap-2 md:grid-cols-[220px_1fr] md:items-center'>
+                  <div className='grid grid-cols-1 gap-2 md:grid-cols-[220px_minmax(0,1fr)] md:items-center'>
                     <div className='text-sm text-gray-700'>Тип товару:</div>
                     <div className='space-y-3'>
                       <div className='flex gap-2 items-center'>
@@ -2041,19 +2041,19 @@ export default function AdminPanel(){
                     </div>
                   </div>
 
-                  <div className='grid gap-2 md:grid-cols-[220px_1fr]'>
+                  <div className='grid grid-cols-1 gap-2 md:grid-cols-[220px_minmax(0,1fr)]'>
                     <div className='text-sm text-gray-700 md:pt-2'>Опис:</div>
                     <textarea className='border p-2 rounded min-h-32 w-full' value={prodForm.description} onChange={e=>setProdForm({...prodForm, description:e.target.value})} />
                   </div>
 
-                  <div className='grid gap-2 md:grid-cols-[220px_1fr]'>
+                  <div className='grid grid-cols-1 gap-2 md:grid-cols-[220px_minmax(0,1fr)]'>
                     <div></div>
                     <div className='pt-3 border-t'>
                       <div className='font-semibold'>Характеристики</div>
                     </div>
                   </div>
 
-                  <div className='grid gap-2 md:grid-cols-[220px_1fr]'>
+                  <div className='grid grid-cols-1 gap-2 md:grid-cols-[220px_minmax(0,1fr)]'>
                     <div className='text-sm text-gray-700 md:pt-2'>Характеристики (ключ: значення):</div>
                     <div className='space-y-2'>
                       {(prodForm.specsPairs || []).map((row) => (
@@ -2114,7 +2114,7 @@ export default function AdminPanel(){
                     </div>
                   </div>
 
-                  <div className='grid gap-2 md:grid-cols-[220px_1fr]'>
+                  <div className='grid grid-cols-1 gap-2 md:grid-cols-[220px_minmax(0,1fr)]'>
                     <div className='text-sm text-gray-700 md:pt-2'>Характеристики текстом (Ключ: Значення;):</div>
                     <textarea
                       className='border p-2 rounded min-h-32 w-full'
@@ -2148,16 +2148,16 @@ export default function AdminPanel(){
           {/* Modal: Create Product */}
           {showProdCreate && (
             <div className='fixed inset-0 z-[60] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4' data-testid='admin-product-create-overlay'>
-              <div className='bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[95vh] overflow-auto p-6' onClick={(e)=>e.stopPropagation()} data-testid='admin-product-create'>
+              <div className='bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[calc(100dvh-2rem)] overflow-auto p-6' onClick={(e)=>e.stopPropagation()} data-testid='admin-product-create'>
                 <div className='flex items-center justify-between mb-3'>
                   <h4 className='font-semibold'>Новий товар</h4>
                   <button aria-label='Закрити' onClick={()=> setShowProdCreate(false)} className='w-8 h-8 rounded-lg border' data-testid='admin-product-create-close'>✕</button>
                 </div>
                 <div className='grid md:grid-cols-2 gap-3'>
-                  <input className='border p-2 rounded' required placeholder='Назва' value={prodForm.name} onChange={e=>setProdForm({...prodForm, name:e.target.value})} data-testid='admin-product-create-name' />
-                  <div className='grid grid-cols-[2fr_1fr] gap-2'>
+                  <input className='border p-2 rounded min-w-0 w-full' required placeholder='Назва' value={prodForm.name} onChange={e=>setProdForm({...prodForm, name:e.target.value})} data-testid='admin-product-create-name' />
+                  <div className='grid grid-cols-[minmax(0,2fr)_minmax(0,1fr)] gap-2'>
                     <input
-                      className='border p-2 rounded'
+                      className='border p-2 rounded min-w-0 w-full'
                       required
                       type='number'
                       placeholder='Ціна'
@@ -2166,7 +2166,7 @@ export default function AdminPanel(){
                       data-testid='admin-product-create-price'
                     />
                     <input
-                      className='border p-2 rounded'
+                      className='border p-2 rounded min-w-0 w-full'
                       type='number'
                       min='0'
                       max='100'
@@ -2178,14 +2178,14 @@ export default function AdminPanel(){
                   </div>
                   <div className='grid grid-cols-3 gap-2'>
                     <input
-                      className='border p-2 rounded'
+                      className='border p-2 rounded min-w-0 w-full'
                       placeholder='SKU / артикул'
                       value={prodForm.sku}
                       onChange={e=>setProdForm({...prodForm, sku:e.target.value})}
                       data-testid='admin-product-create-sku'
                     />
                     <input
-                      className='border p-2 rounded'
+                      className='border p-2 rounded min-w-0 w-full'
                       type='number'
                       min='0'
                       placeholder='Кількість на складі'
@@ -2194,7 +2194,7 @@ export default function AdminPanel(){
                       data-testid='admin-product-create-stock'
                     />
                     <input
-                      className='border p-2 rounded'
+                      className='border p-2 rounded min-w-0 w-full'
                       placeholder='Одиниця (шт, м, кг...)'
                       value={prodForm.unit}
                       onChange={e=>setProdForm({...prodForm, unit:e.target.value})}
@@ -2311,7 +2311,7 @@ export default function AdminPanel(){
                     </div>
                   </div>
                   <div className='md:col-span-2 grid gap-2 sm:grid-cols-[1fr_auto] items-center'>
-                    <input className='border p-2 rounded' placeholder='URL картинки' value={prodForm.image} onChange={e=>setProdForm({...prodForm, image:e.target.value})} data-testid='admin-product-create-image-url' />
+                    <input className='border p-2 rounded min-w-0 w-full' placeholder='URL картинки' value={prodForm.image} onChange={e=>setProdForm({...prodForm, image:e.target.value})} data-testid='admin-product-create-image-url' />
                     <label className='inline-flex items-center gap-2 px-3 py-2 border rounded cursor-pointer' data-testid='admin-product-create-images-upload'>
                       <input type='file' accept='image/*' multiple className='hidden' onChange={handleFileChange} />
                       <span>{uploading ? 'Завантаження…' : 'Завантажити файл'}</span>
@@ -2497,7 +2497,7 @@ export default function AdminPanel(){
         {showProdList && (
           <div className='fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4' data-testid='admin-products-list-overlay'>
             <div
-              className={`bg-white rounded-3xl shadow-2xl overflow-auto p-6 ${prodFull ? 'w-full h-full max-w-none' : 'w-full max-w-6xl max-h-[90vh]'}`}
+              className={`bg-white rounded-3xl shadow-2xl overflow-auto p-6 ${prodFull ? 'w-full h-full max-w-none' : 'w-full max-w-6xl max-h-[calc(100dvh-2rem)]'}`}
               onClick={(e)=>e.stopPropagation()}
               data-testid='admin-products-list'
             >
@@ -2903,7 +2903,7 @@ export default function AdminPanel(){
             data-testid='admin-product-preview-overlay'
           >
             <div
-              className='bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-auto p-6'
+              className='bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[calc(100dvh-2rem)] overflow-auto p-6'
               onClick={(e)=>e.stopPropagation()}
               data-testid='admin-product-preview'
             >
@@ -3171,7 +3171,7 @@ export default function AdminPanel(){
           </button>
         </div>
         {/* Filters */}
-        <div className='p-3 bg-white rounded-lg border shadow-sm flex items-center justify-center gap-2 md:gap-3 mb-3 flex-wrap md:flex-nowrap' data-testid='admin-orders-filters'>
+        <div className='p-3 bg-white rounded-lg border shadow-sm flex items-center justify-center gap-2 md:gap-3 mb-3 flex-wrap' data-testid='admin-orders-filters'>
           <input className='border rounded w-[200px] md:w-[220px] shrink-0 h-10 px-3 text-sm' placeholder='Пошук (імʼя/телефон/ID)' value={orderSearch} onChange={e=>{ setOrderSearch(e.target.value); setOrderPage(1) }} data-testid='admin-orders-search' />
           <input type='date' className='border rounded w-[200px] md:w-[220px] shrink-0 h-10 px-3 text-sm' value={dateFrom} onChange={e=>{ setDateFrom(e.target.value); setOrderPage(1) }} data-testid='admin-orders-date-from' />
           <input type='date' className='border rounded w-[200px] md:w-[220px] shrink-0 h-10 px-3 text-sm' value={dateTo} onChange={e=>{ setDateTo(e.target.value); setOrderPage(1) }} data-testid='admin-orders-date-to' />
@@ -3291,7 +3291,7 @@ export default function AdminPanel(){
         {/* Order details modal */}
         {selectedOrder && (
           <div className='fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4' onClick={()=> setSelectedOrder(null)} data-testid='admin-order-details-overlay'>
-            <div className='bg-white rounded-2xl shadow-2xl w-full max-w-3xl p-5' onClick={(e)=>e.stopPropagation()} data-testid='admin-order-details'>
+            <div className='bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[calc(100dvh-2rem)] overflow-y-auto p-5' onClick={(e)=>e.stopPropagation()} data-testid='admin-order-details'>
               <div className='flex items-center justify-between mb-3 border-b pb-3'>
                 <h4 className='font-semibold'>Замовлення #{selectedOrder._id}</h4>
                 <button aria-label='Закрити' onClick={()=> setSelectedOrder(null)} className='w-8 h-8 rounded-lg border hover:bg-gray-100' data-testid='admin-order-details-close'>✕</button>

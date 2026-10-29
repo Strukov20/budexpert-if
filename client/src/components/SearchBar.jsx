@@ -4,6 +4,7 @@ import { getProductSuggestions } from '../api'
 
 export default function SearchBar({value, onChange, onSelect}){
   const [open, setOpen] = useState(false)
+  const [focused, setFocused] = useState(false)
   const [loading, setLoading] = useState(false)
   const [items, setItems] = useState([])
   const rootRef = useRef(null)
@@ -12,7 +13,7 @@ export default function SearchBar({value, onChange, onSelect}){
   const lastReqIdRef = useRef(0)
   const debounceRef = useRef(null)
   const abortRef = useRef(null)
-  const [dropdownRect, setDropdownRect] = useState({ left: 0, top: 0, width: 0 })
+  const [dropdownRect, setDropdownRect] = useState({ left: 0, top: 0, width: 0, maxHeight: 0 })
 
   useEffect(()=>{
     const v = (value || '').toString().trim()
@@ -24,7 +25,7 @@ export default function SearchBar({value, onChange, onSelect}){
       try { abortRef.current.abort() } catch {}
       abortRef.current = null
     }
-    if (v.length < 3) {
+    if (!focused || !inputRef.current?.getClientRects().length || v.length < 3) {
       // Cancel any in-flight suggestion responses
       lastReqIdRef.current += 1
       setItems(prev => (prev.length ? [] : prev))
@@ -68,7 +69,7 @@ export default function SearchBar({value, onChange, onSelect}){
         abortRef.current = null
       }
     }
-  }, [value])
+  }, [value, focused])
 
   useEffect(()=>{
     const onDocDown = (e)=>{
@@ -87,9 +88,17 @@ export default function SearchBar({value, onChange, onSelect}){
     const input = inputRef.current
     if (!input) return
     const r = input.getBoundingClientRect()
+    if (!r.width) {
+      setOpen(false)
+      setFocused(false)
+      return
+    }
+    const viewport = window.visualViewport
+    const bottom = (viewport?.height || window.innerHeight) + (viewport?.offsetTop || 0)
+    const maxHeight = Math.max(0, Math.min(288, bottom - r.bottom - 16))
     setDropdownRect(prev => {
-      const next = { left: r.left, top: r.bottom, width: r.width }
-      if (prev.left === next.left && prev.top === next.top && prev.width === next.width) return prev
+      const next = { left: r.left, top: r.bottom, width: r.width, maxHeight }
+      if (prev.left === next.left && prev.top === next.top && prev.width === next.width && prev.maxHeight === next.maxHeight) return prev
       return next
     })
   }
@@ -101,9 +110,13 @@ export default function SearchBar({value, onChange, onSelect}){
     const onResize = ()=> recomputeRect()
     window.addEventListener('scroll', onScroll, true)
     window.addEventListener('resize', onResize)
+    window.visualViewport?.addEventListener('resize', onResize)
+    window.visualViewport?.addEventListener('scroll', onScroll)
     return ()=>{
       window.removeEventListener('scroll', onScroll, true)
       window.removeEventListener('resize', onResize)
+      window.visualViewport?.removeEventListener('resize', onResize)
+      window.visualViewport?.removeEventListener('scroll', onScroll)
     }
   }, [open])
 
@@ -134,7 +147,7 @@ export default function SearchBar({value, onChange, onSelect}){
   const fmtPrice = useMemo(()=> new Intl.NumberFormat('uk-UA', { minimumFractionDigits: 0, maximumFractionDigits: 2 }), [])
 
   const dropdownEl = useMemo(()=>{
-    if (!open) return null
+    if (!open || dropdownRect.width <= 0 || dropdownRect.maxHeight <= 0) return null
     return (
       <div
         ref={dropdownRef}
@@ -142,7 +155,7 @@ export default function SearchBar({value, onChange, onSelect}){
         style={{ left: dropdownRect.left, top: dropdownRect.top + 8, width: dropdownRect.width }}
         data-testid='search-suggestions'
       >
-        <div className='max-h-72 overflow-auto'>
+        <div className='overflow-auto' style={{ maxHeight: dropdownRect.maxHeight }}>
           {loading ? (
             <div className='px-4 py-3 text-sm text-gray-500' data-testid='search-suggestions-loading'>Завантаження…</div>
           ) : (
@@ -183,7 +196,7 @@ export default function SearchBar({value, onChange, onSelect}){
         </div>
       </div>
     )
-  }, [open, dropdownRect.left, dropdownRect.top, dropdownRect.width, loading, items, fmtPrice])
+  }, [open, dropdownRect.left, dropdownRect.top, dropdownRect.width, dropdownRect.maxHeight, loading, items, fmtPrice])
 
   return (
     <div ref={rootRef} className='relative' data-testid='search'>
@@ -201,7 +214,8 @@ export default function SearchBar({value, onChange, onSelect}){
         ref={inputRef}
         value={value}
         onChange={e=>onChange(e.target.value)}
-        onFocus={()=> { if (items.length > 0) { recomputeRect(); setOpen(true) } }}
+        onFocus={()=> { setFocused(true); if (items.length > 0) { recomputeRect(); setOpen(true) } }}
+        onBlur={()=> setFocused(false)}
         onKeyDown={(e)=>{
           if (e.key === 'Enter') {
             e.preventDefault()
