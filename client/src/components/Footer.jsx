@@ -162,11 +162,11 @@ export default function Footer(){
       <div className="border-t border-white/10">
         <div className="container py-4 text-xs md:text-sm text-gray-400 flex flex-col md:flex-row items-center justify-between gap-2">
           <div>© {new Date().getFullYear()} Буд Експерт. Всі права захищено.</div>
-          <div className="flex items-center gap-3 text-xs md:text-sm">
+          <div className="flex min-w-0 flex-col sm:flex-row sm:flex-wrap items-center justify-center gap-2 sm:gap-x-3 text-center text-xs md:text-sm">
             <a href="#" className="hover:text-white transition-colors cursor-pointer">Політика конфіденційності</a>
-            <span className="opacity-30">|</span>
+            <span className="hidden sm:inline opacity-30">|</span>
             <a href="#" className="hover:text-white transition-colors cursor-pointer">Умови користування</a>
-            <span className="opacity-30">|</span>
+            <span className="hidden sm:inline opacity-30">|</span>
             <a href="/returns" className="hover:text-white transition-colors cursor-pointer">Повернення та обмін</a>
           </div>
         </div>
