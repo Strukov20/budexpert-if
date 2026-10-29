@@ -1,3 +1,4 @@
+import AdminButton, { AdminUploadButton, adminButtonStyles } from '../components/AdminButton'
 import AdminOrderItems from '../components/AdminOrderItems'
 import AdminActions from '../components/AdminActions'
 import { parseCsv } from '../lib/csv'
@@ -27,7 +28,7 @@ import {
   updateBanner,
   getPromos,
 } from '../api'
-import { FiEdit2, FiPlus, FiX, FiCheckCircle, FiAlertTriangle, FiEye, FiTrash2, FiRefreshCcw, FiMaximize2, FiMinimize2, FiSearch } from 'react-icons/fi'
+import { FiEdit2, FiPlus, FiX, FiCheckCircle, FiAlertTriangle, FiEye, FiTrash2, FiRefreshCcw, FiMaximize2, FiMinimize2, FiSearch, FiCheck, FiArrowUp, FiArrowDown } from 'react-icons/fi'
 import ProductCard from '../components/ProductCard'
 
 export default function AdminPanel(){
@@ -888,18 +889,15 @@ export default function AdminPanel(){
         <div className='fixed inset-0 z-[90] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4' onClick={()=>setBannerOpen(false)} data-testid='admin-banner-overlay'>
           <div className='bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[calc(100dvh-2rem)] overflow-y-auto p-5' onClick={(e)=>e.stopPropagation()} data-testid='admin-banner-modal'>
             <div className='flex items-center justify-between mb-3'>
-              <h4 className='font-semibold'>Баннер (головна сторінка)</h4>
-              <button aria-label='Закрити' onClick={()=> setBannerOpen(false)} className='w-8 h-8 rounded-lg border' data-testid='admin-banner-close'>✕</button>
+              <h4 className='font-semibold'>Банер (головна сторінка)</h4>
+              <button aria-label='Закрити' onClick={()=> setBannerOpen(false)} className='inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 transition hover:bg-slate-50 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500' data-testid='admin-banner-close'>✕</button>
             </div>
 
             <div className='grid gap-4'>
-              <div className='flex items-center justify-between gap-3 flex-wrap'>
-                <label className='inline-flex items-center justify-center gap-2 px-3 py-2 border rounded cursor-pointer' data-testid='admin-banner-upload'>
-                  <input type='file' accept='image/*' multiple className='hidden' onChange={handleBannerFileChange} data-testid='admin-banner-upload-input' />
-                  <span>{bannerUploading ? 'Завантаження…' : 'Імпортувати картинки'}</span>
-                </label>
-                <div className='text-sm text-gray-600' data-testid='admin-banner-count'>
-                  {Array.isArray(bannerImages) ? bannerImages.length : 0} шт.
+              <div className='flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4'>
+                <AdminUploadButton onChange={handleBannerFileChange} busy={bannerUploading} testId='admin-banner-upload' inputTestId='admin-banner-upload-input' hint />
+                <div className='rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-medium text-slate-500' data-testid='admin-banner-count'>
+                  Фото: {Array.isArray(bannerImages) ? bannerImages.length : 0}
                 </div>
               </div>
 
@@ -925,28 +923,30 @@ export default function AdminPanel(){
                         <div className='flex items-center justify-between gap-2'>
                           <button
                             type='button'
-                            className='px-2 py-1 border rounded text-sm disabled:opacity-40'
+                            className='inline-flex h-9 min-w-[36px] items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 transition hover:border-slate-300 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-30'
                             onClick={()=> moveBannerImage(idx, idx-1)}
                             disabled={idx===0}
                             title='Вгору'
+                            aria-label='Вгору'
                             data-testid={`admin-banner-image-${idx}-move-up`}
                           >
-                            ↑
+                            <FiArrowUp className='h-4 w-4' aria-hidden='true' />
                           </button>
                           <button
                             type='button'
-                            className='px-2 py-1 border rounded text-sm disabled:opacity-40'
+                            className='inline-flex h-9 min-w-[36px] items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 transition hover:border-slate-300 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-30'
                             onClick={()=> moveBannerImage(idx, idx+1)}
                             disabled={idx===bannerImages.length-1}
                             title='Вниз'
+                            aria-label='Вниз'
                             data-testid={`admin-banner-image-${idx}-move-down`}
                           >
-                            ↓
+                            <FiArrowDown className='h-4 w-4' aria-hidden='true' />
                           </button>
                         </div>
                         <button
                           type='button'
-                          className='px-2 py-1 border rounded text-sm hover:bg-gray-50'
+                          className='inline-flex h-9 items-center justify-center rounded-xl border border-red-100 bg-red-50 text-red-600 transition hover:border-red-200 hover:bg-red-100'
                           onClick={()=> removeBannerImageAt(idx)}
                           title='Видалити'
                           data-testid={`admin-banner-image-${idx}-delete`}
@@ -959,23 +959,23 @@ export default function AdminPanel(){
                 </div>
               ) : (
                 <div className='text-sm text-gray-600 border rounded-xl p-4 bg-gray-50'>
-                  Немає картинок. Додайте кілька зображень для баннера.
+                  Немає картинок. Додайте кілька зображень для банера.
                 </div>
               )}
 
               <div className='flex items-center justify-end gap-2'>
-                <button type='button' className='px-4 py-2 border rounded-lg' onClick={()=> setBannerOpen(false)} data-testid='admin-banner-cancel'>
+                <AdminButton type='button' onClick={()=> setBannerOpen(false)} data-testid='admin-banner-cancel'>
                   Скасувати
-                </button>
-                <button
+                </AdminButton>
+                <AdminButton
                   type='button'
-                  className='px-4 py-2 rounded-lg bg-gray-900 text-white disabled:opacity-60'
+                  variant='primary' icon={FiCheck} busy={bannerSaving}
                   onClick={saveBanner}
                   disabled={bannerSaving || bannerUploading}
                   data-testid='admin-banner-save'
                 >
                   {bannerSaving ? 'Збереження…' : 'Зберегти'}
-                </button>
+                </AdminButton>
               </div>
             </div>
           </div>
@@ -987,17 +987,14 @@ export default function AdminPanel(){
           <div className='bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[calc(100dvh-2rem)] overflow-y-auto p-5' onClick={(e)=>e.stopPropagation()} data-testid='admin-about-gallery-modal'>
             <div className='flex items-center justify-between mb-3'>
               <h4 className='font-semibold'>Фото (Про магазин)</h4>
-              <button aria-label='Закрити' onClick={()=> setAboutGalleryOpen(false)} className='w-8 h-8 rounded-lg border' data-testid='admin-about-gallery-close'>✕</button>
+              <button aria-label='Закрити' onClick={()=> setAboutGalleryOpen(false)} className='inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 transition hover:bg-slate-50 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500' data-testid='admin-about-gallery-close'>✕</button>
             </div>
 
             <div className='grid gap-4'>
-              <div className='flex items-center justify-between gap-3 flex-wrap'>
-                <label className='inline-flex items-center justify-center gap-2 px-3 py-2 border rounded cursor-pointer' data-testid='admin-about-gallery-upload'>
-                  <input type='file' accept='image/*' multiple className='hidden' onChange={handleAboutGalleryFileChange} data-testid='admin-about-gallery-upload-input' />
-                  <span>{aboutGalleryUploading ? 'Завантаження…' : 'Імпортувати фото'}</span>
-                </label>
-                <div className='text-sm text-gray-600' data-testid='admin-about-gallery-count'>
-                  {Array.isArray(aboutGalleryImages) ? aboutGalleryImages.length : 0} шт.
+              <div className='flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4'>
+                <AdminUploadButton onChange={handleAboutGalleryFileChange} busy={aboutGalleryUploading} testId='admin-about-gallery-upload' inputTestId='admin-about-gallery-upload-input' hint />
+                <div className='rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-medium text-slate-500' data-testid='admin-about-gallery-count'>
+                  Фото: {Array.isArray(aboutGalleryImages) ? aboutGalleryImages.length : 0}
                 </div>
               </div>
 
@@ -1016,28 +1013,30 @@ export default function AdminPanel(){
                         <div className='flex items-center justify-between gap-2'>
                           <button
                             type='button'
-                            className='px-2 py-1 border rounded text-sm disabled:opacity-40'
+                            className='inline-flex h-9 min-w-[36px] items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 transition hover:border-slate-300 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-30'
                             onClick={()=> moveAboutGalleryImage(idx, idx-1)}
                             disabled={idx===0}
                             title='Вгору'
+                            aria-label='Вгору'
                             data-testid={`admin-about-gallery-image-${idx}-move-up`}
                           >
-                            ↑
+                            <FiArrowUp className='h-4 w-4' aria-hidden='true' />
                           </button>
                           <button
                             type='button'
-                            className='px-2 py-1 border rounded text-sm disabled:opacity-40'
+                            className='inline-flex h-9 min-w-[36px] items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 transition hover:border-slate-300 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-30'
                             onClick={()=> moveAboutGalleryImage(idx, idx+1)}
                             disabled={idx===aboutGalleryImages.length-1}
                             title='Вниз'
+                            aria-label='Вниз'
                             data-testid={`admin-about-gallery-image-${idx}-move-down`}
                           >
-                            ↓
+                            <FiArrowDown className='h-4 w-4' aria-hidden='true' />
                           </button>
                         </div>
                         <button
                           type='button'
-                          className='px-2 py-1 border rounded text-sm hover:bg-gray-50'
+                          className='inline-flex h-9 items-center justify-center rounded-xl border border-red-100 bg-red-50 text-red-600 transition hover:border-red-200 hover:bg-red-100'
                           onClick={()=> removeAboutGalleryImageAt(idx)}
                           title='Видалити'
                           data-testid={`admin-about-gallery-image-${idx}-delete`}
@@ -1055,18 +1054,18 @@ export default function AdminPanel(){
               )}
 
               <div className='flex items-center justify-end gap-2'>
-                <button type='button' className='px-4 py-2 border rounded-lg' onClick={()=> setAboutGalleryOpen(false)} data-testid='admin-about-gallery-cancel'>
+                <AdminButton type='button' onClick={()=> setAboutGalleryOpen(false)} data-testid='admin-about-gallery-cancel'>
                   Скасувати
-                </button>
-                <button
+                </AdminButton>
+                <AdminButton
                   type='button'
-                  className='px-4 py-2 rounded-lg bg-gray-900 text-white disabled:opacity-60'
+                  variant='primary' icon={FiCheck} busy={aboutGallerySaving}
                   onClick={saveAboutGallery}
                   disabled={aboutGallerySaving || aboutGalleryUploading}
                   data-testid='admin-about-gallery-save'
                 >
                   {aboutGallerySaving ? 'Збереження…' : 'Зберегти'}
-                </button>
+                </AdminButton>
               </div>
             </div>
           </div>
@@ -1078,7 +1077,7 @@ export default function AdminPanel(){
           <div className='bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[calc(100dvh-2rem)] overflow-y-auto p-5' onClick={(e)=>e.stopPropagation()} data-testid='admin-product-image-modal'>
             <div className='flex items-center justify-between mb-3'>
               <h4 className='font-semibold'>Перегляд фото</h4>
-              <button aria-label='Закрити' onClick={()=> setImgModalOpen(false)} className='w-8 h-8 rounded-lg border' data-testid='admin-product-image-modal-close'>✕</button>
+              <button aria-label='Закрити' onClick={()=> setImgModalOpen(false)} className='inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 transition hover:bg-slate-50 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500' data-testid='admin-product-image-modal-close'>✕</button>
             </div>
 
             {(() => {
@@ -1104,7 +1103,7 @@ export default function AdminPanel(){
                   <div className='flex justify-end gap-2'>
                     <button
                       type='button'
-                      className='px-3 py-2 border rounded'
+                      className={adminButtonStyles.secondary}
                       onClick={()=>{ makeImagePrimaryAt(imgModalIndex); setImgModalIndex(0); }}
                       disabled={imgModalIndex === 0}
                       title={imgModalIndex === 0 ? 'Це вже головне фото' : 'Зробити головним'}
@@ -1501,7 +1500,7 @@ export default function AdminPanel(){
                   loadAll();
                   showToast(applyToProducts ? 'Категорію оновлено. Товари відобразять нову назву автоматично.' : 'Категорію оновлено','success')
                 }catch(err){ showToast(getErrMsg(err),'error') }
-              }} className='px-4 py-2.5 rounded-lg bg-black text-white hover:bg-red-600 transition' data-testid='admin-categories-edit-save'>Зберегти</button>
+              }} className={adminButtonStyles.primary} data-testid='admin-categories-edit-save'>Зберегти</button>
             </div>
           </div>
         </div>
@@ -1684,7 +1683,7 @@ export default function AdminPanel(){
               <div className='bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[calc(100dvh-2rem)] overflow-auto p-6' onClick={(e)=>e.stopPropagation()} data-testid='admin-product-edit'>
                 <div className='flex items-center justify-between mb-3'>
                   <h4 className='font-semibold'>Редагувати товар</h4>
-                  <button aria-label='Закрити' onClick={()=> setShowProdEdit(false)} className='w-8 h-8 rounded-lg border' data-testid='admin-product-edit-close'>✕</button>
+                  <button aria-label='Закрити' onClick={()=> setShowProdEdit(false)} className='inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 transition hover:bg-slate-50 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500' data-testid='admin-product-edit-close'>✕</button>
                 </div>
                 <div className='grid gap-3'>
                   <div className='grid grid-cols-1 gap-2 md:grid-cols-[220px_minmax(0,1fr)] md:items-center'>
@@ -1753,10 +1752,7 @@ export default function AdminPanel(){
                   <div className='grid grid-cols-1 gap-2 md:grid-cols-[220px_minmax(0,1fr)] md:items-center'>
                     <div className='text-sm text-gray-700'>Картинка (URL / файл):</div>
                     <div className='flex'>
-                      <label className='inline-flex items-center justify-center gap-2 px-3 py-2 border rounded cursor-pointer w-full sm:w-auto' data-testid='admin-product-edit-images-upload'>
-                        <input type='file' accept='image/*' multiple className='hidden' onChange={handleFileChange} />
-                        <span>{uploading ? 'Завантаження…' : 'Завантажити файл'}</span>
-                      </label>
+                      <AdminUploadButton onChange={handleFileChange} busy={uploading} testId='admin-product-edit-images-upload' inputTestId='admin-product-edit-images-upload-input' />
                     </div>
                   </div>
 
@@ -2068,16 +2064,15 @@ export default function AdminPanel(){
                   </div>
                 </div>
                 <div className='mt-4 flex justify-end gap-2'>
-                  <button onClick={()=> setShowProdEdit(false)} className='px-3 py-2 border rounded' disabled={savingProduct} data-testid='admin-product-edit-cancel'>Скасувати</button>
-                  <button
+                  <button onClick={()=> setShowProdEdit(false)} className={adminButtonStyles.secondary} disabled={savingProduct} data-testid='admin-product-edit-cancel'>Скасувати</button>
+                  <AdminButton
                     onClick={handleUpdate}
                     disabled={savingProduct}
-                    className='px-3 py-2 bg-black text-white rounded hover:bg-red-600 transition disabled:opacity-60 disabled:cursor-not-allowed inline-flex items-center gap-2'
+                    variant='primary' icon={FiCheck} busy={savingProduct}
                     data-testid='admin-product-edit-save'
                   >
-                    {savingProduct && <span className='w-4 h-4 rounded-full border-2 border-white/50 border-t-white animate-spin' />}
                     <span>{savingProduct ? 'Збереження…' : 'Зберегти'}</span>
-                  </button>
+                  </AdminButton>
                 </div>
               </div>
             </div>
@@ -2089,7 +2084,7 @@ export default function AdminPanel(){
               <div className='bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[calc(100dvh-2rem)] overflow-auto p-6' onClick={(e)=>e.stopPropagation()} data-testid='admin-product-create'>
                 <div className='flex items-center justify-between mb-3'>
                   <h4 className='font-semibold'>Новий товар</h4>
-                  <button aria-label='Закрити' onClick={()=> setShowProdCreate(false)} className='w-8 h-8 rounded-lg border' data-testid='admin-product-create-close'>✕</button>
+                  <button aria-label='Закрити' onClick={()=> setShowProdCreate(false)} className='inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 transition hover:bg-slate-50 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500' data-testid='admin-product-create-close'>✕</button>
                 </div>
                 <div className='grid md:grid-cols-2 gap-3'>
                   <input className='border p-2 rounded min-w-0 w-full' required placeholder='Назва' value={prodForm.name} onChange={e=>setProdForm({...prodForm, name:e.target.value})} data-testid='admin-product-create-name' />
@@ -2250,10 +2245,7 @@ export default function AdminPanel(){
                   </div>
                   <div className='md:col-span-2 grid gap-2 sm:grid-cols-[1fr_auto] items-center'>
                     <input className='border p-2 rounded min-w-0 w-full' placeholder='URL картинки' value={prodForm.image} onChange={e=>setProdForm({...prodForm, image:e.target.value})} data-testid='admin-product-create-image-url' />
-                    <label className='inline-flex items-center gap-2 px-3 py-2 border rounded cursor-pointer' data-testid='admin-product-create-images-upload'>
-                      <input type='file' accept='image/*' multiple className='hidden' onChange={handleFileChange} />
-                      <span>{uploading ? 'Завантаження…' : 'Завантажити файл'}</span>
-                    </label>
+                    <AdminUploadButton onChange={handleFileChange} busy={uploading} testId='admin-product-create-images-upload' inputTestId='admin-product-create-images-upload-input' />
                   </div>
 
                   {Array.isArray(prodForm.images) && prodForm.images.length > 0 && (
@@ -2415,16 +2407,15 @@ export default function AdminPanel(){
                   </div>
                 </div>
                 <div className='mt-4 flex justify-end gap-2'>
-                  <button onClick={()=> setShowProdCreate(false)} className='px-3 py-2 border rounded' disabled={savingProduct} data-testid='admin-product-create-cancel'>Скасувати</button>
-                  <button
+                  <button onClick={()=> setShowProdCreate(false)} className={adminButtonStyles.secondary} disabled={savingProduct} data-testid='admin-product-create-cancel'>Скасувати</button>
+                  <AdminButton
                     onClick={handleCreateProduct}
                     disabled={savingProduct}
-                    className='px-3 py-2 bg-black text-white rounded hover:bg-red-600 transition disabled:opacity-60 disabled:cursor-not-allowed inline-flex items-center gap-2'
+                    variant='primary' icon={FiPlus} busy={savingProduct}
                     data-testid='admin-product-create-submit'
                   >
-                    {savingProduct && <span className='w-4 h-4 rounded-full border-2 border-white/50 border-t-white animate-spin' />}
                     <span>{savingProduct ? 'Створення…' : 'Створити'}</span>
-                  </button>
+                  </AdminButton>
                 </div>
               </div>
             </div>
@@ -2889,7 +2880,7 @@ export default function AdminPanel(){
               <div className='bg-white rounded-xl shadow-2xl w-full max-w-md p-5' onClick={(e)=>e.stopPropagation()} data-testid='admin-categories-edit-legacy'>
                 <div className='flex items-center justify-between mb-3'>
                   <h4 className='font-semibold'>Редагувати категорію</h4>
-                  <button aria-label='Закрити' onClick={()=> setShowCatEdit(false)} className='w-8 h-8 rounded-lg border' data-testid='admin-categories-edit-legacy-close'>✕</button>
+                  <button aria-label='Закрити' onClick={()=> setShowCatEdit(false)} className='inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 transition hover:bg-slate-50 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500' data-testid='admin-categories-edit-legacy-close'>✕</button>
                 </div>
                 <label className='text-sm text-gray-600'>Назва</label>
                 <input className='border p-2 rounded w-full mb-3' value={catEditingName} onChange={e=>setCatEditingName(e.target.value)} data-testid='admin-categories-edit-legacy-name' />
@@ -2901,7 +2892,7 @@ export default function AdminPanel(){
                   </span>
                 </label>
                 <div className='flex justify-end gap-2'>
-                  <button onClick={()=> setShowCatEdit(false)} className='px-3 py-2 border rounded' data-testid='admin-categories-edit-legacy-cancel'>Скасувати</button>
+                  <button onClick={()=> setShowCatEdit(false)} className={adminButtonStyles.secondary} data-testid='admin-categories-edit-legacy-cancel'>Скасувати</button>
                   <button onClick={async()=>{
                     try{
                       if (!selectedCatId) return;
@@ -2911,7 +2902,7 @@ export default function AdminPanel(){
                       loadAll();
                       showToast(applyToProducts ? 'Категорію оновлено. Товари відобразять нову назву автоматично.' : 'Категорію оновлено','success')
                     }catch(err){ showToast(getErrMsg(err),'error') }
-                  }} className='px-3 py-2 bg-black text-white rounded hover:bg-red-600 transition' data-testid='admin-categories-edit-legacy-save'>Зберегти</button>
+                  }} className={adminButtonStyles.primary} data-testid='admin-categories-edit-legacy-save'>Зберегти</button>
                 </div>
               </div>
             </div>
@@ -2923,19 +2914,19 @@ export default function AdminPanel(){
               <div className='bg-white rounded-xl shadow-2xl w-full max-w-md p-5' onClick={(e)=>e.stopPropagation()} data-testid='admin-categories-create-legacy'>
                 <div className='flex items-center justify-between mb-3'>
                   <h4 className='font-semibold'>Нова категорія</h4>
-                  <button aria-label='Закрити' onClick={()=> setShowCatCreate(false)} className='w-8 h-8 rounded-lg border' data-testid='admin-categories-create-legacy-close'>✕</button>
+                  <button aria-label='Закрити' onClick={()=> setShowCatCreate(false)} className='inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 transition hover:bg-slate-50 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500' data-testid='admin-categories-create-legacy-close'>✕</button>
                 </div>
                 <label className='text-sm text-gray-600'>Назва</label>
                 <input className='border p-2 rounded w-full mb-4' value={catName} onChange={e=>setCatName(e.target.value)} placeholder='Введіть назву категорії' data-testid='admin-categories-create-legacy-name' />
                 <div className='flex justify-end gap-2'>
-                  <button onClick={()=> setShowCatCreate(false)} className='px-3 py-2 border rounded' data-testid='admin-categories-create-legacy-cancel'>Скасувати</button>
+                  <button onClick={()=> setShowCatCreate(false)} className={adminButtonStyles.secondary} data-testid='admin-categories-create-legacy-cancel'>Скасувати</button>
                   <button onClick={async()=>{
                     try{
                       await createCategory({ name: (catName||'').trim() });
                       setCatName(''); setShowCatCreate(false); loadAll();
                       showToast('Категорію створено','success')
                     }catch(err){ showToast(getErrMsg(err),'error') }
-                  }} className='px-3 py-2 bg-black text-white rounded hover:bg-red-600 transition' data-testid='admin-categories-create-legacy-submit'>Створити</button>
+                  }} className={adminButtonStyles.primary} data-testid='admin-categories-create-legacy-submit'>Створити</button>
                 </div>
               </div>
             </div>
@@ -3253,8 +3244,8 @@ export default function AdminPanel(){
               </div>
               <AdminOrderItems order={selectedOrder} products={products} />
               <div className='mt-4 flex justify-end gap-2'>
-                <button onClick={()=> setSelectedOrder(null)} className='px-3 py-2 border rounded' data-testid='admin-order-details-cancel'>Закрити</button>
-                <button onClick={async()=>{ try{ await updateOrder(selectedOrder._id, { status: orderStatusEdit, note: orderNote }); showToast('Замовлення оновлено','success'); setSelectedOrder(null); loadAll(); } catch(err){ showToast(getErrMsg(err),'error') } }} className='px-3 py-2 bg-black text-white rounded hover:bg-red-600 transition' data-testid='admin-order-details-save'>Зберегти</button>
+                <button onClick={()=> setSelectedOrder(null)} className={adminButtonStyles.secondary} data-testid='admin-order-details-cancel'>Закрити</button>
+                <button onClick={async()=>{ try{ await updateOrder(selectedOrder._id, { status: orderStatusEdit, note: orderNote }); showToast('Замовлення оновлено','success'); setSelectedOrder(null); loadAll(); } catch(err){ showToast(getErrMsg(err),'error') } }} className={adminButtonStyles.primary} data-testid='admin-order-details-save'>Зберегти</button>
               </div>
             </div>
           </div>
