@@ -1,3 +1,4 @@
+import AdminActions from '../components/AdminActions'
 import { parseCsv } from '../lib/csv'
 import React, { useEffect, useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
@@ -25,7 +26,7 @@ import {
   updateBanner,
   getPromos,
 } from '../api'
-import { FiEdit2, FiPlus, FiX, FiCheckCircle, FiAlertTriangle, FiEye, FiTrash2, FiRefreshCcw, FiMaximize2, FiMinimize2, FiSearch, FiDownload } from 'react-icons/fi'
+import { FiEdit2, FiPlus, FiX, FiCheckCircle, FiAlertTriangle, FiEye, FiTrash2, FiRefreshCcw, FiMaximize2, FiMinimize2, FiSearch } from 'react-icons/fi'
 import ProductCard from '../components/ProductCard'
 
 export default function AdminPanel(){
@@ -1657,85 +1658,21 @@ export default function AdminPanel(){
       </div>
       
       
-      <h3 className='order-last text-xl font-semibold mt-6 mb-3'>Панель керування</h3>
       <div className={`${prodFull ? 'fixed inset-0 z-50 bg-white p-4 overflow-auto' : 'order-last mb-6'}`}>
-        <div className='card p-4'>
-          <div className='flex items-center justify-between mb-3'>
-            <div className='flex gap-3 items-center justify-center flex-wrap flex-1'>
-              <button
-                type='button'
-                onClick={()=> setShowProdList(true)}
-                className='inline-flex items-center gap-2 px-3 py-2 border rounded hover:bg-black hover:text-white transition'
-                data-testid='admin-products-open-list'
-              >
-                <FiEye size={18} />
-                <span>Всі товари</span>
-              </button>
-              <button
-                type='button'
-                onClick={handleImportClick}
-                className='inline-flex items-center gap-2 px-3 py-2 border rounded hover:bg-black hover:text-white transition'
-                data-testid='admin-products-import-open'
-              >
-                <FiPlus size={18} />
-                <span>Імпорт Товарів CSV</span>
-              </button>
-              <button
-                type='button'
-                onClick={handleExportCsv}
-                className='inline-flex items-center gap-2 px-3 py-2 border rounded hover:bg-black hover:text-white transition'
-                data-testid='admin-products-export-csv'
-              >
-                <FiDownload size={18} />
-                <span>Експорт CSV</span>
-              </button>
-              <span className='inline-block w-px h-6 bg-gray-200' aria-hidden='true' />
-              <button
-                type='button'
-                onClick={()=> setShowCatList(true)}
-                className='inline-flex items-center gap-2 px-3 py-2 border rounded hover:bg-black hover:text-white transition'
-                data-testid='admin-categories-open-list'
-              >
-                <FiEye size={18} />
-                <span>Категорії</span>
-              </button>
-              <span className='inline-block w-px h-6 bg-gray-200' aria-hidden='true' />
-              <button
-                type='button'
-                onClick={()=>{ setBannerImages([]); setBannerOpen(true); loadBanner(); }}
-                className='inline-flex items-center gap-2 px-3 py-2 border rounded hover:bg-black hover:text-white transition'
-                title='Керування баннером на головній'
-                data-testid='admin-panel-banner-open'
-              >
-                Баннер
-              </button>
-              <button
-                type='button'
-                onClick={()=>{ setAboutGalleryImages([]); setAboutGalleryOpen(true); loadAboutGallery(); }}
-                className='inline-flex items-center gap-2 px-3 py-2 border rounded hover:bg-black hover:text-white transition'
-                title='Фото для сторінки "Про магазин"'
-                data-testid='admin-panel-about-gallery-open'
-              >
-                Фото (Про магазин)
-              </button>
-              <button
-                type='button'
-                onClick={()=> navigate('/')}
-                className='inline-flex items-center gap-2 px-3 py-2 border rounded hover:bg-black hover:text-white transition'
-                data-testid='admin-panel-go-catalog'
-              >
-                Каталог
-              </button>
-            </div>
-            <button
-              className='w-10 h-10 inline-flex items-center justify-center border rounded hover:bg-gray-50 active:scale-95 ml-2 shrink-0'
-              onClick={()=> setProdFull(v=>!v)}
-              aria-label={prodFull ? 'Вийти з повного екрану' : 'На весь екран'}
-              title={prodFull ? 'Згорнути' : 'Розгорнути'}
-            >
-              {prodFull ? <FiMinimize2 /> : <FiMaximize2 />}
-            </button>
-          </div>
+        <div className='rounded-2xl border border-slate-200 bg-slate-50/70 p-4 sm:p-5'>
+          <AdminActions
+            onProducts={() => setShowProdList(true)}
+            onCategories={() => setShowCatList(true)}
+            onCatalog={() => navigate('/')}
+            onImport={handleImportClick}
+            onExport={handleExportCsv}
+            onBanner={() => { setBannerImages([]); setBannerOpen(true); loadBanner() }}
+            onGallery={() => { setAboutGalleryImages([]); setAboutGalleryOpen(true); loadAboutGallery() }}
+            onToggleExpand={() => setProdFull(value => !value)}
+            expanded={prodFull}
+            productCount={loadingAll ? '…' : products.length}
+            categoryCount={loadingAll ? '…' : categories.length}
+          />
           <div className='flex gap-2 items-center justify-center flex-wrap'>
             <input ref={importInputRef} type='file' accept='.csv,.json,text/csv,application/json' className='hidden' onChange={handleImportFile} data-testid='admin-products-import-file-input' />
           </div>
