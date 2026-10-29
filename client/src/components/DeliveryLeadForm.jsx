@@ -354,11 +354,11 @@ export default function DeliveryLeadForm({ variant }){
 
           <div className='md:col-span-1'>
             <label className='text-sm text-gray-700 mb-1 block'>Бажана дата та час доставки</label>
-            <div className={`${variant==='stack' ? 'flex flex-col' : 'flex'} gap-2`}>
+            <div className={`grid grid-cols-1 ${variant === 'stack' ? '' : 'min-[420px]:grid-cols-2'} gap-2`}>
               <div className={`relative bg-white rounded-xl ring-1 ring-gray-200 shadow px-3 transition hover:bg-red-50/40 hover:ring-red-200 w-full ${dtError ? 'ring-red-300' : ''}`}>
                 <input
                   type='date'
-                  className='h-11 text-base w-full appearance-none bg-transparent border-0 focus:ring-0 focus:outline-none px-0'
+                  className='h-11 text-base w-full min-w-0 appearance-none bg-transparent border-0 focus:ring-0 focus:outline-none px-0'
                   value={dtDate}
                   onChange={(e)=> setDtDate(e.target.value)}
                   onBlur={()=> setTouched(t=> ({...t, dt:true}))}

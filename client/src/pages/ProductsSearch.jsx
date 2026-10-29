@@ -167,7 +167,7 @@ export default function ProductsSearch(){
         const arr = hasFilters ? rawArr : shuffle(rawArr)
         setItems(prev => (page === 1 ? mergeUniqueById([], arr) : mergeUniqueById(prev, arr)))
 
-        const totalPages = Number(d?.totalPages ?? 0) || 0
+        const totalPages = Number(d?.pages ?? 0) || 0
         if (totalPages) {
           setHasMore(page < totalPages)
         } else {

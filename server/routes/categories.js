@@ -1,9 +1,9 @@
-import express from "express";
+import { createRouter } from '../middleware/router.js';
 import Category from "../models/Category.js";
 import requireAdmin from "../middleware/auth.js";
 import Product from "../models/Product.js";
 
-const router = express.Router();
+const router = createRouter();
 
 // ✅ GET /api/categories — отримати всі категорії (можна фільтрувати по parent)
 // Query: ?parent=<id> | ?parent=null
@@ -68,7 +68,7 @@ router.post("/", requireAdmin, async (req, res) => {
     const name = (req.body?.name || '').trim();
     if (!name) return res.status(400).json({ message: "Поле name обов'язкове" });
     const parent = (req.body?.parent === '' || req.body?.parent === null) ? null : (req.body?.parent || null);
-    const exists = await Category.findOne({ parent, name: { $regex: `^${name}$`, $options: 'i' } });
+    const exists = await Category.findOne({ parent, name: { $regex: `^${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, $options: 'i' } });
     if (exists) return res.status(409).json({ message: "Категорія з такою назвою вже існує" });
     const category = new Category({ ...req.body, name, parent });
     await category.save();
@@ -88,6 +88,7 @@ router.put("/:id", requireAdmin, async (req, res) => {
       if (body.parent === '' || body.parent === null) body.parent = null;
     }
     const updated = await Category.findByIdAndUpdate(req.params.id, body, { new: true, runValidators: true });
+    if (!updated) return res.status(404).json({ message: "Not found" });
     res.json(updated);
   } catch (err) {
     console.error("Error updating category:", err);

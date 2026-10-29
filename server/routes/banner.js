@@ -1,8 +1,8 @@
-import express from 'express'
+import { createRouter } from '../middleware/router.js';
 import Banner from '../models/Banner.js'
 import requireAdmin from '../middleware/auth.js'
 
-const router = express.Router()
+const router = createRouter()
 
 const normalizeKey = (raw) => {
   const v = Array.isArray(raw) ? raw[0] : raw

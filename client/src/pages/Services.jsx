@@ -3,30 +3,6 @@ import { FiPhoneCall, FiCheckCircle, FiPackage, FiTruck } from 'react-icons/fi'
 import { createLead } from '../api'
 
 export default function Services(){
-  useEffect(()=>{
-    document.title = 'Безкоштовна доставка матеріалів — БудЕксперт'
-    const metaDesc = document.querySelector('meta[name="description"]') || (()=>{ const m=document.createElement('meta'); m.setAttribute('name','description'); document.head.appendChild(m); return m })()
-    metaDesc.setAttribute('content','Безкоштовна доставка будматеріалів у межах міста від 5000 ₴ за 2–4 години. Якісні матеріали від перевірених брендів. Замовляйте швидко і зручно.')
-
-    const jsonLd = {
-      '@context':'https://schema.org',
-      '@type':'DeliveryService',
-      name:'БудЕксперт — Доставка будматеріалів',
-      areaServed:'Івано-Франківськ та приміські райони',
-      provider:{ '@type':'LocalBusiness', name:'Буд Експерт' },
-      offers:{ '@type':'Offer', price:'0', priceCurrency:'UAH', description:'Безкоштовна доставка в межах міста при замовленні від 5000 ₴' }
-    }
-    const faqLd = {
-      '@context':'https://schema.org', '@type':'FAQPage', mainEntity:[
-        { '@type':'Question', name:'Скільки коштує доставка?', acceptedAnswer:{ '@type':'Answer', text:'У межах міста доставка безкоштовна. За місто — за узгодженим тарифом за кілометр.' }},
-        { '@type':'Question', name:'За який час довозите?', acceptedAnswer:{ '@type':'Answer', text:'Типово 2–4 години з моменту підтвердження замовлення. Терміново — за домовленістю.' }},
-        { '@type':'Question', name:'Які матеріали доставляєте?', acceptedAnswer:{ '@type':'Answer', text:'Усі популярні будматеріали: суміші, утеплювачі, фарби, плитка, інструмент — усе, що є в наявності.' }}
-      ]}
-    const el = document.createElement('script'); el.type='application/ld+json'; el.text = JSON.stringify(jsonLd)
-    const el2 = document.createElement('script'); el2.type='application/ld+json'; el2.text = JSON.stringify(faqLd)
-    document.head.appendChild(el); document.head.appendChild(el2)
-    return ()=>{ el.remove(); el2.remove(); }
-  },[])
 
   const brands = [
     { name:'Bosch', logo:'/bosch_logo.png', note:'Інструмент' },

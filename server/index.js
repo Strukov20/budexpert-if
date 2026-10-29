@@ -1,8 +1,10 @@
 import express from "express";
 import mongoose from "mongoose";
 import cors from "cors";
-import dotenv from "dotenv";
-import Product from "./models/Product.js";
+import { validateConfig, isTestMode, publicBaseUrl } from "./config.js";
+import { randomBytes } from "node:crypto";
+import { seoApi, sitemapRouter, pageRouter } from "./routes/seo.js";
+import requireAdmin from "./middleware/auth.js";
 import productsRouter from "./routes/products.js";
 import ordersRouter from "./routes/orders.js";
 import categoryRoutes from "./routes/categories.js";
@@ -19,18 +21,24 @@ import promosRoutes from "./routes/promos.js";
 import helmet from "helmet";
 import mongoSanitize from "express-mongo-sanitize";
 import rateLimit from "express-rate-limit";
-import Category from "./models/Category.js";
 import { fileURLToPath } from "url";
 import dns from "dns";
 
-dotenv.config();
+validateConfig();
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const projectRoot = path.resolve(__dirname, "..");
 const app = express();
+app.disable('x-powered-by');
+// Configure the exact trusted proxy hop count for the hosting topology.
+if (process.env.TRUST_PROXY_HOPS) {
+  const hops = Number(process.env.TRUST_PROXY_HOPS);
+  if (!Number.isSafeInteger(hops) || hops < 1 || hops > 10) throw new Error('Invalid TRUST_PROXY_HOPS');
+  app.set('trust proxy', hops);
+}
 // Avoid 304 Not Modified for API JSON responses (axios expects a body)
 app.set('etag', false);
-const allowedOriginEnv = process.env.CORS_ORIGIN || "http://localhost:5173";
+const allowedOriginEnv = process.env.CORS_ORIGIN || `${publicBaseUrl()},http://localhost:5173`;
 const allowedOrigins = allowedOriginEnv.split(",").map(o => o.trim()).filter(Boolean);
 
 app.use(cors({
@@ -39,67 +47,46 @@ app.use(cors({
     if (!origin) return callback(null, true);
     if (allowedOrigins.length === 0) return callback(null, true);
     if (allowedOrigins.includes(origin)) return callback(null, true);
-    return callback(new Error("Not allowed by CORS"));
+    return callback(Object.assign(new Error("Not allowed by CORS"), { status: 403 }));
   },
   credentials: true,
 }));
-// Allow images to be consumed from a different origin/port (e.g., Vite dev server)
-app.use(helmet({ crossOriginResourcePolicy: { policy: "cross-origin" } }));
-// Підняти ліміт body для великих імпортів товарів
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+app.use((_req, res, next) => { res.locals.nonce = randomBytes(18).toString('base64'); next(); });
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: 'cross-origin' },
+  contentSecurityPolicy: { directives: {
+    defaultSrc: ["'self'"],
+    scriptSrc: ["'self'", (_req, res) => `'nonce-${res.locals.nonce}'`, 'https://www.googletagmanager.com', 'https://www.google-analytics.com'],
+    scriptSrcAttr: ["'none'"],
+    styleSrc: ["'self'", "'unsafe-inline'"],
+    imgSrc: ["'self'", 'data:', 'https:'],
+    connectSrc: ["'self'", 'https://*.google-analytics.com', 'https://*.analytics.google.com', 'https://www.googletagmanager.com', ...(process.env.CSP_CONNECT_ORIGINS || '').split(',').map(x => x.trim()).filter(Boolean)],
+    frameSrc: ['https://www.google.com', 'https://maps.google.com', 'https://www.googletagmanager.com'],
+    objectSrc: ["'none'"], baseUri: ["'self'"], frameAncestors: ["'none'"],
+    upgradeInsecureRequests: process.env.NODE_ENV === 'production' ? [] : null,
+  } },
+}));
+// The large parser is restricted to authenticated bulk imports.
+app.use('/api/products/bulk', (req, res, next) => req.method === 'POST' ? requireAdmin(req, res, next) : next(), express.json({ limit: '10mb' }));
+app.use(express.json({ limit: '100kb' }));
+app.use(express.urlencoded({ extended: false, limit: '100kb' }));
 app.use(mongoSanitize());
+const apiLimiter = rateLimit({ windowMs: 60 * 1000, max: isTestMode ? 5000 : 300, standardHeaders: 'draft-7', legacyHeaders: false });
+app.use('/api', apiLimiter);
 
 // Disable caching for API responses
 app.use('/api', (_req, res, next) => {
+  res.setHeader('X-Robots-Tag', 'noindex, follow');
   res.setHeader('Cache-Control', 'no-store');
   res.setHeader('Pragma', 'no-cache');
   res.setHeader('Expires', '0');
   next();
 });
 
-const authLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 100 });
+const authLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: isTestMode ? 1000 : 10 });
 const uploadLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 200 });
 
-const MONGO_URI = process.env.MONGO_URI || "mongodb://localhost:27017/shop";
-const NODE_ENV = process.env.NODE_ENV || "development";
-const TEST_ENV = process.env.TEST_ENV || "";
-const isTestMode = NODE_ENV === "test" || TEST_ENV === "test";
-
-// У продакшені небезпечно мовчки падати на дефолтні admin-креденшли/JWT-секрет
-if (NODE_ENV === "production") {
-  const missing = ["ADMIN_USER", "ADMIN_PASS", "ADMIN_JWT_SECRET"].filter(k => !process.env[k]);
-  if (missing.length) {
-    throw new Error(`Відсутні обов'язкові env-змінні для продакшену: ${missing.join(", ")}`);
-  }
-}
-const allowRemoteDbInTest = String(process.env.ALLOW_REMOTE_DB_IN_TEST || "").toLowerCase() === "true";
-
-const maskMongoUri = (uri) => {
-  try {
-    const raw = (uri || '').toString();
-    if (!raw) return raw;
-    return raw.replace(/(mongodb(?:\+srv)?:\/\/[^:\/]+:)([^@]+)(@)/i, '$1***$3');
-  } catch {
-    return uri;
-  }
-}
-
-if (isTestMode && !allowRemoteDbInTest) {
-  const uri = String(MONGO_URI || "");
-  const isRemote = /mongodb\+srv:\/\//i.test(uri) || /@/i.test(uri);
-  const looksLikeProdDb = /budexpert(?!_test)/i.test(uri);
-  if (isRemote || looksLikeProdDb) {
-    throw new Error(
-      `[SAFETY] Refusing to start server in test mode with a non-test MongoDB URI. ` +
-      `Set MONGO_URI to a local test DB (e.g. mongodb://127.0.0.1:27017/budexpert_test). ` +
-      `If you really need remote, set ALLOW_REMOTE_DB_IN_TEST=true explicitly.`
-    );
-  }
-}
-console.log("[BOOT] process.env.MONGO_URI =", maskMongoUri(process.env.MONGO_URI));
-console.log("[BOOT] Using MONGO_URI =", maskMongoUri(MONGO_URI));
-
+const MONGO_URI = process.env.MONGO_URI;
 const dnsServersEnv = (process.env.DNS_SERVERS || '').toString().trim();
 if (dnsServersEnv) {
   const servers = dnsServersEnv
@@ -118,24 +105,8 @@ if (dnsServersEnv) {
 
 const startServer = async () => {
   try {
-    await mongoose.connect(MONGO_URI, {
-      useNewUrlParser: true,
-      useUnifiedTopology: true,
-    })
+    await mongoose.connect(MONGO_URI, { serverSelectionTimeoutMS: 10000 })
     console.log("MongoDB connected");
-
-    // Remove legacy unique index on Category.name that may still exist in MongoDB
-    // after switching to compound uniqueness (parent, name).
-    try {
-      await Category.collection.dropIndex('name_1');
-      console.log('[BOOT] Dropped legacy categories index name_1');
-    } catch (err) {
-      // Index may not exist; ignore
-      const msg = (err && err.message) ? err.message : '';
-      if (!/index not found/i.test(msg) && !(err && err.code === 27)) {
-        console.log('[BOOT] Could not drop legacy categories index name_1:', msg);
-      }
-    }
 
     app.use("/api/products", productsRouter);
     app.use("/api/orders", ordersRouter);
@@ -144,7 +115,12 @@ const startServer = async () => {
     // статика для завантажених файлів
     const uploadsDir = path.join(projectRoot, "server", "uploads");
     if (!fs.existsSync(uploadsDir)) { fs.mkdirSync(uploadsDir, { recursive: true }); }
-    app.use("/uploads", express.static(uploadsDir));
+    // Preserve historical raster URLs without allowing active documents/scripts.
+    app.use('/uploads', (req, res, next) => {
+      if (!/\.(jpe?g|png|webp|gif)$/i.test(req.path)) return res.sendStatus(404);
+      res.setHeader('Content-Security-Policy', "default-src 'none'; sandbox");
+      next();
+    }, express.static(uploadsDir, { index: false, dotfiles: 'deny' }));
     app.use("/api/uploads", uploadLimiter, uploadsRoutes);
     app.use("/api/leads", leadsRoutes);
     app.use("/api/post", postRoutes);
@@ -152,30 +128,37 @@ const startServer = async () => {
     app.use("/api/geo", geoRoutes);
     app.use("/api/promos", promosRoutes);
 
+    app.use("/api/seo", seoApi);
+    app.use("/", sitemapRouter);
+
     // Google Merchant Center feeds (public)
     app.use("/", merchantRoutes);
 
     // Serve client (Vite build) in production with SPA fallback
     const clientDistDir = path.join(projectRoot, "client", "dist");
     if (fs.existsSync(clientDistDir)) {
-      app.use(express.static(clientDistDir));
-      app.get("*", (req, res, next) => {
-        if (req.path.startsWith("/api") || req.path.startsWith("/uploads")) return next();
-        return res.sendFile(path.join(clientDistDir, "index.html"));
-      });
+      app.get('/index.html', (_req, res) => res.redirect(301, '/'));
+      app.use('/assets', express.static(path.join(clientDistDir, 'assets'), { maxAge: '1y', immutable: true, index: false }));
+      app.use(express.static(clientDistDir, { index: false, maxAge: '1h', setHeaders: (res, file) => {
+        if (file.endsWith('.html')) res.setHeader('Cache-Control', 'no-store');
+      } }));
+      app.use(pageRouter(clientDistDir));
     }
+    app.use((_req, res) => res.status(404).json({ message: 'Not found' }));
 
     // Global error handler (fallback)
     // eslint-disable-next-line no-unused-vars
     app.use((err, _req, res, _next) => {
-      console.error("Unhandled error:", err);
-      res.status(500).json({ message: "Server error" });
+      if (res.headersSent) return _next(err);
+      const status = err.name === 'CastError' || err.name === 'ValidationError' || err.name === 'MulterError' ? 400 : (err.status || 500);
+      if (status >= 500) console.error('Request failed:', err.name || 'Error');
+      res.status(status).json({ message: status === 400 ? 'Invalid request' : status === 413 ? 'Request too large' : status === 403 ? 'Forbidden' : 'Server error' });
     });
 
     const PORT = process.env.PORT || 5001;
     app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
   } catch (err) {
-    console.error("MongoDB connection error:", err);
+    console.error('Server startup failed:', err.name || 'Error');
     process.exit(1)
   }
 }

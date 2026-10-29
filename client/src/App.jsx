@@ -1,22 +1,24 @@
-import React, { useEffect } from 'react'
+import Seo from './components/Seo'
+import NotFound from './pages/NotFound'
+import React, { lazy, Suspense, useEffect } from 'react'
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import Header from './components/Header'
 import Footer from './components/Footer'
 import CartToast from './components/CartToast'
 import ScrollTopButton from './components/ScrollTopButton'
 import FloatingCart from './components/FloatingCart'
-import Home from './pages/Home'
-import CartPage from './pages/Cart'
-import Admin from './pages/AdminPanel'
-import Checkout from './pages/Checkout'
-import AdminLogin from './pages/AdminLogin'
-import Services from './pages/Services'
-import ProductPage from './pages/ProductPage'
-import ReturnsPolicy from './pages/ReturnsPolicy'
-import Payment from './pages/Payment'
-import About from './pages/About'
-import Contacts from './pages/Contacts'
-import ProductsSearch from './pages/ProductsSearch'
+const Home = lazy(() => import('./pages/Home'))
+const CartPage = lazy(() => import('./pages/Cart'))
+const Admin = lazy(() => import('./pages/AdminPanel'))
+const Checkout = lazy(() => import('./pages/Checkout'))
+const AdminLogin = lazy(() => import('./pages/AdminLogin'))
+const Services = lazy(() => import('./pages/Services'))
+const ProductPage = lazy(() => import('./pages/ProductPage'))
+const ReturnsPolicy = lazy(() => import('./pages/ReturnsPolicy'))
+const Payment = lazy(() => import('./pages/Payment'))
+const About = lazy(() => import('./pages/About'))
+const Contacts = lazy(() => import('./pages/Contacts'))
+const ProductsSearch = lazy(() => import('./pages/ProductsSearch'))
 
 export default function App(){
   const location = useLocation()
@@ -42,7 +44,9 @@ export default function App(){
   return (
     <div className="flex flex-col min-h-screen">
       {!isAdminRoute && <Header />}
+      <Seo />
       <main className="flex-1">
+        <Suspense fallback={<div className="container py-8" role="status">Завантаження…</div>}>
         <Routes>
           <Route path='/' element={<Home />} />
           <Route path='/services' element={<Services />} />
@@ -60,7 +64,9 @@ export default function App(){
           <Route path='/:parentSlug' element={<Home />} />
           <Route path='/:parentSlug/:childSlug' element={<Home />} />
           <Route path='/:parentSlug/:childSlug/:typeSlug' element={<Home />} />
+          <Route path="*" element={<NotFound />} />
         </Routes>
+        </Suspense>
       </main>
       <Footer />
       <CartToast />

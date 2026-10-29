@@ -6,11 +6,6 @@ const MAPS_URL = 'https://maps.app.goo.gl/V6mLeSS4EXGmaSe56'
 const MAPS_EMBED_URL = 'https://www.google.com/maps?q=%D0%86%D0%B2%D0%B0%D0%BD%D0%BE-%D0%A4%D1%80%D0%B0%D0%BD%D0%BA%D1%96%D0%B2%D1%81%D1%8C%D0%BA,%20%D0%B2%D1%83%D0%BB.%20%D0%91%D1%96%D0%BB%D0%BE%D0%B7%D1%96%D1%80%D0%B0%208&output=embed'
 
 export default function Contacts(){
-  useEffect(()=>{
-    document.title = 'Контакти — БудЕксперт'
-    const metaDesc = document.querySelector('meta[name="description"]') || (()=>{ const m=document.createElement('meta'); m.setAttribute('name','description'); document.head.appendChild(m); return m })()
-    metaDesc.setAttribute('content','Контакти БудЕксперт: телефон, адреса, карта, графік роботи та форма для зворотного зв’язку.')
-  },[])
 
   const [callName, setCallName] = useState('')
   const [callPhone, setCallPhoneRaw] = useState('')

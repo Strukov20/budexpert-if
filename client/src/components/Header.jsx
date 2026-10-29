@@ -1,5 +1,7 @@
+import { priceInKopiykas } from '../../../shared/pricing.mjs'
+import CartItemPrice from './CartItemPrice'
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
+import { useNavigate, useLocation, Link } from "react-router-dom";
 import { FiShoppingCart, FiGrid, FiMapPin, FiPhoneCall } from 'react-icons/fi';
 import { FaInstagram, FaTelegramPlane, FaTiktok } from 'react-icons/fa';
 import { createPortal } from 'react-dom';
@@ -333,7 +335,7 @@ export default function Header() {
               Інтернет-магазин знаходиться на стадії наповнення товару. Уточнюйте усю інформацію у наших менеджерів.
             </span>
             <a
-              href="https://budexpert-if.pp.ua/admin"
+              href="/admin"
               target="_blank"
               rel="noreferrer"
               className="shrink-0"
@@ -350,25 +352,24 @@ export default function Header() {
         <div className="max-w-7xl mx-auto px-3 md:px-6 py-2 flex items-center justify-between gap-6">
           <nav className="flex-1 flex items-center justify-center gap-5 text-[12px] uppercase tracking-wide text-gray-600" data-testid='header-nav'>
             {navLinks.map((l)=>(
-              <button
+              <Link
                 key={l.label}
-                type="button"
+                to={l.to}
                 className="hover:text-black transition"
-                onClick={()=> navigate(l.to)}
                 data-testid={`header-nav-${l.label}`}
               >
                 {l.label}
-              </button>
+              </Link>
             ))}
           </nav>
         </div>
       </div>
 
       <div className="max-w-7xl mx-auto px-3 md:px-6 py-3" data-testid='header-main-row'>
-        <div className="hidden md:grid grid-cols-[auto_auto_1fr_auto_auto] grid-rows-2 gap-x-4 gap-y-2 items-center">
-          <div className="row-span-2 flex items-center cursor-pointer p-0 m-0" onClick={() => navigate("/") } data-testid='header-logo'>
+        <div className="hidden lg:grid grid-cols-[auto_auto_minmax(0,1fr)_auto_auto] grid-rows-2 gap-x-4 gap-y-2 items-center">
+          <Link to="/" className="row-span-2 flex items-center shrink-0 w-[100px] cursor-pointer p-0 m-0" data-testid='header-logo'>
             <img src="/logo.png" alt="БудЕксперт" className="block shrink-0 h-[86px] lg:h-[100px] w-auto object-contain" />
-          </div>
+          </Link>
 
           <div className="col-start-2 row-start-1 flex items-center justify-center">
             <button
@@ -537,7 +538,7 @@ export default function Header() {
                   </span>
                 )}
               </div>
-              <div className="mt-2.5 text-[11px] leading-none text-gray-700 text-center w-full">{fmt.format(items.reduce((s,i)=>s+i.price*(i.quantity||1),0))} грн</div>
+              <div className="mt-2.5 text-[11px] leading-none text-gray-700 text-center w-full">{fmt.format(items.reduce((s,i)=>s+priceInKopiykas(i)*(i.quantity||1)/100,0))} грн</div>
             </button>
             {miniOpen && !isCartPage && (
               <div
@@ -557,8 +558,9 @@ export default function Header() {
                             <img src={resolveThumbSrc(i.images?.[0]?.url || i.image) || NO_IMG_56} alt={i.name} className="w-12 h-12 object-cover rounded" />
                             <div className="min-w-0">
                               <div className="text-sm font-medium break-words">{i.name}</div>
-                              <div className="text-xs text-gray-600">
-                                {i.quantity || 1} × {fmt.format(i.price)} ₴/шт
+                              <div className="text-xs text-gray-600 flex items-end gap-1">
+                                <span>{i.quantity || 1} ×</span>
+                                <CartItemPrice product={i} compact format={value => fmt.format(value)} />
                               </div>
                             </div>
                           </div>
@@ -570,7 +572,7 @@ export default function Header() {
                     <div className="mt-3 flex items-center justify-between text-sm text-gray-700">
                       <span className="text-xs text-gray-500">Всього:</span>
                       <span className="inline-flex items-center px-3 py-1.5 rounded-full bg-red-600 text-white text-base font-semibold tracking-wide shadow">
-                        {fmt.format(items.reduce((s,i)=>s+i.price*(i.quantity||1),0))} ₴
+                        {fmt.format(items.reduce((s,i)=>s+priceInKopiykas(i)*(i.quantity||1)/100,0))} ₴
                       </span>
                     </div>
                   )}
@@ -580,9 +582,9 @@ export default function Header() {
           </div>
         </div>
 
-        <div className="md:hidden">
-          <div className="grid grid-cols-2 gap-3 items-center">
-            <div className="flex flex-col items-center justify-center gap-1 min-w-0">
+        <div className="lg:hidden">
+          <div className="grid grid-cols-[minmax(0,1fr)_auto] md:grid-cols-[auto_minmax(0,1fr)_auto] gap-2 sm:gap-3 items-center">
+            <div className="flex flex-col items-start md:items-center justify-center gap-1 min-w-0">
               <a
                 href={`tel:${SHOP_PHONE}`}
                   onClick={() => {
@@ -591,7 +593,7 @@ export default function Header() {
                       window.dataLayer.push({ event: 'click_phone', phone_number: SHOP_PHONE, location: 'header_mobile' })
                     } catch {}
                   }}
-                  className="inline-flex items-center gap-2 text-lg font-semibold text-gray-900 hover:text-red-600 transition whitespace-nowrap"
+                  className="inline-flex items-center gap-1.5 text-base sm:text-lg font-semibold text-gray-900 hover:text-red-600 transition whitespace-nowrap"
                 >
                   <FiPhoneCall className="w-4 h-4" />
                   <span>{SHOP_PHONE}</span>
@@ -606,7 +608,10 @@ export default function Header() {
                 </button>
               </div>
 
-              <div className="flex items-center justify-end gap-4 min-w-0">
+              <Link to="/" className="hidden md:flex items-center justify-center" aria-label="БудЕксперт — головна">
+                <img src="/logo.png" alt="БудЕксперт" width="64" height="64" className="w-16 h-16 object-contain" />
+              </Link>
+              <div className="flex items-center justify-end gap-2 md:gap-4 min-w-0">
                 <button
                   type="button"
                   className={`inline-flex items-center justify-center h-10 px-3 rounded-xl font-semibold text-[11px] tracking-wide shadow-md transition whitespace-nowrap ${isServicesPage ? 'border border-gray-200 bg-white text-gray-900 hover:shadow-lg hover:bg-red-50 hover:border-red-200 hover:text-red-700' : 'bg-red-600 text-white hover:shadow-lg hover:bg-red-700'}`}
@@ -639,7 +644,7 @@ export default function Header() {
 
         {callOpen && canUsePortal && createPortal(
           <div className="fixed inset-0 bg-black/40 backdrop-blur-[2px] z-50 flex items-center justify-center p-4" onClick={()=> setCallOpen(false)} data-testid='call-modal-overlay'>
-            <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden" onClick={(e)=> e.stopPropagation()} data-testid='call-modal'>
+            <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md max-h-[calc(100dvh-2rem)] overflow-y-auto overscroll-contain" onClick={(e)=> e.stopPropagation()} data-testid='call-modal'>
               <div className="p-5">
                 <div className="flex items-center justify-between gap-3">
                   <div className="text-lg font-semibold">Замовити дзвінок</div>

@@ -1,0 +1,73 @@
+name: API Tests
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+    branches: [main]
+
+jobs:
+  api-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    services:
+      mongodb:
+        image: mongo:7
+        ports:
+          - 27017:27017
+        options: >-
+          --health-cmd "mongosh --eval 'db.adminCommand({ping:1})'"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      TEST_ENV: test
+      MONGO_URI: mongodb://127.0.0.1:27017/budexpert_test
+      ADMIN_USER: admin
+      ADMIN_PASS: test-admin-password-2026
+      ADMIN_JWT_SECRET: test-only-jwt-secret-with-at-least-32-characters
+      PORT: 5001
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install root deps (Playwright)
+        run: npm ci
+
+      - name: Install server deps
+        run: npm ci --prefix server
+
+      - name: Install client deps
+        run: npm ci --prefix client
+
+      - name: Install browser
+        run: npx playwright install --with-deps chromium
+
+      - name: Unit checks
+        run: npm run test:unit
+
+      - name: Browser checks and production build
+        run: npm run test:ui
+
+      - name: Dependency audits
+        run: npm audit && npm audit --prefix server && npm audit --prefix client
+
+      - name: Run API tests
+        run: npm run test:api
+
+      - name: Upload Playwright report on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7

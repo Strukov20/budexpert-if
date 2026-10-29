@@ -1,7 +1,11 @@
+import AdminButton, { AdminUploadButton, adminButtonStyles } from '../components/AdminButton'
+import AdminOrderItems from '../components/AdminOrderItems'
+import AdminActions from '../components/AdminActions'
+import { parseCsv } from '../lib/csv'
 import React, { useEffect, useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
-  getProducts,
+  getAdminCatalog,
   getCategories,
   createProduct,
   updateProduct,
@@ -20,13 +24,11 @@ import {
   deleteLead, // <--- added import
   bulkCreateProducts, 
   exportProductsCsv,
-  // exportProductsXlsx, // XLSX вимкнено, залишено тільки CSV
-  // importProductsXlsx,
   getBanner,
   updateBanner,
   getPromos,
 } from '../api'
-import { FiEdit2, FiPlus, FiX, FiCheckCircle, FiAlertTriangle, FiEye, FiTrash2, FiRefreshCcw, FiMaximize2, FiMinimize2, FiSearch, FiDownload } from 'react-icons/fi'
+import { FiEdit2, FiPlus, FiX, FiCheckCircle, FiAlertTriangle, FiEye, FiTrash2, FiRefreshCcw, FiMaximize2, FiMinimize2, FiSearch, FiCheck, FiArrowUp, FiArrowDown } from 'react-icons/fi'
 import ProductCard from '../components/ProductCard'
 
 export default function AdminPanel(){
@@ -280,62 +282,7 @@ export default function AdminPanel(){
     }
   }
 
-  // XLSX-експорт вимкнено разом з імпортом (вразливий пакет "xlsx" на бекенді) — залишено тільки CSV.
-  // async function handleExportXlsx(){
-  //   try{
-  //     const res = await exportProductsXlsx();
-  //     const blob = new Blob([res.data], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-  //     const url = window.URL.createObjectURL(blob);
-  //     const a = document.createElement('a');
-  //     a.href = url;
-  //     a.download = 'products-export.xlsx';
-  //     document.body.appendChild(a);
-  //     a.click();
-  //     a.remove();
-  //     window.URL.revokeObjectURL(url);
-  //   }catch(err){
-  //     showToast(getErrMsg(err),'error');
-  //   }
-  // }
-
   // CSV парсер (підтримка лапок, ком та переносів рядків всередині квотованих полів)
-  function parseCsv(text){
-    const rows = []
-    let row = []
-    let cur = ''
-    let inQ = false
-    for(let i=0;i<text.length;i++){
-      const ch = text[i]
-      if(inQ){
-        if(ch==='"'){
-          if(text[i+1]==='"'){ cur+='"'; i++; }
-          else inQ=false
-        } else {
-          cur+=ch
-        }
-      } else if(ch==='"'){
-        inQ=true
-      } else if(ch===','){
-        row.push(cur); cur=''
-      } else if(ch==='\r'){
-        // ignore, обробляється разом з \n
-      } else if(ch==='\n'){
-        row.push(cur); cur=''; rows.push(row); row=[]
-      } else {
-        cur+=ch
-      }
-    }
-    if(cur.length>0 || row.length>0){ row.push(cur); rows.push(row) }
-
-    const dataRows = rows.filter(r=> r.some(c=> c.trim().length>0))
-    if (dataRows.length===0) return []
-    const header = dataRows[0].map(h=> h.trim())
-    return dataRows.slice(1).map(cols=>{
-      const obj = {}
-      header.forEach((h,idx)=>{ obj[h] = (cols[idx]||'').trim() })
-      return obj
-    })
-  }
 
   async function handleImportClick(){
     importInputRef.current?.click()
@@ -426,48 +373,6 @@ export default function AdminPanel(){
       if (importInputRef.current) importInputRef.current.value = ''
     }
   }
-
-  // async function handleImportXlsxFile(e){
-  //   const file = e.target.files?.[0]
-  //   if(!file) return
-  //   try{
-  //     const res = await importProductsXlsx(file)
-  //     const inserted = Number(res?.inserted ?? 0)
-  //     const updated = Number(res?.updated ?? 0)
-  //     const skipped = Number(res?.skipped ?? 0)
-  //     showToast(`XLSX імпорт: додано ${inserted}, оновлено ${updated}, пропущено ${skipped}`,'success')
-  //
-  //     // 3) SKU sync: проставити stock=0 для товарів з SKU, яких немає у XLSX
-  //     try {
-  //       const keepSkus = Array.from(new Set(
-  //         (Array.isArray(res?.skus) ? res.skus : [])
-  //           .map(s=> (s||'').toString().trim())
-  //           .filter(Boolean)
-  //       ))
-  //
-  //       if (keepSkus.length > 0) {
-  //         const preview = await syncProductsBySku({ skus: keepSkus, dryRun: true })
-  //         const toMarkCount = Number(preview?.toMarkCount ?? 0)
-  //         if (toMarkCount > 0) {
-  //           const ok = confirm(`XLSX імпорт завершено. Знайдено ${toMarkCount} товар(ів) з SKU, яких немає у файлі. Проставити кількість = 0 (немає в наявності) та знижку = 0?`)
-  //           if (ok) {
-  //             const delRes = await syncProductsBySku({ skus: keepSkus, dryRun: false })
-  //             const markedCount = Number(delRes?.markedCount ?? 0)
-  //             showToast(`Синхронізація SKU: кількість=0 і знижка=0 для ${markedCount}`,'success')
-  //           }
-  //         }
-  //       }
-  //     } catch (err) {
-  //       showToast(getErrMsg(err),'error')
-  //     }
-  //
-  //     loadAll()
-  //   } catch(err){
-  //     showToast(getErrMsg(err),'error')
-  //   } finally {
-  //     if (importXlsxInputRef.current) importXlsxInputRef.current.value = ''
-  //   }
-  // }
 
   const STATUS = {
     new: 'Новий',
@@ -638,7 +543,7 @@ export default function AdminPanel(){
     setLoadingAll(true)
     try {
       const [pRes, cRes, oRes, lRes, bRes] = await Promise.allSettled([
-        getProducts(),
+        getAdminCatalog(),
         getCategories(),
         getOrders(),
         getLeads(),
@@ -982,20 +887,17 @@ export default function AdminPanel(){
 
       {bannerOpen && (
         <div className='fixed inset-0 z-[90] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4' onClick={()=>setBannerOpen(false)} data-testid='admin-banner-overlay'>
-          <div className='bg-white rounded-2xl shadow-2xl w-full max-w-4xl p-5' onClick={(e)=>e.stopPropagation()} data-testid='admin-banner-modal'>
+          <div className='bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[calc(100dvh-2rem)] overflow-y-auto p-5' onClick={(e)=>e.stopPropagation()} data-testid='admin-banner-modal'>
             <div className='flex items-center justify-between mb-3'>
-              <h4 className='font-semibold'>Баннер (головна сторінка)</h4>
-              <button aria-label='Закрити' onClick={()=> setBannerOpen(false)} className='w-8 h-8 rounded-lg border' data-testid='admin-banner-close'>✕</button>
+              <h4 className='font-semibold'>Банер (головна сторінка)</h4>
+              <button aria-label='Закрити' onClick={()=> setBannerOpen(false)} className='inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 transition hover:bg-slate-50 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500' data-testid='admin-banner-close'>✕</button>
             </div>
 
             <div className='grid gap-4'>
-              <div className='flex items-center justify-between gap-3 flex-wrap'>
-                <label className='inline-flex items-center justify-center gap-2 px-3 py-2 border rounded cursor-pointer' data-testid='admin-banner-upload'>
-                  <input type='file' accept='image/*' multiple className='hidden' onChange={handleBannerFileChange} data-testid='admin-banner-upload-input' />
-                  <span>{bannerUploading ? 'Завантаження…' : 'Імпортувати картинки'}</span>
-                </label>
-                <div className='text-sm text-gray-600' data-testid='admin-banner-count'>
-                  {Array.isArray(bannerImages) ? bannerImages.length : 0} шт.
+              <div className='flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4'>
+                <AdminUploadButton onChange={handleBannerFileChange} busy={bannerUploading} testId='admin-banner-upload' inputTestId='admin-banner-upload-input' hint />
+                <div className='rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-medium text-slate-500' data-testid='admin-banner-count'>
+                  Фото: {Array.isArray(bannerImages) ? bannerImages.length : 0}
                 </div>
               </div>
 
@@ -1021,28 +923,30 @@ export default function AdminPanel(){
                         <div className='flex items-center justify-between gap-2'>
                           <button
                             type='button'
-                            className='px-2 py-1 border rounded text-sm disabled:opacity-40'
+                            className='inline-flex h-9 min-w-[36px] items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 transition hover:border-slate-300 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-30'
                             onClick={()=> moveBannerImage(idx, idx-1)}
                             disabled={idx===0}
                             title='Вгору'
+                            aria-label='Вгору'
                             data-testid={`admin-banner-image-${idx}-move-up`}
                           >
-                            ↑
+                            <FiArrowUp className='h-4 w-4' aria-hidden='true' />
                           </button>
                           <button
                             type='button'
-                            className='px-2 py-1 border rounded text-sm disabled:opacity-40'
+                            className='inline-flex h-9 min-w-[36px] items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 transition hover:border-slate-300 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-30'
                             onClick={()=> moveBannerImage(idx, idx+1)}
                             disabled={idx===bannerImages.length-1}
                             title='Вниз'
+                            aria-label='Вниз'
                             data-testid={`admin-banner-image-${idx}-move-down`}
                           >
-                            ↓
+                            <FiArrowDown className='h-4 w-4' aria-hidden='true' />
                           </button>
                         </div>
                         <button
                           type='button'
-                          className='px-2 py-1 border rounded text-sm hover:bg-gray-50'
+                          className='inline-flex h-9 items-center justify-center rounded-xl border border-red-100 bg-red-50 text-red-600 transition hover:border-red-200 hover:bg-red-100'
                           onClick={()=> removeBannerImageAt(idx)}
                           title='Видалити'
                           data-testid={`admin-banner-image-${idx}-delete`}
@@ -1055,23 +959,23 @@ export default function AdminPanel(){
                 </div>
               ) : (
                 <div className='text-sm text-gray-600 border rounded-xl p-4 bg-gray-50'>
-                  Немає картинок. Додайте кілька зображень для баннера.
+                  Немає картинок. Додайте кілька зображень для банера.
                 </div>
               )}
 
               <div className='flex items-center justify-end gap-2'>
-                <button type='button' className='px-4 py-2 border rounded-lg' onClick={()=> setBannerOpen(false)} data-testid='admin-banner-cancel'>
+                <AdminButton type='button' onClick={()=> setBannerOpen(false)} data-testid='admin-banner-cancel'>
                   Скасувати
-                </button>
-                <button
+                </AdminButton>
+                <AdminButton
                   type='button'
-                  className='px-4 py-2 rounded-lg bg-gray-900 text-white disabled:opacity-60'
+                  variant='primary' icon={FiCheck} busy={bannerSaving}
                   onClick={saveBanner}
                   disabled={bannerSaving || bannerUploading}
                   data-testid='admin-banner-save'
                 >
                   {bannerSaving ? 'Збереження…' : 'Зберегти'}
-                </button>
+                </AdminButton>
               </div>
             </div>
           </div>
@@ -1080,20 +984,17 @@ export default function AdminPanel(){
 
       {aboutGalleryOpen && (
         <div className='fixed inset-0 z-[90] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4' onClick={()=>setAboutGalleryOpen(false)} data-testid='admin-about-gallery-overlay'>
-          <div className='bg-white rounded-2xl shadow-2xl w-full max-w-4xl p-5' onClick={(e)=>e.stopPropagation()} data-testid='admin-about-gallery-modal'>
+          <div className='bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[calc(100dvh-2rem)] overflow-y-auto p-5' onClick={(e)=>e.stopPropagation()} data-testid='admin-about-gallery-modal'>
             <div className='flex items-center justify-between mb-3'>
               <h4 className='font-semibold'>Фото (Про магазин)</h4>
-              <button aria-label='Закрити' onClick={()=> setAboutGalleryOpen(false)} className='w-8 h-8 rounded-lg border' data-testid='admin-about-gallery-close'>✕</button>
+              <button aria-label='Закрити' onClick={()=> setAboutGalleryOpen(false)} className='inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 transition hover:bg-slate-50 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500' data-testid='admin-about-gallery-close'>✕</button>
             </div>
 
             <div className='grid gap-4'>
-              <div className='flex items-center justify-between gap-3 flex-wrap'>
-                <label className='inline-flex items-center justify-center gap-2 px-3 py-2 border rounded cursor-pointer' data-testid='admin-about-gallery-upload'>
-                  <input type='file' accept='image/*' multiple className='hidden' onChange={handleAboutGalleryFileChange} data-testid='admin-about-gallery-upload-input' />
-                  <span>{aboutGalleryUploading ? 'Завантаження…' : 'Імпортувати фото'}</span>
-                </label>
-                <div className='text-sm text-gray-600' data-testid='admin-about-gallery-count'>
-                  {Array.isArray(aboutGalleryImages) ? aboutGalleryImages.length : 0} шт.
+              <div className='flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4'>
+                <AdminUploadButton onChange={handleAboutGalleryFileChange} busy={aboutGalleryUploading} testId='admin-about-gallery-upload' inputTestId='admin-about-gallery-upload-input' hint />
+                <div className='rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-medium text-slate-500' data-testid='admin-about-gallery-count'>
+                  Фото: {Array.isArray(aboutGalleryImages) ? aboutGalleryImages.length : 0}
                 </div>
               </div>
 
@@ -1112,28 +1013,30 @@ export default function AdminPanel(){
                         <div className='flex items-center justify-between gap-2'>
                           <button
                             type='button'
-                            className='px-2 py-1 border rounded text-sm disabled:opacity-40'
+                            className='inline-flex h-9 min-w-[36px] items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 transition hover:border-slate-300 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-30'
                             onClick={()=> moveAboutGalleryImage(idx, idx-1)}
                             disabled={idx===0}
                             title='Вгору'
+                            aria-label='Вгору'
                             data-testid={`admin-about-gallery-image-${idx}-move-up`}
                           >
-                            ↑
+                            <FiArrowUp className='h-4 w-4' aria-hidden='true' />
                           </button>
                           <button
                             type='button'
-                            className='px-2 py-1 border rounded text-sm disabled:opacity-40'
+                            className='inline-flex h-9 min-w-[36px] items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 transition hover:border-slate-300 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-30'
                             onClick={()=> moveAboutGalleryImage(idx, idx+1)}
                             disabled={idx===aboutGalleryImages.length-1}
                             title='Вниз'
+                            aria-label='Вниз'
                             data-testid={`admin-about-gallery-image-${idx}-move-down`}
                           >
-                            ↓
+                            <FiArrowDown className='h-4 w-4' aria-hidden='true' />
                           </button>
                         </div>
                         <button
                           type='button'
-                          className='px-2 py-1 border rounded text-sm hover:bg-gray-50'
+                          className='inline-flex h-9 items-center justify-center rounded-xl border border-red-100 bg-red-50 text-red-600 transition hover:border-red-200 hover:bg-red-100'
                           onClick={()=> removeAboutGalleryImageAt(idx)}
                           title='Видалити'
                           data-testid={`admin-about-gallery-image-${idx}-delete`}
@@ -1151,18 +1054,18 @@ export default function AdminPanel(){
               )}
 
               <div className='flex items-center justify-end gap-2'>
-                <button type='button' className='px-4 py-2 border rounded-lg' onClick={()=> setAboutGalleryOpen(false)} data-testid='admin-about-gallery-cancel'>
+                <AdminButton type='button' onClick={()=> setAboutGalleryOpen(false)} data-testid='admin-about-gallery-cancel'>
                   Скасувати
-                </button>
-                <button
+                </AdminButton>
+                <AdminButton
                   type='button'
-                  className='px-4 py-2 rounded-lg bg-gray-900 text-white disabled:opacity-60'
+                  variant='primary' icon={FiCheck} busy={aboutGallerySaving}
                   onClick={saveAboutGallery}
                   disabled={aboutGallerySaving || aboutGalleryUploading}
                   data-testid='admin-about-gallery-save'
                 >
                   {aboutGallerySaving ? 'Збереження…' : 'Зберегти'}
-                </button>
+                </AdminButton>
               </div>
             </div>
           </div>
@@ -1171,10 +1074,10 @@ export default function AdminPanel(){
 
       {imgModalOpen && (
         <div className='fixed inset-0 z-[80] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4' onClick={()=>setImgModalOpen(false)} data-testid='admin-product-image-modal-overlay'>
-          <div className='bg-white rounded-2xl shadow-2xl w-full max-w-3xl p-5' onClick={(e)=>e.stopPropagation()} data-testid='admin-product-image-modal'>
+          <div className='bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[calc(100dvh-2rem)] overflow-y-auto p-5' onClick={(e)=>e.stopPropagation()} data-testid='admin-product-image-modal'>
             <div className='flex items-center justify-between mb-3'>
               <h4 className='font-semibold'>Перегляд фото</h4>
-              <button aria-label='Закрити' onClick={()=> setImgModalOpen(false)} className='w-8 h-8 rounded-lg border' data-testid='admin-product-image-modal-close'>✕</button>
+              <button aria-label='Закрити' onClick={()=> setImgModalOpen(false)} className='inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 transition hover:bg-slate-50 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500' data-testid='admin-product-image-modal-close'>✕</button>
             </div>
 
             {(() => {
@@ -1200,7 +1103,7 @@ export default function AdminPanel(){
                   <div className='flex justify-end gap-2'>
                     <button
                       type='button'
-                      className='px-3 py-2 border rounded'
+                      className={adminButtonStyles.secondary}
                       onClick={()=>{ makeImagePrimaryAt(imgModalIndex); setImgModalIndex(0); }}
                       disabled={imgModalIndex === 0}
                       title={imgModalIndex === 0 ? 'Це вже головне фото' : 'Зробити головним'}
@@ -1219,7 +1122,7 @@ export default function AdminPanel(){
       {/* Modal: Edit Category (active, not hidden) */}
       {showCatEdit && (
         <div className='fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4' onClick={()=> setShowCatEdit(false)} data-testid='admin-categories-edit-overlay'>
-          <div className='bg-white rounded-2xl shadow-2xl w-full max-w-6xl max-h-[96vh] overflow-auto' onClick={(e)=>e.stopPropagation()} data-testid='admin-categories-edit'>
+          <div className='bg-white rounded-2xl shadow-2xl w-full max-w-6xl max-h-[calc(100dvh-2rem)] overflow-auto' onClick={(e)=>e.stopPropagation()} data-testid='admin-categories-edit'>
             <div className='px-6 py-4 border-b bg-gradient-to-b from-gray-50 to-white rounded-t-2xl'>
               <div className='flex items-start justify-between gap-3'>
                 <div>
@@ -1597,7 +1500,7 @@ export default function AdminPanel(){
                   loadAll();
                   showToast(applyToProducts ? 'Категорію оновлено. Товари відобразять нову назву автоматично.' : 'Категорію оновлено','success')
                 }catch(err){ showToast(getErrMsg(err),'error') }
-              }} className='px-4 py-2.5 rounded-lg bg-black text-white hover:bg-red-600 transition' data-testid='admin-categories-edit-save'>Зберегти</button>
+              }} className={adminButtonStyles.primary} data-testid='admin-categories-edit-save'>Зберегти</button>
             </div>
           </div>
         </div>
@@ -1636,7 +1539,7 @@ export default function AdminPanel(){
             {leadsFull ? <FiMinimize2 /> : <FiMaximize2 />}
           </button>
         </div>
-        <div className='p-3 bg-white rounded-lg border shadow-sm flex items-center justify-center gap-2 md:gap-3 mb-3 flex-wrap md:flex-nowrap' data-testid='admin-leads-filters'>
+        <div className='p-3 bg-white rounded-lg border shadow-sm flex items-center justify-center gap-2 md:gap-3 mb-3 flex-wrap' data-testid='admin-leads-filters'>
           <input className='border rounded w-[200px] md:w-[240px] shrink-0 h-10 px-3 text-sm' placeholder='Пошук (імʼя/телефон/місто)' value={leadSearch} onChange={e=> setLeadSearch(e.target.value)} data-testid='admin-leads-search' />
           <input type='date' className='border rounded w-[180px] shrink-0 h-10 px-3 text-sm' value={leadFrom} onChange={e=> setLeadFrom(e.target.value)} data-testid='admin-leads-date-from' />
           <input type='date' className='border rounded w-[180px] shrink-0 h-10 px-3 text-sm' value={leadTo} onChange={e=> setLeadTo(e.target.value)} data-testid='admin-leads-date-to' />
@@ -1755,85 +1658,21 @@ export default function AdminPanel(){
       </div>
       
       
-      <h3 className='order-last text-xl font-semibold mt-6 mb-3'>Панель керування</h3>
       <div className={`${prodFull ? 'fixed inset-0 z-50 bg-white p-4 overflow-auto' : 'order-last mb-6'}`}>
-        <div className='card p-4'>
-          <div className='flex items-center justify-between mb-3'>
-            <div className='flex gap-3 items-center justify-center flex-wrap flex-1'>
-              <button
-                type='button'
-                onClick={()=> setShowProdList(true)}
-                className='inline-flex items-center gap-2 px-3 py-2 border rounded hover:bg-black hover:text-white transition'
-                data-testid='admin-products-open-list'
-              >
-                <FiEye size={18} />
-                <span>Всі товари</span>
-              </button>
-              <button
-                type='button'
-                onClick={handleImportClick}
-                className='inline-flex items-center gap-2 px-3 py-2 border rounded hover:bg-black hover:text-white transition'
-                data-testid='admin-products-import-open'
-              >
-                <FiPlus size={18} />
-                <span>Імпорт Товарів CSV</span>
-              </button>
-              <button
-                type='button'
-                onClick={handleExportCsv}
-                className='inline-flex items-center gap-2 px-3 py-2 border rounded hover:bg-black hover:text-white transition'
-                data-testid='admin-products-export-csv'
-              >
-                <FiDownload size={18} />
-                <span>Експорт CSV</span>
-              </button>
-              <span className='inline-block w-px h-6 bg-gray-200' aria-hidden='true' />
-              <button
-                type='button'
-                onClick={()=> setShowCatList(true)}
-                className='inline-flex items-center gap-2 px-3 py-2 border rounded hover:bg-black hover:text-white transition'
-                data-testid='admin-categories-open-list'
-              >
-                <FiEye size={18} />
-                <span>Категорії</span>
-              </button>
-              <span className='inline-block w-px h-6 bg-gray-200' aria-hidden='true' />
-              <button
-                type='button'
-                onClick={()=>{ setBannerImages([]); setBannerOpen(true); loadBanner(); }}
-                className='inline-flex items-center gap-2 px-3 py-2 border rounded hover:bg-black hover:text-white transition'
-                title='Керування баннером на головній'
-                data-testid='admin-panel-banner-open'
-              >
-                Баннер
-              </button>
-              <button
-                type='button'
-                onClick={()=>{ setAboutGalleryImages([]); setAboutGalleryOpen(true); loadAboutGallery(); }}
-                className='inline-flex items-center gap-2 px-3 py-2 border rounded hover:bg-black hover:text-white transition'
-                title='Фото для сторінки "Про магазин"'
-                data-testid='admin-panel-about-gallery-open'
-              >
-                Фото (Про магазин)
-              </button>
-              <button
-                type='button'
-                onClick={()=> navigate('/')}
-                className='inline-flex items-center gap-2 px-3 py-2 border rounded hover:bg-black hover:text-white transition'
-                data-testid='admin-panel-go-catalog'
-              >
-                Каталог
-              </button>
-            </div>
-            <button
-              className='w-10 h-10 inline-flex items-center justify-center border rounded hover:bg-gray-50 active:scale-95 ml-2 shrink-0'
-              onClick={()=> setProdFull(v=>!v)}
-              aria-label={prodFull ? 'Вийти з повного екрану' : 'На весь екран'}
-              title={prodFull ? 'Згорнути' : 'Розгорнути'}
-            >
-              {prodFull ? <FiMinimize2 /> : <FiMaximize2 />}
-            </button>
-          </div>
+        <div className='rounded-2xl border border-slate-200 bg-slate-50/70 p-4 sm:p-5'>
+          <AdminActions
+            onProducts={() => setShowProdList(true)}
+            onCategories={() => setShowCatList(true)}
+            onCatalog={() => navigate('/')}
+            onImport={handleImportClick}
+            onExport={handleExportCsv}
+            onBanner={() => { setBannerImages([]); setBannerOpen(true); loadBanner() }}
+            onGallery={() => { setAboutGalleryImages([]); setAboutGalleryOpen(true); loadAboutGallery() }}
+            onToggleExpand={() => setProdFull(value => !value)}
+            expanded={prodFull}
+            productCount={loadingAll ? '…' : products.length}
+            categoryCount={loadingAll ? '…' : categories.length}
+          />
           <div className='flex gap-2 items-center justify-center flex-wrap'>
             <input ref={importInputRef} type='file' accept='.csv,.json,text/csv,application/json' className='hidden' onChange={handleImportFile} data-testid='admin-products-import-file-input' />
           </div>
@@ -1841,22 +1680,22 @@ export default function AdminPanel(){
           {/* Modal: Edit Product */}
           {showProdEdit && (
             <div className='fixed inset-0 z-[60] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4' data-testid='admin-product-edit-overlay'>
-              <div className='bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[95vh] overflow-auto p-6' onClick={(e)=>e.stopPropagation()} data-testid='admin-product-edit'>
+              <div className='bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[calc(100dvh-2rem)] overflow-auto p-6' onClick={(e)=>e.stopPropagation()} data-testid='admin-product-edit'>
                 <div className='flex items-center justify-between mb-3'>
                   <h4 className='font-semibold'>Редагувати товар</h4>
-                  <button aria-label='Закрити' onClick={()=> setShowProdEdit(false)} className='w-8 h-8 rounded-lg border' data-testid='admin-product-edit-close'>✕</button>
+                  <button aria-label='Закрити' onClick={()=> setShowProdEdit(false)} className='inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 transition hover:bg-slate-50 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500' data-testid='admin-product-edit-close'>✕</button>
                 </div>
                 <div className='grid gap-3'>
-                  <div className='grid gap-2 md:grid-cols-[220px_1fr] md:items-center'>
+                  <div className='grid grid-cols-1 gap-2 md:grid-cols-[220px_minmax(0,1fr)] md:items-center'>
                     <div className='text-sm text-gray-700'>Назва:</div>
                     <input className='border p-2 rounded w-full' required value={prodForm.name} onChange={e=>setProdForm({...prodForm, name:e.target.value})} data-testid='admin-product-edit-name' />
                   </div>
 
-                  <div className='grid gap-2 md:grid-cols-[220px_1fr] md:items-center'>
+                  <div className='grid grid-cols-1 gap-2 md:grid-cols-[220px_minmax(0,1fr)] md:items-center'>
                     <div className='text-sm text-gray-700'>Ціна / Знижка (%):</div>
-                    <div className='grid grid-cols-[2fr_1fr] gap-2'>
+                    <div className='grid grid-cols-[minmax(0,2fr)_minmax(0,1fr)] gap-2'>
                       <input
-                        className='border p-2 rounded'
+                        className='border p-2 rounded min-w-0 w-full'
                         required
                         type='number'
                         value={prodForm.price}
@@ -1864,7 +1703,7 @@ export default function AdminPanel(){
                         data-testid='admin-product-edit-price'
                       />
                       <input
-                        className='border p-2 rounded'
+                        className='border p-2 rounded min-w-0 w-full'
                         type='number'
                         min='0'
                         max='100'
@@ -1875,12 +1714,12 @@ export default function AdminPanel(){
                     </div>
                   </div>
 
-                  <div className='grid gap-2 md:grid-cols-[220px_1fr] md:items-center'>
+                  <div className='grid grid-cols-1 gap-2 md:grid-cols-[220px_minmax(0,1fr)] md:items-center'>
                     <div className='text-sm text-gray-700'>SKU / Артикул:</div>
                     <input className='border p-2 rounded w-full' value={prodForm.sku} onChange={e=>setProdForm({...prodForm, sku:e.target.value})} data-testid='admin-product-edit-sku' />
                   </div>
 
-                  <div className='grid gap-2 md:grid-cols-[220px_1fr] md:items-center'>
+                  <div className='grid grid-cols-1 gap-2 md:grid-cols-[220px_minmax(0,1fr)] md:items-center'>
                     <div className='text-sm text-gray-700'>Кількість на складі:</div>
                     <input
                       className='border p-2 rounded w-full'
@@ -1892,12 +1731,12 @@ export default function AdminPanel(){
                     />
                   </div>
 
-                  <div className='grid gap-2 md:grid-cols-[220px_1fr] md:items-center'>
+                  <div className='grid grid-cols-1 gap-2 md:grid-cols-[220px_minmax(0,1fr)] md:items-center'>
                     <div className='text-sm text-gray-700'>Одиниця вимірювання:</div>
                     <input className='border p-2 rounded w-full' value={prodForm.unit} onChange={e=>setProdForm({...prodForm, unit:e.target.value})} data-testid='admin-product-edit-unit' />
                   </div>
 
-                  <div className='grid gap-2 md:grid-cols-[220px_1fr] md:items-center'>
+                  <div className='grid grid-cols-1 gap-2 md:grid-cols-[220px_minmax(0,1fr)] md:items-center'>
                     <div className='text-sm text-gray-700'>Товар тижня:</div>
                     <label className='inline-flex items-center gap-2 text-sm text-gray-700 select-none'>
                       <input
@@ -1910,18 +1749,15 @@ export default function AdminPanel(){
                     </label>
                   </div>
 
-                  <div className='grid gap-2 md:grid-cols-[220px_1fr] md:items-center'>
+                  <div className='grid grid-cols-1 gap-2 md:grid-cols-[220px_minmax(0,1fr)] md:items-center'>
                     <div className='text-sm text-gray-700'>Картинка (URL / файл):</div>
                     <div className='flex'>
-                      <label className='inline-flex items-center justify-center gap-2 px-3 py-2 border rounded cursor-pointer w-full sm:w-auto' data-testid='admin-product-edit-images-upload'>
-                        <input type='file' accept='image/*' multiple className='hidden' onChange={handleFileChange} />
-                        <span>{uploading ? 'Завантаження…' : 'Завантажити файл'}</span>
-                      </label>
+                      <AdminUploadButton onChange={handleFileChange} busy={uploading} testId='admin-product-edit-images-upload' inputTestId='admin-product-edit-images-upload-input' />
                     </div>
                   </div>
 
                   {Array.isArray(prodForm.images) && prodForm.images.length > 0 && (
-                    <div className='grid gap-2 md:grid-cols-[220px_1fr] md:items-center'>
+                    <div className='grid grid-cols-1 gap-2 md:grid-cols-[220px_minmax(0,1fr)] md:items-center'>
                       <div className='text-sm text-gray-700'>Превʼю:</div>
                       <div className='flex flex-wrap items-center gap-3'>
                         {prodForm.images.map((img, idx)=>(
@@ -1958,7 +1794,7 @@ export default function AdminPanel(){
                     </div>
                   )}
 
-                  <div className='grid gap-2 md:grid-cols-[220px_1fr] md:items-center'>
+                  <div className='grid grid-cols-1 gap-2 md:grid-cols-[220px_minmax(0,1fr)] md:items-center'>
                     <div className='text-sm text-gray-700'>Категорія:</div>
                     <div className='space-y-3'>
                       <div className='flex gap-2 items-center'>
@@ -2019,7 +1855,7 @@ export default function AdminPanel(){
                     </div>
                   </div>
 
-                  <div className='grid gap-2 md:grid-cols-[220px_1fr] md:items-center'>
+                  <div className='grid grid-cols-1 gap-2 md:grid-cols-[220px_minmax(0,1fr)] md:items-center'>
                     <div className='text-sm text-gray-700'>Підкатегорія:</div>
                     <div className='space-y-3'>
                       <div className='flex gap-2 items-center'>
@@ -2079,7 +1915,7 @@ export default function AdminPanel(){
                     </div>
                   </div>
 
-                  <div className='grid gap-2 md:grid-cols-[220px_1fr] md:items-center'>
+                  <div className='grid grid-cols-1 gap-2 md:grid-cols-[220px_minmax(0,1fr)] md:items-center'>
                     <div className='text-sm text-gray-700'>Тип товару:</div>
                     <div className='space-y-3'>
                       <div className='flex gap-2 items-center'>
@@ -2139,19 +1975,19 @@ export default function AdminPanel(){
                     </div>
                   </div>
 
-                  <div className='grid gap-2 md:grid-cols-[220px_1fr]'>
+                  <div className='grid grid-cols-1 gap-2 md:grid-cols-[220px_minmax(0,1fr)]'>
                     <div className='text-sm text-gray-700 md:pt-2'>Опис:</div>
                     <textarea className='border p-2 rounded min-h-32 w-full' value={prodForm.description} onChange={e=>setProdForm({...prodForm, description:e.target.value})} />
                   </div>
 
-                  <div className='grid gap-2 md:grid-cols-[220px_1fr]'>
+                  <div className='grid grid-cols-1 gap-2 md:grid-cols-[220px_minmax(0,1fr)]'>
                     <div></div>
                     <div className='pt-3 border-t'>
                       <div className='font-semibold'>Характеристики</div>
                     </div>
                   </div>
 
-                  <div className='grid gap-2 md:grid-cols-[220px_1fr]'>
+                  <div className='grid grid-cols-1 gap-2 md:grid-cols-[220px_minmax(0,1fr)]'>
                     <div className='text-sm text-gray-700 md:pt-2'>Характеристики (ключ: значення):</div>
                     <div className='space-y-2'>
                       {(prodForm.specsPairs || []).map((row) => (
@@ -2212,7 +2048,7 @@ export default function AdminPanel(){
                     </div>
                   </div>
 
-                  <div className='grid gap-2 md:grid-cols-[220px_1fr]'>
+                  <div className='grid grid-cols-1 gap-2 md:grid-cols-[220px_minmax(0,1fr)]'>
                     <div className='text-sm text-gray-700 md:pt-2'>Характеристики текстом (Ключ: Значення;):</div>
                     <textarea
                       className='border p-2 rounded min-h-32 w-full'
@@ -2228,16 +2064,15 @@ export default function AdminPanel(){
                   </div>
                 </div>
                 <div className='mt-4 flex justify-end gap-2'>
-                  <button onClick={()=> setShowProdEdit(false)} className='px-3 py-2 border rounded' disabled={savingProduct} data-testid='admin-product-edit-cancel'>Скасувати</button>
-                  <button
+                  <button onClick={()=> setShowProdEdit(false)} className={adminButtonStyles.secondary} disabled={savingProduct} data-testid='admin-product-edit-cancel'>Скасувати</button>
+                  <AdminButton
                     onClick={handleUpdate}
                     disabled={savingProduct}
-                    className='px-3 py-2 bg-black text-white rounded hover:bg-red-600 transition disabled:opacity-60 disabled:cursor-not-allowed inline-flex items-center gap-2'
+                    variant='primary' icon={FiCheck} busy={savingProduct}
                     data-testid='admin-product-edit-save'
                   >
-                    {savingProduct && <span className='w-4 h-4 rounded-full border-2 border-white/50 border-t-white animate-spin' />}
                     <span>{savingProduct ? 'Збереження…' : 'Зберегти'}</span>
-                  </button>
+                  </AdminButton>
                 </div>
               </div>
             </div>
@@ -2246,16 +2081,16 @@ export default function AdminPanel(){
           {/* Modal: Create Product */}
           {showProdCreate && (
             <div className='fixed inset-0 z-[60] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4' data-testid='admin-product-create-overlay'>
-              <div className='bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[95vh] overflow-auto p-6' onClick={(e)=>e.stopPropagation()} data-testid='admin-product-create'>
+              <div className='bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[calc(100dvh-2rem)] overflow-auto p-6' onClick={(e)=>e.stopPropagation()} data-testid='admin-product-create'>
                 <div className='flex items-center justify-between mb-3'>
                   <h4 className='font-semibold'>Новий товар</h4>
-                  <button aria-label='Закрити' onClick={()=> setShowProdCreate(false)} className='w-8 h-8 rounded-lg border' data-testid='admin-product-create-close'>✕</button>
+                  <button aria-label='Закрити' onClick={()=> setShowProdCreate(false)} className='inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 transition hover:bg-slate-50 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500' data-testid='admin-product-create-close'>✕</button>
                 </div>
                 <div className='grid md:grid-cols-2 gap-3'>
-                  <input className='border p-2 rounded' required placeholder='Назва' value={prodForm.name} onChange={e=>setProdForm({...prodForm, name:e.target.value})} data-testid='admin-product-create-name' />
-                  <div className='grid grid-cols-[2fr_1fr] gap-2'>
+                  <input className='border p-2 rounded min-w-0 w-full' required placeholder='Назва' value={prodForm.name} onChange={e=>setProdForm({...prodForm, name:e.target.value})} data-testid='admin-product-create-name' />
+                  <div className='grid grid-cols-[minmax(0,2fr)_minmax(0,1fr)] gap-2'>
                     <input
-                      className='border p-2 rounded'
+                      className='border p-2 rounded min-w-0 w-full'
                       required
                       type='number'
                       placeholder='Ціна'
@@ -2264,7 +2099,7 @@ export default function AdminPanel(){
                       data-testid='admin-product-create-price'
                     />
                     <input
-                      className='border p-2 rounded'
+                      className='border p-2 rounded min-w-0 w-full'
                       type='number'
                       min='0'
                       max='100'
@@ -2276,14 +2111,14 @@ export default function AdminPanel(){
                   </div>
                   <div className='grid grid-cols-3 gap-2'>
                     <input
-                      className='border p-2 rounded'
+                      className='border p-2 rounded min-w-0 w-full'
                       placeholder='SKU / артикул'
                       value={prodForm.sku}
                       onChange={e=>setProdForm({...prodForm, sku:e.target.value})}
                       data-testid='admin-product-create-sku'
                     />
                     <input
-                      className='border p-2 rounded'
+                      className='border p-2 rounded min-w-0 w-full'
                       type='number'
                       min='0'
                       placeholder='Кількість на складі'
@@ -2292,7 +2127,7 @@ export default function AdminPanel(){
                       data-testid='admin-product-create-stock'
                     />
                     <input
-                      className='border p-2 rounded'
+                      className='border p-2 rounded min-w-0 w-full'
                       placeholder='Одиниця (шт, м, кг...)'
                       value={prodForm.unit}
                       onChange={e=>setProdForm({...prodForm, unit:e.target.value})}
@@ -2409,11 +2244,8 @@ export default function AdminPanel(){
                     </div>
                   </div>
                   <div className='md:col-span-2 grid gap-2 sm:grid-cols-[1fr_auto] items-center'>
-                    <input className='border p-2 rounded' placeholder='URL картинки' value={prodForm.image} onChange={e=>setProdForm({...prodForm, image:e.target.value})} data-testid='admin-product-create-image-url' />
-                    <label className='inline-flex items-center gap-2 px-3 py-2 border rounded cursor-pointer' data-testid='admin-product-create-images-upload'>
-                      <input type='file' accept='image/*' multiple className='hidden' onChange={handleFileChange} />
-                      <span>{uploading ? 'Завантаження…' : 'Завантажити файл'}</span>
-                    </label>
+                    <input className='border p-2 rounded min-w-0 w-full' placeholder='URL картинки' value={prodForm.image} onChange={e=>setProdForm({...prodForm, image:e.target.value})} data-testid='admin-product-create-image-url' />
+                    <AdminUploadButton onChange={handleFileChange} busy={uploading} testId='admin-product-create-images-upload' inputTestId='admin-product-create-images-upload-input' />
                   </div>
 
                   {Array.isArray(prodForm.images) && prodForm.images.length > 0 && (
@@ -2575,16 +2407,15 @@ export default function AdminPanel(){
                   </div>
                 </div>
                 <div className='mt-4 flex justify-end gap-2'>
-                  <button onClick={()=> setShowProdCreate(false)} className='px-3 py-2 border rounded' disabled={savingProduct} data-testid='admin-product-create-cancel'>Скасувати</button>
-                  <button
+                  <button onClick={()=> setShowProdCreate(false)} className={adminButtonStyles.secondary} disabled={savingProduct} data-testid='admin-product-create-cancel'>Скасувати</button>
+                  <AdminButton
                     onClick={handleCreateProduct}
                     disabled={savingProduct}
-                    className='px-3 py-2 bg-black text-white rounded hover:bg-red-600 transition disabled:opacity-60 disabled:cursor-not-allowed inline-flex items-center gap-2'
+                    variant='primary' icon={FiPlus} busy={savingProduct}
                     data-testid='admin-product-create-submit'
                   >
-                    {savingProduct && <span className='w-4 h-4 rounded-full border-2 border-white/50 border-t-white animate-spin' />}
                     <span>{savingProduct ? 'Створення…' : 'Створити'}</span>
-                  </button>
+                  </AdminButton>
                 </div>
               </div>
             </div>
@@ -2595,7 +2426,7 @@ export default function AdminPanel(){
         {showProdList && (
           <div className='fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4' data-testid='admin-products-list-overlay'>
             <div
-              className={`bg-white rounded-3xl shadow-2xl overflow-auto p-6 ${prodFull ? 'w-full h-full max-w-none' : 'w-full max-w-6xl max-h-[90vh]'}`}
+              className={`bg-white rounded-3xl shadow-2xl overflow-auto p-6 ${prodFull ? 'w-full h-full max-w-none' : 'w-full max-w-6xl max-h-[calc(100dvh-2rem)]'}`}
               onClick={(e)=>e.stopPropagation()}
               data-testid='admin-products-list'
             >
@@ -3001,7 +2832,7 @@ export default function AdminPanel(){
             data-testid='admin-product-preview-overlay'
           >
             <div
-              className='bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-auto p-6'
+              className='bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[calc(100dvh-2rem)] overflow-auto p-6'
               onClick={(e)=>e.stopPropagation()}
               data-testid='admin-product-preview'
             >
@@ -3049,7 +2880,7 @@ export default function AdminPanel(){
               <div className='bg-white rounded-xl shadow-2xl w-full max-w-md p-5' onClick={(e)=>e.stopPropagation()} data-testid='admin-categories-edit-legacy'>
                 <div className='flex items-center justify-between mb-3'>
                   <h4 className='font-semibold'>Редагувати категорію</h4>
-                  <button aria-label='Закрити' onClick={()=> setShowCatEdit(false)} className='w-8 h-8 rounded-lg border' data-testid='admin-categories-edit-legacy-close'>✕</button>
+                  <button aria-label='Закрити' onClick={()=> setShowCatEdit(false)} className='inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 transition hover:bg-slate-50 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500' data-testid='admin-categories-edit-legacy-close'>✕</button>
                 </div>
                 <label className='text-sm text-gray-600'>Назва</label>
                 <input className='border p-2 rounded w-full mb-3' value={catEditingName} onChange={e=>setCatEditingName(e.target.value)} data-testid='admin-categories-edit-legacy-name' />
@@ -3061,7 +2892,7 @@ export default function AdminPanel(){
                   </span>
                 </label>
                 <div className='flex justify-end gap-2'>
-                  <button onClick={()=> setShowCatEdit(false)} className='px-3 py-2 border rounded' data-testid='admin-categories-edit-legacy-cancel'>Скасувати</button>
+                  <button onClick={()=> setShowCatEdit(false)} className={adminButtonStyles.secondary} data-testid='admin-categories-edit-legacy-cancel'>Скасувати</button>
                   <button onClick={async()=>{
                     try{
                       if (!selectedCatId) return;
@@ -3071,7 +2902,7 @@ export default function AdminPanel(){
                       loadAll();
                       showToast(applyToProducts ? 'Категорію оновлено. Товари відобразять нову назву автоматично.' : 'Категорію оновлено','success')
                     }catch(err){ showToast(getErrMsg(err),'error') }
-                  }} className='px-3 py-2 bg-black text-white rounded hover:bg-red-600 transition' data-testid='admin-categories-edit-legacy-save'>Зберегти</button>
+                  }} className={adminButtonStyles.primary} data-testid='admin-categories-edit-legacy-save'>Зберегти</button>
                 </div>
               </div>
             </div>
@@ -3083,19 +2914,19 @@ export default function AdminPanel(){
               <div className='bg-white rounded-xl shadow-2xl w-full max-w-md p-5' onClick={(e)=>e.stopPropagation()} data-testid='admin-categories-create-legacy'>
                 <div className='flex items-center justify-between mb-3'>
                   <h4 className='font-semibold'>Нова категорія</h4>
-                  <button aria-label='Закрити' onClick={()=> setShowCatCreate(false)} className='w-8 h-8 rounded-lg border' data-testid='admin-categories-create-legacy-close'>✕</button>
+                  <button aria-label='Закрити' onClick={()=> setShowCatCreate(false)} className='inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 transition hover:bg-slate-50 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500' data-testid='admin-categories-create-legacy-close'>✕</button>
                 </div>
                 <label className='text-sm text-gray-600'>Назва</label>
                 <input className='border p-2 rounded w-full mb-4' value={catName} onChange={e=>setCatName(e.target.value)} placeholder='Введіть назву категорії' data-testid='admin-categories-create-legacy-name' />
                 <div className='flex justify-end gap-2'>
-                  <button onClick={()=> setShowCatCreate(false)} className='px-3 py-2 border rounded' data-testid='admin-categories-create-legacy-cancel'>Скасувати</button>
+                  <button onClick={()=> setShowCatCreate(false)} className={adminButtonStyles.secondary} data-testid='admin-categories-create-legacy-cancel'>Скасувати</button>
                   <button onClick={async()=>{
                     try{
                       await createCategory({ name: (catName||'').trim() });
                       setCatName(''); setShowCatCreate(false); loadAll();
                       showToast('Категорію створено','success')
                     }catch(err){ showToast(getErrMsg(err),'error') }
-                  }} className='px-3 py-2 bg-black text-white rounded hover:bg-red-600 transition' data-testid='admin-categories-create-legacy-submit'>Створити</button>
+                  }} className={adminButtonStyles.primary} data-testid='admin-categories-create-legacy-submit'>Створити</button>
                 </div>
               </div>
             </div>
@@ -3269,7 +3100,7 @@ export default function AdminPanel(){
           </button>
         </div>
         {/* Filters */}
-        <div className='p-3 bg-white rounded-lg border shadow-sm flex items-center justify-center gap-2 md:gap-3 mb-3 flex-wrap md:flex-nowrap' data-testid='admin-orders-filters'>
+        <div className='p-3 bg-white rounded-lg border shadow-sm flex items-center justify-center gap-2 md:gap-3 mb-3 flex-wrap' data-testid='admin-orders-filters'>
           <input className='border rounded w-[200px] md:w-[220px] shrink-0 h-10 px-3 text-sm' placeholder='Пошук (імʼя/телефон/ID)' value={orderSearch} onChange={e=>{ setOrderSearch(e.target.value); setOrderPage(1) }} data-testid='admin-orders-search' />
           <input type='date' className='border rounded w-[200px] md:w-[220px] shrink-0 h-10 px-3 text-sm' value={dateFrom} onChange={e=>{ setDateFrom(e.target.value); setOrderPage(1) }} data-testid='admin-orders-date-from' />
           <input type='date' className='border rounded w-[200px] md:w-[220px] shrink-0 h-10 px-3 text-sm' value={dateTo} onChange={e=>{ setDateTo(e.target.value); setOrderPage(1) }} data-testid='admin-orders-date-to' />
@@ -3389,7 +3220,7 @@ export default function AdminPanel(){
         {/* Order details modal */}
         {selectedOrder && (
           <div className='fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4' onClick={()=> setSelectedOrder(null)} data-testid='admin-order-details-overlay'>
-            <div className='bg-white rounded-2xl shadow-2xl w-full max-w-3xl p-5' onClick={(e)=>e.stopPropagation()} data-testid='admin-order-details'>
+            <div className='bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[calc(100dvh-2rem)] overflow-y-auto p-5' onClick={(e)=>e.stopPropagation()} data-testid='admin-order-details'>
               <div className='flex items-center justify-between mb-3 border-b pb-3'>
                 <h4 className='font-semibold'>Замовлення #{selectedOrder._id}</h4>
                 <button aria-label='Закрити' onClick={()=> setSelectedOrder(null)} className='w-8 h-8 rounded-lg border hover:bg-gray-100' data-testid='admin-order-details-close'>✕</button>
@@ -3411,68 +3242,10 @@ export default function AdminPanel(){
                   <textarea className='border p-2 rounded w-full' rows='3' value={orderNote} onChange={e=> setOrderNote(e.target.value)} data-testid='admin-order-details-note' />
                 </div>
               </div>
-              <div className='mt-3 overflow-x-auto' data-testid='admin-order-details-items'>
-                <table className='min-w-full text-sm' data-testid='admin-order-details-items-table'>
-                  <thead>
-                    <tr className='bg-gray-50'>
-                      <th className='text-left px-3 py-2'>Товар</th>
-                      <th className='text-right px-3 py-2'>К-сть</th>
-                      <th className='text-right px-3 py-2'>Ціна</th>
-                      <th className='text-right px-3 py-2'>Сума</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {selectedOrder.items?.map((it, idx)=>{
-                      // Підтримка різних форматів збережених items:
-                      // 1) Новий: items.productId = ObjectId -> populate дає productId.name/price
-                      // 2) Старий: items.name/price напряму
-                      // 3) Перехідний: items._id = productId, productId === null
-
-                      let name = it.productId?.name || it.name || '';
-                      let priceRaw = it.productId?.price ?? it.price;
-
-                      // Якщо productId відсутній, але є _id, спробувати знайти товар у вже завантажених products
-                      if ((!name || priceRaw == null) && it._id && Array.isArray(products) && products.length) {
-                        const prod = products.find(p => p._id === String(it._id));
-                        if (prod) {
-                          if (!name) name = prod.name;
-                          if (priceRaw == null) priceRaw = prod.price;
-                        }
-                      }
-
-                      const price = Number(priceRaw) || 0;
-                      const qty = Number(it.quantity) || 0;
-                      const sum = (price * qty).toFixed(2);
-
-                      return (
-                        <tr key={idx} className='border-t' data-testid={`admin-order-details-item-${idx}`}>
-                          <td className='px-3 py-2'>{name || 'Товар'}</td>
-                          <td className='px-3 py-2 text-right'>{qty}</td>
-                          <td className='px-3 py-2 text-right'>{price.toFixed(2)} ₴</td>
-                          <td className='px-3 py-2 text-right'>{sum} ₴</td>
-                        </tr>
-                      )
-                    })}
-                  </tbody>
-                </table>
-                {((selectedOrder.promoCode || selectedOrder.promoPercent || selectedOrder.discountAmount || selectedOrder.subtotalPrice) ? (
-                  <div className='mt-2 text-right text-sm text-gray-700' data-testid='admin-order-details-promo'>
-                    {selectedOrder.subtotalPrice != null && (
-                      <div>Сума: {Number(selectedOrder.subtotalPrice || 0).toFixed(2)} ₴</div>
-                    )}
-                    {(selectedOrder.promoCode || selectedOrder.promoPercent) && (
-                      <div>Знижка: {String(selectedOrder.promoCode || '').toUpperCase()} {selectedOrder.promoPercent ? `-${Number(selectedOrder.promoPercent || 0)}%` : ''}</div>
-                    )}
-                    {selectedOrder.discountAmount != null && (
-                      <div>Знижка сума: −{Number(selectedOrder.discountAmount || 0).toFixed(2)} ₴</div>
-                    )}
-                  </div>
-                ) : null)}
-                <div className='mt-2 text-right font-semibold'>Разом: {(selectedOrder.totalPrice||0).toFixed(2)} ₴</div>
-              </div>
+              <AdminOrderItems order={selectedOrder} products={products} />
               <div className='mt-4 flex justify-end gap-2'>
-                <button onClick={()=> setSelectedOrder(null)} className='px-3 py-2 border rounded' data-testid='admin-order-details-cancel'>Закрити</button>
-                <button onClick={async()=>{ try{ await updateOrder(selectedOrder._id, { status: orderStatusEdit, note: orderNote }); showToast('Замовлення оновлено','success'); setSelectedOrder(null); loadAll(); } catch(err){ showToast(getErrMsg(err),'error') } }} className='px-3 py-2 bg-black text-white rounded hover:bg-red-600 transition' data-testid='admin-order-details-save'>Зберегти</button>
+                <button onClick={()=> setSelectedOrder(null)} className={adminButtonStyles.secondary} data-testid='admin-order-details-cancel'>Закрити</button>
+                <button onClick={async()=>{ try{ await updateOrder(selectedOrder._id, { status: orderStatusEdit, note: orderNote }); showToast('Замовлення оновлено','success'); setSelectedOrder(null); loadAll(); } catch(err){ showToast(getErrMsg(err),'error') } }} className={adminButtonStyles.primary} data-testid='admin-order-details-save'>Зберегти</button>
               </div>
             </div>
           </div>

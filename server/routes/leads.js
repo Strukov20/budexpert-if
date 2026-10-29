@@ -1,9 +1,9 @@
-import express from 'express'
+import { createRouter } from '../middleware/router.js';
 import rateLimit from 'express-rate-limit'
 import Lead from '../models/Lead.js'
 import requireAdmin from '../middleware/auth.js'
 
-const router = express.Router()
+const router = createRouter()
 
 // Публічне створення заявки без авторизації — обмежуємо від спаму
 const createLeadLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 30 })
@@ -13,11 +13,14 @@ const UA_MOBILE_OPERATOR_CODES = new Set([
 ])
 
 const normalizeUaPhone = (v) => {
-  const digits = (v || '').toString().replace(/\D+/g, '')
+  if (typeof v !== 'string' || v.length > 32) return ''
+  const digits = v.replace(/\D+/g, '')
+  if (![9, 10, 12].includes(digits.length)) return ''
   let local = ''
-  if (digits.startsWith('380')) local = digits.slice(3, 12)
-  else if (digits.startsWith('0')) local = digits.slice(1, 10)
-  else local = digits.slice(-9)
+  if (digits.length === 12 && digits.startsWith('380')) local = digits.slice(3, 12)
+  else if (digits.length === 10 && digits.startsWith('0')) local = digits.slice(1, 10)
+  else if (digits.length === 9) local = digits
+  else return ''
   return '+380' + (local ? local : '')
 }
 
@@ -35,10 +38,14 @@ router.post('/', createLeadLimiter, async (req, res) => {
     if (!['call', 'delivery'].includes(t)) {
       return res.status(400).json({ error: 'Invalid type' })
     }
-    if (!name || !phone) {
+    if (typeof name !== 'string' || !name.trim() || name.length > 200 || !phone) {
       return res.status(400).json({ error: 'Missing fields' })
     }
 
+    for (const value of [city, street, house]) {
+      if (value !== undefined && (typeof value !== 'string' || value.length > 300)) return res.status(400).json({ error: 'Invalid address' })
+    }
+    if (datetime && !Number.isFinite(new Date(datetime).getTime())) return res.status(400).json({ error: 'Invalid date' })
     const normalizedPhone = normalizeUaPhone(phone)
     if (!isUaMobilePhoneValid(normalizedPhone)) {
       return res.status(400).json({ error: 'Invalid phone' })
@@ -49,7 +56,7 @@ router.post('/', createLeadLimiter, async (req, res) => {
 
     const doc = await Lead.create({
       type: t,
-      name,
+      name: name.trim(),
       phone: normalizedPhone,
       city: city || '',
       street: street || '',

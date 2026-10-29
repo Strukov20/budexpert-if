@@ -18,6 +18,11 @@ export default function Pagination({page, pages, onChange}){
   const pageNumbers = [];
   for (let i = start; i <= end; i++) pageNumbers.push(i);
 
+  const hrefFor = number => {
+    const url = new URL(window.location.href)
+    if (number > 1) url.searchParams.set('page', number); else url.searchParams.delete('page')
+    return url.pathname + url.search
+  }
   const hasPrev = page > 1;
   const hasNext = page < pages;
 
@@ -36,9 +41,11 @@ export default function Pagination({page, pages, onChange}){
       </button>
 
       {pageNumbers.map(p => (
-        <button
+        <a
           key={p}
-          onClick={() => onChange(p)}
+          href={hrefFor(p)}
+          aria-current={page === p ? 'page' : undefined}
+          onClick={event => { event.preventDefault(); onChange(p) }}
           className={`px-3 py-1 rounded text-sm min-w-[36px] ${
             page === p
               ? 'bg-red-700 text-white cursor-default'
@@ -46,7 +53,7 @@ export default function Pagination({page, pages, onChange}){
           }`}
         >
           {p}
-        </button>
+        </a>
       ))}
 
       <button

@@ -1,3 +1,5 @@
+import NotFound from './NotFound'
+import { categorySlug, legacyCategorySlug } from '../../../shared/catalog.mjs'
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import { getProducts, getCategories, getProductCounts } from '../api'
@@ -15,7 +17,7 @@ export default function Home(){
   const [weekProducts, setWeekProducts] = useState([])
   const [weekStart, setWeekStart] = useState(0)
   const [categories, setCategories] = useState([])
-  const [loadingCategories, setLoadingCategories] = useState(false)
+  const [loadingCategories, setLoadingCategories] = useState(true)
   const [loadingProducts, setLoadingProducts] = useState(false)
   const [loadingWeekProducts, setLoadingWeekProducts] = useState(false)
   const [cat, setCat] = useState('')
@@ -24,9 +26,10 @@ export default function Home(){
   const [search, setSearch] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
   const [counts, setCounts] = useState({ byCategory: {}, bySubcategory: {}, byType: {} })
-  const [page, setPage] = useState(1)
+  const [page, setPage] = useState(() => Math.max(1, Number(new URLSearchParams(location.search).get('page')) || 1))
+  const [pages, setPages] = useState(1)
+  const loadedFilterRef = useRef('')
   const perPage = 12
-  const [visibleCount, setVisibleCount] = useState(perPage)
   const [isMobile, setIsMobile] = useState(false)
   const [isTablet, setIsTablet] = useState(false)
   const sentinelRef = useRef(null)
@@ -100,34 +103,8 @@ export default function Home(){
     })
   }, [debouncedSearch])
 
-  const legacyToSlugRaw = useMemo(()=> (name)=> {
-    const raw = (name || '').toString().trim()
-    return raw
-      .replace(/\s+/g, '')
-      .replace(/[^0-9A-Za-zА-Яа-яІЇЄҐієїґ\-]/g, '')
-  }, [])
-
-  const toSlug = useMemo(()=> (name)=> {
-    const raw = (name || '').toString().trim().toLowerCase()
-    const map = {
-      'а':'a','б':'b','в':'v','г':'h','ґ':'g','д':'d','е':'e','є':'ye','ж':'zh','з':'z','и':'y','і':'i','ї':'yi','й':'y',
-      'к':'k','л':'l','м':'m','н':'n','о':'o','п':'p','р':'r','с':'s','т':'t','у':'u','ф':'f','х':'kh','ц':'ts','ч':'ch',
-      'ш':'sh','щ':'shch','ю':'yu','я':'ya','ь':'',"'":'', '’':'', 'ʼ':'', '`':'',
-    }
-
-    const translit = raw
-      .split('')
-      .map(ch => (Object.prototype.hasOwnProperty.call(map, ch) ? map[ch] : ch))
-      .join('')
-
-    const slug = translit
-      .replace(/\s+/g, '-')
-      .replace(/-+/g, '-')
-      .replace(/[^a-z0-9\-]/g, '')
-      .replace(/^-+|-+$/g, '')
-
-    return slug
-  }, [])
+  const legacyToSlugRaw = legacyCategorySlug
+  const toSlug = categorySlug
 
   const slugEq = useMemo(()=> (name, slug)=> {
     if (!slug) return false
@@ -146,58 +123,6 @@ export default function Home(){
     }
   }, [toSlug, legacyToSlugRaw])
 
-  const shuffle = (arr)=>{
-    const a = Array.isArray(arr) ? arr.slice() : []
-    for (let i = a.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1))
-      const tmp = a[i]
-      a[i] = a[j]
-      a[j] = tmp
-    }
-    return a
-  }
-
-  // SEO: title, description, LocalBusiness structured data
-  useEffect(()=>{
-    document.title = 'БудЕксперт — будівельний маркет в Івано-Франківську'
-
-    const metaDesc = document.querySelector('meta[name="description"]') || (()=>{
-      const m = document.createElement('meta');
-      m.setAttribute('name','description');
-      document.head.appendChild(m);
-      return m
-    })()
-    metaDesc.setAttribute('content','БудЕксперт — будівельний маркет в Івано-Франківську. Все для ремонту та будівництва з доставкою по місту та області.')
-
-    const jsonLd = {
-      '@context':'https://schema.org',
-      '@type':'LocalBusiness',
-      name:'БудЕксперт',
-      image:'/logo.png',
-      address:{
-        '@type':'PostalAddress',
-        streetAddress:'вул. Білозіра 8',
-        addressLocality:'Івано-Франківськ',
-        addressCountry:'UA'
-      },
-      telephone:'+380980095577',
-      url: window.location.origin,
-      openingHoursSpecification:[
-        { '@type':'OpeningHoursSpecification', dayOfWeek:['Monday','Tuesday','Wednesday','Thursday','Friday'], opens:'09:00', closes:'18:00' },
-        { '@type':'OpeningHoursSpecification', dayOfWeek:['Saturday'], opens:'09:00', closes:'15:00' }
-      ]
-    }
-
-    const el = document.createElement('script');
-    el.type = 'application/ld+json';
-    el.text = JSON.stringify(jsonLd);
-    document.head.appendChild(el);
-
-    return () => {
-      if (el && el.parentNode) el.parentNode.removeChild(el)
-    }
-  },[])
-
   useEffect(()=>{
     setLoadingCategories(true)
     getCategories()
@@ -207,8 +132,8 @@ export default function Home(){
   },[])
 
   useEffect(()=> {
-    setPage(1)
-    setVisibleCount(perPage)
+    setPage(Math.max(1, Number(new URLSearchParams(location.search).get('page')) || 1))
+    setProducts([])
   }, [cat, subcat, type, debouncedSearch])
 
   // Визначення мобільного режиму
@@ -224,6 +149,7 @@ export default function Home(){
   },[])
 
   useEffect(()=>{
+    if (isMobile) return
     if (!productsTopRef.current) return
     if (!didMountScrollRef.current) {
       didMountScrollRef.current = true
@@ -234,7 +160,11 @@ export default function Home(){
       const top = (el.getBoundingClientRect?.().top || 0) + window.scrollY - 150
       window.scrollTo({ top: Math.max(0, top), behavior: 'smooth' })
     })
-  }, [page])
+  }, [page, isMobile])
+
+  useEffect(() => {
+    setPage(Math.max(1, Number(new URLSearchParams(location.search).get('page')) || 1))
+  }, [location.search])
 
   function loadProducts(){
     // request server with optional params: category, q, page, perPage
@@ -248,13 +178,16 @@ export default function Home(){
     productsAbortRef.current = controller
 
     setLoadingProducts(true)
-    getProducts({ category: cat, subcategory: subcat, type, q: debouncedSearch }, { signal: controller.signal })
+    getProducts({ category: cat, subcategory: subcat, type, q: debouncedSearch, page, limit: perPage }, { signal: controller.signal })
       .then(d=>{
         if (controller.signal.aborted) return
         if (productsReqIdRef.current !== reqId) return
         const items = Array.isArray(d?.items) ? d.items : d
-        const noFilters = !cat && !subcat && !type && !String(debouncedSearch || '').trim()
-        setProducts(noFilters ? shuffle(items) : items)
+        const filterKey = JSON.stringify([cat, subcat, type, debouncedSearch])
+        const append = isMobile && page > 1 && loadedFilterRef.current === filterKey
+        loadedFilterRef.current = filterKey
+        setProducts(previous => append ? [...new Map([...previous, ...items].map(item => [item._id, item])).values()] : items)
+        setPages(d.pages || 1)
       })
       .catch(()=>{})
       .finally(()=>{
@@ -295,7 +228,7 @@ export default function Home(){
     // before making products request, otherwise we'll briefly load "all" and then replace.
     if ((parentSlug || childSlug || typeSlug) && !urlSyncDoneRef.current) return
     loadProducts()
-  }, [cat, subcat, type, debouncedSearch, parentSlug, childSlug, typeSlug])
+  }, [cat, subcat, type, debouncedSearch, parentSlug, childSlug, typeSlug, page, isMobile])
   useEffect(()=>{ loadCounts() }, [debouncedSearch])
 
   const getParentId = (c)=>{
@@ -449,6 +382,14 @@ export default function Home(){
   useEffect(()=>{
     if (!categories.length) return
 
+    if (parentSlug) {
+      let parentId = ''
+      for (const slug of [parentSlug, childSlug, typeSlug].filter(Boolean)) {
+        const category = categories.find(c => String(c.parent || '') === String(parentId) && slugEq(c.name, slug))
+        if (!category) return
+        parentId = category._id
+      }
+    }
     if (applyingUrlToStateRef.current) {
       applyingUrlToStateRef.current = false
       return
@@ -476,6 +417,7 @@ export default function Home(){
 
     let params
     try { params = new URLSearchParams(location.search || '') } catch { params = new URLSearchParams() }
+    if (desiredPath !== location.pathname) params.delete('page')
     const qVal = String(search || '').trim()
     if (qVal) params.set('q', qVal)
     else params.delete('q')
@@ -502,13 +444,8 @@ export default function Home(){
     return Number(map?.[String(id)] || 0)
   }
 
-  const filtered = products.filter(p=> true) // server returns filtered, but keep for safety
-  const pages = Math.max(1, Math.ceil(filtered.length / perPage))
-
-  const canLoadMore = visibleCount < filtered.length
-  const paginatedDesktop = filtered.slice((page-1)*perPage, page*perPage)
-  const paginatedMobile = filtered.slice(0, visibleCount)
-  const itemsToRender = isMobile ? paginatedMobile : paginatedDesktop
+  const canLoadMore = page < pages
+  const itemsToRender = products
 
   // Lazy loading для мобільних через IntersectionObserver: тригер до футера
   useEffect(()=>{
@@ -519,11 +456,8 @@ export default function Home(){
     const observer = new IntersectionObserver((entries)=>{
       const entry = entries[0]
       if (!entry.isIntersecting) return
-      if (!canLoadMore) return
-      setVisibleCount(prev => {
-        const next = prev + perPage
-        return next > filtered.length ? filtered.length : next
-      })
+      if (!canLoadMore || loadingProducts) return
+      setPage(previous => previous + 1)
     }, {
       root: null,
       rootMargin: '0px 0px 200px 0px',
@@ -532,7 +466,7 @@ export default function Home(){
 
     observer.observe(el)
     return () => observer.disconnect()
-  }, [isMobile, canLoadMore, filtered.length, perPage])
+  }, [isMobile, canLoadMore, loadingProducts, products.length])
 
   const addToCart = (p) => {
     // Persist to localStorage so it appears after navigation to /cart
@@ -600,6 +534,16 @@ export default function Home(){
     }, 5000)
     return ()=> clearInterval(t)
   }, [loadingWeekProducts, weekProducts.length, weekPerView])
+
+  let routeCategory = null
+  let routeParent = ''
+  let validCategoryRoute = true
+  for (const slug of [parentSlug, childSlug, typeSlug].filter(Boolean)) {
+    routeCategory = categories.find(c => String(c.parent || '') === String(routeParent) && slugEq(c.name, slug))
+    if (!routeCategory) { validCategoryRoute = false; break }
+    routeParent = routeCategory._id
+  }
+  if (parentSlug && !loadingCategories && !validCategoryRoute) return <NotFound />
 
   return (
     <div className='container pt-2 pb-6 max-w-md mx-auto px-4 md:max-w-none md:px-0'>
@@ -946,6 +890,7 @@ export default function Home(){
       </div>
 
       <div ref={productsTopRef} />
+      <h1 className='text-2xl font-semibold mb-4'>{routeCategory?.name || 'Будматеріали та інструменти в Івано-Франківську'}</h1>
 
       <div className='grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4' data-testid='product-grid'>
         {loadingProducts && itemsToRender.length === 0 ? (
@@ -961,10 +906,15 @@ export default function Home(){
       </div>
 
       {/* Sentinel для lazy loading на мобільних: розташований одразу після товарів, до форми та футера */}
-      <div ref={sentinelRef} className='h-4 w-full'></div>
+      <div data-testid="catalog-sentinel" ref={sentinelRef} className='h-4 w-full'></div>
 
       <div className='mt-6 hidden md:block'>
-        <Pagination page={page} pages={pages} onChange={setPage} />
+        <Pagination page={page} pages={pages} onChange={next => {
+          const params = new URLSearchParams(location.search)
+          if (next > 1) params.set('page', next); else params.delete('page')
+          navigate(location.pathname + (params.size ? `?${params}` : ''))
+          setPage(next)
+        }} />
       </div>
 
       <div className='mt-8'>

@@ -1,5 +1,6 @@
+import { priceInKopiykas } from '../../../shared/pricing.mjs'
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, Link } from 'react-router-dom'
 import { FiShoppingCart, FiChevronLeft, FiChevronRight } from 'react-icons/fi'
 import { capFirst } from '../utils'
 import ReactMarkdown from 'react-markdown'
@@ -187,7 +188,7 @@ export default function ProductCard({p, onAdd, categories, hideBadges}){
     : Number(((p.discount ?? '') + '').replace('%', '').trim() || 0) || 0;
   const discount = Math.min(100, Math.max(0, rawDiscount));
   const hasDiscount = discount > 0;
-  const basePrice = hasDiscount ? (p.price * (100 - discount)) / 100 : p.price;
+  const basePrice = priceInKopiykas(p) / 100;
   const hasPromo = promoPercent > 0;
   const finalPrice = hasPromo ? (basePrice * (100 - promoPercent)) / 100 : basePrice;
   const hasAnyDiscount = hasDiscount || hasPromo;
@@ -225,7 +226,7 @@ export default function ProductCard({p, onAdd, categories, hideBadges}){
 
   const goToProduct = ()=> {
     if (!p?._id) return
-    navigate(`/products/${p._id}`)
+    navigate(`/p/${p._id}`)
   }
 
   return (
@@ -269,10 +270,9 @@ export default function ProductCard({p, onAdd, categories, hideBadges}){
         <h3
           className="mt-2 md:mt-3 font-semibold text-sm md:text-base cursor-pointer leading-[1.25]"
           style={{ overflow: 'hidden', lineHeight: 1.25, maxHeight: 'calc(1.25em * 3)', minHeight: 'calc(1.25em * 3)', wordBreak: 'break-word' }}
-          onClick={goToProduct}
           data-testid={`product-card-${p?._id || ''}-title`}
         >
-          {p.name}
+          <Link to={`/p/${p._id}`}>{p.name}</Link>
         </h3>
         {p.sku && (
           <div className="mt-0.5 text-[11px] md:text-xs text-gray-500">Артикул: {p.sku}</div>

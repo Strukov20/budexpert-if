@@ -1,3 +1,4 @@
+import { priceInKopiykas } from '../../../shared/pricing.mjs'
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { createOrder, getIfStreetSuggestions, getPostCities, getPostOffices } from '../api'
 import { useNavigate } from 'react-router-dom'
@@ -40,7 +41,7 @@ export default function Checkout(){
   const [npShowOfficeList, setNpShowOfficeList] = useState(false)
   const navigate = useNavigate()
 
-  useEffect(()=>{ const stored = JSON.parse(localStorage.getItem('cart')||'[]'); setCart(stored); },[])
+  useEffect(()=>{ try { const stored = JSON.parse(localStorage.getItem('cart')||'[]'); setCart(Array.isArray(stored) ? stored : []); } catch { setCart([]) } },[])
 
   useEffect(() => {
     try {
@@ -56,9 +57,9 @@ export default function Checkout(){
     }
   }, [])
 
-  const cartSubtotal = useMemo(() => cart.reduce((sum, item) => sum + (item.price || 0) * (item.quantity || 1), 0), [cart])
+  const cartSubtotal = useMemo(() => cart.reduce((sum, item) => sum + priceInKopiykas(item) * (item.quantity || 1), 0) / 100, [cart])
   const promoPercent = promo?.percent ? Number(promo.percent) : 0
-  const discountAmount = useMemo(() => promoPercent > 0 ? (cartSubtotal * promoPercent) / 100 : 0, [cartSubtotal, promoPercent])
+  const discountAmount = useMemo(() => promoPercent > 0 ? Math.round(cartSubtotal * promoPercent) / 100 : 0, [cartSubtotal, promoPercent])
   const cartTotal = useMemo(() => Math.max(0, cartSubtotal - discountAmount), [cartSubtotal, discountAmount])
   const moneyFmt = useMemo(() => new Intl.NumberFormat('uk-UA', { minimumFractionDigits: 2, maximumFractionDigits: 2 }), [])
 
@@ -227,21 +228,21 @@ export default function Checkout(){
     }
     try{
       setLoading(true)
-      await createOrder(payload);
+      const savedOrder = await createOrder(payload);
 
       try {
         localStorage.removeItem('active_promo')
       } catch {}
 
       try {
-        const orderId = `local_${Date.now()}`
-        const items = (cart || []).map((c, idx) => ({
-          item_id: c?._id ? String(c._id) : undefined,
+        const orderId = savedOrder._id
+        const items = (savedOrder.items || []).map((c, idx) => ({
+          item_id: c?.productId ? String(c.productId) : undefined,
           item_name: c?.name ? String(c.name) : undefined,
           item_variant: c?.sku ? String(c.sku) : undefined,
           index: idx,
           quantity: Number(c?.quantity || 1) || 1,
-          price: Number(c?.price || 0) || 0,
+          price: Number(c?.unitPrice || 0) || 0,
         }))
         window.dataLayer = window.dataLayer || []
         window.dataLayer.push({ ecommerce: null })
@@ -250,7 +251,7 @@ export default function Checkout(){
           ecommerce: {
             transaction_id: orderId,
             currency: 'UAH',
-            value: Number(cartTotal || 0) || 0,
+            value: Number(savedOrder.totalPrice || 0) || 0,
             items,
           },
         })
@@ -684,10 +685,10 @@ export default function Checkout(){
           return (
             <div>
               <label className='text-sm text-gray-700 mb-1 block'>Бажана дата та час доставки</label>
-              <div className='flex gap-2'>
+              <div className='grid grid-cols-1 min-[420px]:grid-cols-2 gap-2'>
                 <input
                   type='date'
-                  className={`border rounded px-3 h-10 text-sm w-full ${dtError ? 'border-red-500' : ''}`}
+                  className={`border rounded px-3 h-11 text-base w-full min-w-0 ${dtError ? 'border-red-500' : ''}`}
                   value={dtDate}
                   onChange={(e)=> setDtDate(e.target.value)}
                   onBlur={()=> setTouched(t=> ({...t, dt:true}))}

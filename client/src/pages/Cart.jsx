@@ -1,3 +1,5 @@
+import { priceInKopiykas } from '../../../shared/pricing.mjs'
+import CartItemPrice from '../components/CartItemPrice'
 import React, { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { FiShoppingCart } from 'react-icons/fi'
@@ -103,9 +105,9 @@ export default function CartPage(){
     if (item) window.dispatchEvent(new CustomEvent('remove-from-cart', { detail: item }))
   }
 
-  const subtotal = cart.reduce((s,i)=> s + i.price * i.quantity, 0)
+  const subtotal = cart.reduce((s,i)=> s + priceInKopiykas(i) * i.quantity, 0) / 100
   const promoPercent = promo?.percent ? Number(promo.percent) : 0
-  const discountAmount = promoPercent > 0 ? (subtotal * promoPercent) / 100 : 0
+  const discountAmount = promoPercent > 0 ? Math.round(subtotal * promoPercent) / 100 : 0
   const total = Math.max(0, subtotal - discountAmount)
   const fmt = new Intl.NumberFormat('uk-UA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 
@@ -147,7 +149,9 @@ export default function CartPage(){
                     </div>
                   </div>
                   <div className='flex items-center gap-3 sm:gap-5 shrink-0 sm:mt-0 w-full sm:w-auto sm:min-w-[260px] justify-between sm:justify-end'>
-                    <div className='font-medium whitespace-nowrap text-right text-sm md:text-base' data-testid={`cart-item-${i._id}-sum`}>{(i.price * i.quantity).toFixed(2)} ₴</div>
+                    <div className='font-medium text-right text-sm md:text-base'>
+                      <CartItemPrice product={i} quantity={i.quantity} priceTestId={`cart-item-${i._id}-sum`} />
+                    </div>
                     <div className='flex items-center gap-1.5 md:gap-2'>
                       <button onClick={()=>dec(i._id)} className='w-7 h-7 md:w-8 md:h-8 border rounded flex items-center justify-center text-sm transition active:scale-95' data-testid={`cart-item-${i._id}-dec`}>−</button>
                       <span className='w-8 md:w-10 text-center text-sm md:text-base' data-testid={`cart-item-${i._id}-qty`}>{i.quantity}</span>
@@ -187,7 +191,7 @@ export default function CartPage(){
         const live = cart.find(x=> x._id === selected._id) || selected;
         return (
           <div className='fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4' onClick={()=> setSelected(null)} data-testid='cart-item-modal-overlay'>
-            <div className='relative bg-white rounded-2xl shadow-2xl max-w-2xl w-full overflow-hidden transition' onClick={e=>e.stopPropagation()} data-testid='cart-item-modal'>
+            <div className='relative bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[calc(100dvh-2rem)] overflow-y-auto overscroll-contain transition' onClick={e=>e.stopPropagation()} data-testid='cart-item-modal'>
               <button
                 aria-label='Закрити'
                 onClick={()=> setSelected(null)}
