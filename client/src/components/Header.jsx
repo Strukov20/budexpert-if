@@ -1,4 +1,5 @@
 import { priceInKopiykas } from '../../../shared/pricing.mjs'
+import CartItemPrice from './CartItemPrice'
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useLocation, Link } from "react-router-dom";
 import { FiShoppingCart, FiGrid, FiMapPin, FiPhoneCall } from 'react-icons/fi';
@@ -557,8 +558,9 @@ export default function Header() {
                             <img src={resolveThumbSrc(i.images?.[0]?.url || i.image) || NO_IMG_56} alt={i.name} className="w-12 h-12 object-cover rounded" />
                             <div className="min-w-0">
                               <div className="text-sm font-medium break-words">{i.name}</div>
-                              <div className="text-xs text-gray-600">
-                                {i.quantity || 1} × {fmt.format(priceInKopiykas(i) / 100)} ₴/шт
+                              <div className="text-xs text-gray-600 flex items-end gap-1">
+                                <span>{i.quantity || 1} ×</span>
+                                <CartItemPrice product={i} compact format={value => fmt.format(value)} />
                               </div>
                             </div>
                           </div>

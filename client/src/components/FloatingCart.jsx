@@ -1,4 +1,5 @@
 import { priceInKopiykas } from '../../../shared/pricing.mjs'
+import CartItemPrice from './CartItemPrice'
 import React, { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { FiShoppingCart } from 'react-icons/fi'
@@ -93,8 +94,9 @@ export default function FloatingCart() {
                     />
                     <div className="min-w-0 flex-1">
                       <div className="text-sm font-medium text-gray-900 line-clamp-2 leading-snug">{i.name}</div>
-                      <div className="text-xs text-gray-500 mt-0.5">
-                        {i.quantity || 1} × {fmt.format(priceInKopiykas(i) / 100)} ₴
+                      <div className="text-xs text-gray-500 mt-0.5 flex items-end gap-1">
+                        <span>{i.quantity || 1} ×</span>
+                        <CartItemPrice product={i} compact format={value => fmt.format(value)} />
                       </div>
                     </div>
                   </div>
