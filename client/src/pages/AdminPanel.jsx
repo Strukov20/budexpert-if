@@ -1,3 +1,4 @@
+import AdminOrderItems from '../components/AdminOrderItems'
 import AdminActions from '../components/AdminActions'
 import { parseCsv } from '../lib/csv'
 import React, { useEffect, useState, useRef } from 'react'
@@ -3250,65 +3251,7 @@ export default function AdminPanel(){
                   <textarea className='border p-2 rounded w-full' rows='3' value={orderNote} onChange={e=> setOrderNote(e.target.value)} data-testid='admin-order-details-note' />
                 </div>
               </div>
-              <div className='mt-3 overflow-x-auto' data-testid='admin-order-details-items'>
-                <table className='min-w-full text-sm' data-testid='admin-order-details-items-table'>
-                  <thead>
-                    <tr className='bg-gray-50'>
-                      <th className='text-left px-3 py-2'>Товар</th>
-                      <th className='text-right px-3 py-2'>К-сть</th>
-                      <th className='text-right px-3 py-2'>Ціна</th>
-                      <th className='text-right px-3 py-2'>Сума</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {selectedOrder.items?.map((it, idx)=>{
-                      // Підтримка різних форматів збережених items:
-                      // 1) Новий: items.productId = ObjectId -> populate дає productId.name/price
-                      // 2) Старий: items.name/price напряму
-                      // 3) Перехідний: items._id = productId, productId === null
-
-                      let name = it.name || it.productId?.name || '';
-                      let priceRaw = it.unitPrice ?? it.price ?? it.productId?.price;
-
-                      // Якщо productId відсутній, але є _id, спробувати знайти товар у вже завантажених products
-                      if ((!name || priceRaw == null) && it._id && Array.isArray(products) && products.length) {
-                        const prod = products.find(p => p._id === String(it._id));
-                        if (prod) {
-                          if (!name) name = prod.name;
-                          if (priceRaw == null) priceRaw = prod.price;
-                        }
-                      }
-
-                      const price = Number(priceRaw) || 0;
-                      const qty = Number(it.quantity) || 0;
-                      const sum = (price * qty).toFixed(2);
-
-                      return (
-                        <tr key={idx} className='border-t' data-testid={`admin-order-details-item-${idx}`}>
-                          <td className='px-3 py-2'>{name || 'Товар'}</td>
-                          <td className='px-3 py-2 text-right'>{qty}</td>
-                          <td className='px-3 py-2 text-right'>{price.toFixed(2)} ₴</td>
-                          <td className='px-3 py-2 text-right'>{sum} ₴</td>
-                        </tr>
-                      )
-                    })}
-                  </tbody>
-                </table>
-                {((selectedOrder.promoCode || selectedOrder.promoPercent || selectedOrder.discountAmount || selectedOrder.subtotalPrice) ? (
-                  <div className='mt-2 text-right text-sm text-gray-700' data-testid='admin-order-details-promo'>
-                    {selectedOrder.subtotalPrice != null && (
-                      <div>Сума: {Number(selectedOrder.subtotalPrice || 0).toFixed(2)} ₴</div>
-                    )}
-                    {(selectedOrder.promoCode || selectedOrder.promoPercent) && (
-                      <div>Знижка: {String(selectedOrder.promoCode || '').toUpperCase()} {selectedOrder.promoPercent ? `-${Number(selectedOrder.promoPercent || 0)}%` : ''}</div>
-                    )}
-                    {selectedOrder.discountAmount != null && (
-                      <div>Знижка сума: −{Number(selectedOrder.discountAmount || 0).toFixed(2)} ₴</div>
-                    )}
-                  </div>
-                ) : null)}
-                <div className='mt-2 text-right font-semibold'>Разом: {(selectedOrder.totalPrice||0).toFixed(2)} ₴</div>
-              </div>
+              <AdminOrderItems order={selectedOrder} products={products} />
               <div className='mt-4 flex justify-end gap-2'>
                 <button onClick={()=> setSelectedOrder(null)} className='px-3 py-2 border rounded' data-testid='admin-order-details-cancel'>Закрити</button>
                 <button onClick={async()=>{ try{ await updateOrder(selectedOrder._id, { status: orderStatusEdit, note: orderNote }); showToast('Замовлення оновлено','success'); setSelectedOrder(null); loadAll(); } catch(err){ showToast(getErrMsg(err),'error') } }} className='px-3 py-2 bg-black text-white rounded hover:bg-red-600 transition' data-testid='admin-order-details-save'>Зберегти</button>
