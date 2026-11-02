@@ -1,12 +1,6 @@
-import React, { useEffect } from 'react'
+import React from 'react'
 
 export default function Payment(){
-  useEffect(()=>{
-    document.title = 'Оплата — БудЕксперт'
-    const metaDesc = document.querySelector('meta[name="description"]') || (()=>{ const m=document.createElement('meta'); m.setAttribute('name','description'); document.head.appendChild(m); return m })()
-    metaDesc.setAttribute('content','Умови оплати в БудЕксперт: оплата в магазині або при отриманні замовлення. Безкоштовна доставка від 5000 грн у межах міста.')
-  },[])
-
   return (
     <div className='max-w-5xl mx-auto px-3 md:px-6 py-8'>
       <h1 className='text-3xl font-semibold'>Оплата</h1>
