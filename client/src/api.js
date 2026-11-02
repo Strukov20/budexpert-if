@@ -122,8 +122,19 @@ export async function updateBanner({ key = 'home', ...payload } = {}){
 }
 
 export async function getPageMetadata(path, search, signal) {
-  try { return (await api.get('/seo', { params: { path, search }, signal })).data; }
-  catch (error) { if (error.response?.status === 404) return error.response.data; throw error; }
+  let data;
+  try { data = (await api.get('/seo', { params: { path, search }, signal })).data; }
+  catch (error) {
+    if (error.response?.status !== 404) throw error;
+    data = error.response.data;
+  }
+  // Static hosts can return the SPA's HTML (even with 200) for missing API routes.
+  // Only accept actual metadata; otherwise keep the route's fallback title.
+  const validText = value => typeof value === 'string' && value.trim() && !['undefined', 'null'].includes(value.trim());
+  if (!data || typeof data !== 'object' || Array.isArray(data)) throw new Error('Invalid SEO response');
+  if (typeof data.redirect === 'string' && data.redirect.startsWith('/') && !data.redirect.startsWith('//')) return data;
+  if (!validText(data.title) || !validText(data.canonical)) throw new Error('Invalid SEO metadata');
+  return data;
 }
 
 // The admin catalog is loaded in bounded requests; public pages load one page.

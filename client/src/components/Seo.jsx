@@ -34,7 +34,7 @@ export default function Seo() {
     const fallback = staticPages[location.pathname]
     // Clear metadata from the previous route immediately.
     const canonical = new URL(location.pathname + location.search, window.location.origin).href
-    if (document.querySelector('link[rel="canonical"]')?.href !== canonical) {
+    if (document.querySelector('link[rel="canonical"]')?.href !== canonical || !document.title.trim() || ['undefined', 'null'].includes(document.title.trim())) {
       applyMetadata({ title: fallback?.title || homeTitle, description: fallback?.description || '', noindex: fallback?.noindex || false, canonical })
     }
     getPageMetadata(location.pathname, location.search, controller.signal).then(data => {
