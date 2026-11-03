@@ -1,4 +1,5 @@
 import { priceInKopiykas } from '../../../shared/pricing.mjs'
+import { productPath } from '../../../shared/products.mjs'
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { FiShoppingCart, FiChevronLeft, FiChevronRight } from 'react-icons/fi'
@@ -226,7 +227,7 @@ export default function ProductCard({p, onAdd, categories, hideBadges}){
 
   const goToProduct = ()=> {
     if (!p?._id) return
-    navigate(`/p/${p._id}`)
+    navigate(productPath(p))
   }
 
   return (
@@ -272,7 +273,7 @@ export default function ProductCard({p, onAdd, categories, hideBadges}){
           style={{ overflow: 'hidden', lineHeight: 1.25, maxHeight: 'calc(1.25em * 3)', minHeight: 'calc(1.25em * 3)', wordBreak: 'break-word' }}
           data-testid={`product-card-${p?._id || ''}-title`}
         >
-          <Link to={`/p/${p._id}`}>{p.name}</Link>
+          <Link to={productPath(p)}>{p.name}</Link>
         </h3>
         {p.sku && (
           <div className="mt-0.5 text-[11px] md:text-xs text-gray-500">Артикул: {p.sku}</div>
