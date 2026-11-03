@@ -59,7 +59,7 @@ test('product HTML contains escaped content, metadata, structured data and a mat
   expect(response.status()).toBe(200);
   const html = await response.text();
   expect(html).toContain('Audit &lt;product&gt;');
-  expect(html).toContain(`<link rel="canonical" href="${site}/p/${product._id}">`);
+  expect(html).toContain(`<link rel="canonical" href="${site}/p/${product.slug}">`);
   expect(html).toContain('"@type":"Product"');
   expect(html).toContain('"price":"80.04"');
   expect(html).toContain('https://schema.org/OutOfStock');
@@ -72,7 +72,7 @@ test('product HTML contains escaped content, metadata, structured data and a mat
 test('legacy product URLs redirect permanently, unknown pages return real 404s', async ({ request }) => {
   const redirect = await request.get(`${site}/products/${product._id}`, { maxRedirects: 0 });
   expect(redirect.status()).toBe(301);
-  expect(redirect.headers().location).toBe(`/p/${product._id}`);
+  expect(redirect.headers().location).toBe(`/p/${product.slug}`);
   for (const url of ['/category-that-does-not-exist', '/p/000000000000000000000000', '/p/bad', '/unknown/child/leaf/deeper', '/sitemap-missing.xml']) {
     expect((await request.get(site + url)).status()).toBe(404);
   }
@@ -91,7 +91,7 @@ test('sitemaps and robots advertise canonical URLs, private pages are noindex', 
   expect((await request.get('products')).headers()['x-robots-tag']).toContain('noindex');
   expect(await (await request.get(site + '/sitemap.xml')).text()).toContain('/sitemaps/products-1.xml');
   const products = await (await request.get(site + '/sitemaps/products-1.xml')).text();
-  expect(products).toContain(`/p/${product._id}`);
+  expect(products).toContain(`/p/${product.slug}`);
   expect(products).not.toContain('/products/');
   const pages = await (await request.get(site + '/sitemaps/pages.xml')).text();
   expect(pages).not.toContain('/admin');

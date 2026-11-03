@@ -5,6 +5,8 @@ import requireAdmin from "../middleware/auth.js";
 import Category from "../models/Category.js";
 import { productInput } from '../services/productInput.js';
 import { imageIds, removeImages } from '../services/media.js';
+import { ensureProductSlug, backfillProductSlugs } from '../services/productSlugs.js';
+import { isProductSlug } from '../../shared/products.mjs';
 const router = createRouter();
 
 const escapeRegExp = (s) => String(s || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -174,6 +176,13 @@ router.get('/counts', async (req, res) => {
   });
 });
 
+router.get('/by-slug/:slug', async (req, res) => {
+  if (!isProductSlug(req.params.slug)) return res.status(404).json({ message: 'Not found' });
+  const product = await Product.findOne({ slug: req.params.slug });
+  if (!product) return res.status(404).json({ message: 'Not found' });
+  res.json(product);
+});
+
 // GET /api/products/:id
 router.get("/:id", async (req, res) => {
   const p = await Product.findById(req.params.id);
@@ -306,7 +315,7 @@ router.post("/", requireAdmin, async (req, res) => {
     }
     const product = new Product(payload);
     await product.save();
-    res.status(201).json(product);
+    res.status(201).json(await ensureProductSlug(product));
   } catch (e) {
     res.status(400).json({ message: "Не вдалося створити товар" });
   }
@@ -435,6 +444,7 @@ router.post("/bulk", requireAdmin, async (req, res) => {
     }
 
     const totalCount = insertedCount + updatedCount;
+    await backfillProductSlugs();
     return res.status(200).json({ count: totalCount, inserted: insertedCount, updated: updatedCount, skipped, skus: Array.from(keepSkuSet) });
   } catch (err) {
     // Якщо були часткові вставки при ordered:false

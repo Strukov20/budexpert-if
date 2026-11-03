@@ -4,6 +4,7 @@ import { publicBaseUrl } from '../config.js';
 import { categoryPaths, categorySlug, legacyCategorySlug } from '../../shared/catalog.mjs';
 import { staticPages } from '../../shared/pages.mjs';
 import { priceInKopiykas } from './pricing.js';
+import { productPath, isProductSlug } from '../../shared/products.mjs';
 
 export const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
 export const plainText = value => String(value || '').replace(/<[^>]*>/g, ' ').replace(/[#*_`\[\]]/g, '').replace(/\s+/g, ' ').trim();
@@ -29,11 +30,13 @@ export async function resolvePage(pathname, query = new URLSearchParams()) {
   if (!Number.isSafeInteger(pageNumber) || pageNumber < 1 || pageNumber > 1_000_000) return missing();
   const pageQuery = pageNumber > 1 ? `?page=${pageNumber}` : '';
   const path = pathname.length > 1 ? pathname.replace(/\/+$/, '') : '/';
-  const match = /^\/(p|products)\/([a-f\d]{24})$/i.exec(path);
+  const match = /^\/(p|products)\/([^/]+)$/i.exec(path);
   if (match) {
-    const product = await Product.findById(match[2]).lean();
+    const key = match[2];
+    const product = /^[a-f\d]{24}$/i.test(key) ? await Product.findById(key).lean()
+      : isProductSlug(key) ? await Product.findOne({ slug: key }).lean() : null;
     if (!product) return missing();
-    const canonicalPath = `/p/${product._id}`;
+    const canonicalPath = productPath(product);
     if (path !== canonicalPath) return { redirect: canonicalPath };
     const description = plainText(product.description).slice(0, 160) || `${product.name} у магазині БудЕксперт. Замовляйте з доставкою в Івано-Франківську та області.`;
     const price = priceInKopiykas(product) / 100;
@@ -127,7 +130,7 @@ ${page.structuredData.map(data => `<script data-seo="structured" type="applicati
     body += `${page.image ? `<img src="${escape(page.image)}" alt="${escape(p.name)}" width="600">` : ''}<p>${(priceInKopiykas(p) / 100).toFixed(2)} ₴</p><p>Наявність: ${Number(p.stock) > 0 ? 'в наявності' : 'немає'}</p><p>${escape(plainText(p.description))}</p><dl>${Object.entries(p.specs || {}).map(([key, value]) => `<dt>${escape(key)}</dt><dd>${escape(value)}</dd>`).join('')}</dl>`;
   }
   if (page.categoryLinks) body += `<nav aria-label="Категорії">${page.categoryLinks.map(link => `<a href="${escape(link.url)}">${escape(link.name)}</a> `).join('')}</nav>`;
-  if (page.products) body += `<ul>${page.products.map(p => `<li><a href="/p/${p._id}">${escape(p.name)}</a> — ${(priceInKopiykas(p) / 100).toFixed(2)} ₴</li>`).join('')}</ul>`;
+  if (page.products) body += `<ul>${page.products.map(p => `<li><a href="${escape(productPath(p))}">${escape(p.name)}</a> — ${(priceInKopiykas(p) / 100).toFixed(2)} ₴</li>`).join('')}</ul>`;
   if (page.pages > 1) {
     body += '<nav aria-label="Сторінки каталогу">';
     for (const number of new Set([1, page.page - 1, page.page, page.page + 1, page.pages].filter(n => n > 0 && n <= page.pages))) {
