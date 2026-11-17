@@ -22,7 +22,8 @@ test('public navigation updates metadata and handles unknown category URLs', asy
   await page.goto(`/p/${product._id}`);
   await expect(page.getByTestId('product-page-title')).toHaveText('Seed Product 2');
   await expect(page).toHaveTitle('Seed Product 2 — купити в БудЕксперт');
-  await expect(page.locator('link[rel="canonical"]')).toHaveAttribute('href', `${new URL(test.info().project.use.baseURL).origin}/p/${product._id}`);
+  await expect(page).toHaveURL(new RegExp(`/p/${product.slug}$`));
+  await expect(page.locator('link[rel="canonical"]')).toHaveAttribute('href', `${new URL(test.info().project.use.baseURL).origin}/p/${product.slug}`);
   await expect(page.getByTestId('product-page')).toContainText('237.50');
   await page.getByTestId('product-page-add-to-cart').click();
   await page.getByTestId('product-page-go-to-cart').click();

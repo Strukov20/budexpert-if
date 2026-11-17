@@ -1,10 +1,13 @@
 import { createRouter } from '../middleware/router.js';
 import mongoose from 'mongoose';
 import Product from "../models/Product.js";
+import { catalogProducts } from '../services/catalog.js';
 import requireAdmin from "../middleware/auth.js";
 import Category from "../models/Category.js";
 import { productInput } from '../services/productInput.js';
 import { imageIds, removeImages } from '../services/media.js';
+import { ensureProductSlug, backfillProductSlugs } from '../services/productSlugs.js';
+import { isProductSlug } from '../../shared/products.mjs';
 const router = createRouter();
 
 const escapeRegExp = (s) => String(s || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -104,12 +107,12 @@ router.get("/", async (req, res) => {
   if (req.query.page !== undefined || req.query.limit !== undefined) {
     const skip = Math.max(0, (page - 1)) * limit;
     const [items, total] = await Promise.all([
-      Product.find(filter).sort({ createdAt: -1, _id: -1 }).skip(skip).limit(limit),
+      catalogProducts(filter, { skip, limit }),
       Product.countDocuments(filter)
     ]);
     return res.json({ items, total, page, limit, pages: Math.ceil(total / limit) });
   }
-  const products = await Product.find(filter).sort({ createdAt: -1, _id: -1 }).limit(100);
+  const products = await catalogProducts(filter);
   res.json(products);
 });
 
@@ -172,6 +175,13 @@ router.get('/counts', async (req, res) => {
     bySubcategory: toMap(first.bySubcategory),
     byType: toMap(first.byType),
   });
+});
+
+router.get('/by-slug/:slug', async (req, res) => {
+  if (!isProductSlug(req.params.slug)) return res.status(404).json({ message: 'Not found' });
+  const product = await Product.findOne({ slug: req.params.slug });
+  if (!product) return res.status(404).json({ message: 'Not found' });
+  res.json(product);
 });
 
 // GET /api/products/:id
@@ -306,7 +316,7 @@ router.post("/", requireAdmin, async (req, res) => {
     }
     const product = new Product(payload);
     await product.save();
-    res.status(201).json(product);
+    res.status(201).json(await ensureProductSlug(product));
   } catch (e) {
     res.status(400).json({ message: "Не вдалося створити товар" });
   }
@@ -435,6 +445,7 @@ router.post("/bulk", requireAdmin, async (req, res) => {
     }
 
     const totalCount = insertedCount + updatedCount;
+    await backfillProductSlugs();
     return res.status(200).json({ count: totalCount, inserted: insertedCount, updated: updatedCount, skipped, skus: Array.from(keepSkuSet) });
   } catch (err) {
     // Якщо були часткові вставки при ordered:false

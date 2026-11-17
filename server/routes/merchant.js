@@ -3,6 +3,7 @@ import { publicBaseUrl } from '../config.js'
 import { priceInKopiykas } from '../services/pricing.js'
 import { once } from 'node:events'
 import Product from '../models/Product.js'
+import { productPath } from '../../shared/products.mjs'
 
 const router = createRouter()
 
@@ -80,7 +81,7 @@ router.get('/google-shopping.xml', async (req, res) => {
       const id = (p?.sku || p?._id || '').toString()
       const title = (p?.name || '').toString().trim()
       const description = stripHtml(p?.description || '')
-      const link = `${baseUrl}/p/${encodeURIComponent(String(p?._id || ''))}`
+      const link = baseUrl + productPath(p)
 
       const img0 = (Array.isArray(p?.images) && p.images[0] && p.images[0].url) ? p.images[0].url : (p?.image || '')
       const imageLink = absoluteUrl(baseUrl, img0)

@@ -49,6 +49,9 @@ npm audit --prefix client
 
 ## Behaviour and architecture
 
+- Product URLs use a saved Ukrainian-to-Latin slug, for example `/p/kley-hermetyk-fix-all-flexi-chornyy-290ml`. A unique partial MongoDB index prevents collisions; duplicate transliterations receive short numeric suffixes. Slugs remain unchanged when a product is renamed or updated by SKU import. The first server start after this update backfills missing slugs in `_id` order, without changing prices, stock or timestamps. The operation is idempotent and concurrent starts cannot overwrite an assigned slug. Both `/p/:id` and `/products/:id` return a direct 301 to the new canonical URL. Catalog links, sitemap and Merchant feed use that same URL.
+- Full-stack production builds must install build dependencies explicitly when `NODE_ENV=production`: `npm ci --include=dev && npm ci --prefix server && npm ci --prefix client --include=dev && npm run client:build`. Start with `npm run server:start` from the repository root.
+
 - Ordering with `stock=0` is deliberate. There is no stock rejection, reservation or automatic decrement.
 - Order validation rejects empty/unknown items and invalid quantities, merges duplicate products, calculates discounts in integer kopiykas and saves item name/SKU/unit-price snapshots. The admin view uses these historical snapshots and never substitutes current catalog prices. For legacy orders with missing item prices, a single unknown unit price is recovered for display only when the saved subtotal determines it exactly to a kopiyka. Ambiguous prices are shown as unknown, inconsistent totals are flagged, and stored orders are never rewritten by this display logic.
 - `shared/pricing.mjs` defines unit-price rounding for API, feed, product pages and carts. `server/services` holds order resolution, media cleanup and SEO; routers forward asynchronous errors through shared middleware.

@@ -4,6 +4,7 @@ import cors from "cors";
 import { validateConfig, isTestMode, publicBaseUrl } from "./config.js";
 import { randomBytes } from "node:crypto";
 import { seoApi, sitemapRouter, pageRouter } from "./routes/seo.js";
+import { backfillProductSlugs } from './services/productSlugs.js';
 import requireAdmin from "./middleware/auth.js";
 import productsRouter from "./routes/products.js";
 import ordersRouter from "./routes/orders.js";
@@ -107,6 +108,7 @@ const startServer = async () => {
   try {
     await mongoose.connect(MONGO_URI, { serverSelectionTimeoutMS: 10000 })
     console.log("MongoDB connected");
+    await backfillProductSlugs();
 
     app.use("/api/products", productsRouter);
     app.use("/api/orders", ordersRouter);

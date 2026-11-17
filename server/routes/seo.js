@@ -7,6 +7,7 @@ import Product from '../models/Product.js';
 import Category from '../models/Category.js';
 import { staticPages } from '../../shared/pages.mjs';
 import { categoryPaths } from '../../shared/catalog.mjs';
+import { productPath } from '../../shared/products.mjs';
 
 export const seoApi = createRouter();
 seoApi.get('/', async (req, res) => {
@@ -39,9 +40,9 @@ sitemapRouter.get('/sitemaps/pages.xml', async (_req, res) => {
 sitemapRouter.get('/sitemaps/products-:page.xml', async (req, res) => {
   const page = Number(req.params.page);
   if (!Number.isSafeInteger(page) || page < 1 || page > 1_000_000) return res.sendStatus(404);
-  const products = await Product.find().sort({ _id: 1 }).skip((page - 1) * SITEMAP_SIZE).limit(SITEMAP_SIZE).select('_id updatedAt').lean();
+  const products = await Product.find().sort({ _id: 1 }).skip((page - 1) * SITEMAP_SIZE).limit(SITEMAP_SIZE).select('_id slug updatedAt').lean();
   if (!products.length) return res.sendStatus(404);
-  xml(res, `<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${products.map(p => `<url><loc>${loc(`/p/${p._id}`)}</loc>${p.updatedAt ? `<lastmod>${new Date(p.updatedAt).toISOString()}</lastmod>` : ''}</url>`).join('')}</urlset>`);
+  xml(res, `<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${products.map(p => `<url><loc>${loc(productPath(p))}</loc>${p.updatedAt ? `<lastmod>${new Date(p.updatedAt).toISOString()}</lastmod>` : ''}</url>`).join('')}</urlset>`);
 });
 
 export function pageRouter(distDir) {

@@ -61,7 +61,11 @@ export async function getProductCounts(params, options = {}) {
   const res = await api.get('/products/counts', { params, signal: options?.signal });
   return res.data;
 }
-export async function getProduct(id){ const r = await api.get(`/products/${id}`); return r.data; }
+export async function getProduct(id){
+  const path = /^[a-f\d]{24}$/i.test(id) ? `/products/${id}` : `/products/by-slug/${encodeURIComponent(id)}`;
+  const r = await api.get(path);
+  return r.data;
+}
 export async function createProduct(payload){ const r = await api.post('/products', payload); return r.data; }
 export async function updateProduct(id,payload){ const r = await api.put(`/products/${id}`, payload); return r.data; }
 export async function deleteProduct(id){ const r = await api.delete(`/products/${id}`); return r.data; }

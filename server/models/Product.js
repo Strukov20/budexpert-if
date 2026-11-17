@@ -2,6 +2,7 @@ import mongoose from "mongoose";
 
 const productSchema = new mongoose.Schema({
   name: { type: String, required: true },
+  slug: { type: String },
   price: { type: Number, required: true, min: 0 },
   image: { type: String },
   imagePublicId: { type: String, trim: true },
@@ -27,6 +28,7 @@ const productSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 productSchema.index({ createdAt: -1 });
+productSchema.index({ slug: 1 }, { unique: true, partialFilterExpression: { slug: { $type: 'string' } } });
 
 const Product = mongoose.model("Product", productSchema);
 export default Product;

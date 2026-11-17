@@ -2,9 +2,7 @@ import { priceInKopiykas } from '../../../shared/pricing.mjs'
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams, Link } from 'react-router-dom'
 import { getCategories, getProduct } from '../api'
-import ReactMarkdown from 'react-markdown'
-import remarkGfm from 'remark-gfm'
-import rehypeSanitize from 'rehype-sanitize'
+import ProductDescription from '../components/ProductDescription'
 
 export default function ProductPage(){
   const { id } = useParams()
@@ -265,9 +263,9 @@ export default function ProductPage(){
                             }
                       }
                     >
-                      <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeSanitize]}>
+                      <ProductDescription>
                         {p.description}
-                      </ReactMarkdown>
+                      </ProductDescription>
                     </div>
                     {(isDescExpanded || canExpandDesc) ? (
                       <button

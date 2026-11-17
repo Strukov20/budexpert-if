@@ -1,9 +1,11 @@
 import Product from '../models/Product.js';
+import { catalogProducts } from './catalog.js';
 import Category from '../models/Category.js';
 import { publicBaseUrl } from '../config.js';
 import { categoryPaths, categorySlug, legacyCategorySlug } from '../../shared/catalog.mjs';
 import { staticPages } from '../../shared/pages.mjs';
 import { priceInKopiykas } from './pricing.js';
+import { productPath, isProductSlug } from '../../shared/products.mjs';
 
 export const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
 export const plainText = value => String(value || '').replace(/<[^>]*>/g, ' ').replace(/[#*_`\[\]]/g, '').replace(/\s+/g, ' ').trim();
@@ -29,11 +31,13 @@ export async function resolvePage(pathname, query = new URLSearchParams()) {
   if (!Number.isSafeInteger(pageNumber) || pageNumber < 1 || pageNumber > 1_000_000) return missing();
   const pageQuery = pageNumber > 1 ? `?page=${pageNumber}` : '';
   const path = pathname.length > 1 ? pathname.replace(/\/+$/, '') : '/';
-  const match = /^\/(p|products)\/([a-f\d]{24})$/i.exec(path);
+  const match = /^\/(p|products)\/([^/]+)$/i.exec(path);
   if (match) {
-    const product = await Product.findById(match[2]).lean();
+    const key = match[2];
+    const product = /^[a-f\d]{24}$/i.test(key) ? await Product.findById(key).lean()
+      : isProductSlug(key) ? await Product.findOne({ slug: key }).lean() : null;
     if (!product) return missing();
-    const canonicalPath = `/p/${product._id}`;
+    const canonicalPath = productPath(product);
     if (path !== canonicalPath) return { redirect: canonicalPath };
     const description = plainText(product.description).slice(0, 160) || `${product.name} у магазині БудЕксперт. Замовляйте з доставкою в Івано-Франківську та області.`;
     const price = priceInKopiykas(product) / 100;
@@ -90,7 +94,7 @@ export async function resolvePage(pathname, query = new URLSearchParams()) {
     if (query.get('q')) filter.name = { $regex: query.get('q').slice(0, 100).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), $options: 'i' };
     const limit = 12;
     const [products, total] = await Promise.all([
-      Product.find(filter).sort({ createdAt: -1, _id: -1 }).skip((pageNumber - 1) * limit).limit(limit).lean(),
+      catalogProducts(filter, { skip: (pageNumber - 1) * limit, limit }),
       Product.countDocuments(filter),
     ]);
     if (pageNumber > 1 && !products.length) return missing();
@@ -120,14 +124,39 @@ export function renderPage(template, page, nonce) {
 <meta property="og:title" content="${escape(page.title)}"><meta property="og:description" content="${escape(page.description)}">
 <meta property="og:url" content="${escape(url)}"><meta property="og:image" content="${escape(page.image || absoluteUrl('/logo.png'))}">
 <meta name="twitter:title" content="${escape(page.title)}"><meta name="twitter:description" content="${escape(page.description)}"><meta name="twitter:image" content="${escape(page.image || absoluteUrl('/logo.png'))}">
-${page.structuredData.map(data => `<script data-seo="structured" type="application/ld+json">${JSON.stringify(data).replace(/</g, '\\u003c')}</script>`).join('')}`;
+${page.structuredData.map(data => `<script data-seo="structured" type="application/ld+json">${JSON.stringify(data).replace(/</g, '\\u003c')}</script>`).join('')}
+<style>
+.app-loading { display: none; }
+html.app-booting #root > [data-server-page] { display: none; }
+html.app-booting #root > .app-loading { display: flex; min-height: 65vh; align-items: center; justify-content: center; flex-direction: column; gap: 20px; color: #6b7280; background: #fff; font: 16px system-ui, sans-serif; }
+.app-loading img { width: 120px; height: 120px; object-fit: contain; }
+</style>
+<script>
+(() => {
+  const html = document.documentElement;
+  html.classList.add('app-booting');
+  const reveal = () => html.classList.remove('app-booting');
+  // A failed or very slow bundle must not leave a working server page hidden.
+  const timeout = setTimeout(reveal, 8000);
+  window.addEventListener('budexpert:mounted', () => {
+    clearTimeout(timeout);
+    reveal();
+  }, { once: true });
+  window.addEventListener('error', event => {
+    if (event.target?.tagName === 'SCRIPT' && event.target.type === 'module') {
+      clearTimeout(timeout);
+      reveal();
+    }
+  }, true);
+})();
+</script>`;
   let body = `<header><a href="/">БудЕксперт</a><nav><a href="/products">Товари</a> · <a href="/services">Доставка</a> · <a href="/contacts">Контакти</a></nav></header><main><h1>${escape(page.heading)}</h1><p>${escape(page.description)}</p>`;
   if (page.product) {
     const p = page.product;
     body += `${page.image ? `<img src="${escape(page.image)}" alt="${escape(p.name)}" width="600">` : ''}<p>${(priceInKopiykas(p) / 100).toFixed(2)} ₴</p><p>Наявність: ${Number(p.stock) > 0 ? 'в наявності' : 'немає'}</p><p>${escape(plainText(p.description))}</p><dl>${Object.entries(p.specs || {}).map(([key, value]) => `<dt>${escape(key)}</dt><dd>${escape(value)}</dd>`).join('')}</dl>`;
   }
   if (page.categoryLinks) body += `<nav aria-label="Категорії">${page.categoryLinks.map(link => `<a href="${escape(link.url)}">${escape(link.name)}</a> `).join('')}</nav>`;
-  if (page.products) body += `<ul>${page.products.map(p => `<li><a href="/p/${p._id}">${escape(p.name)}</a> — ${(priceInKopiykas(p) / 100).toFixed(2)} ₴</li>`).join('')}</ul>`;
+  if (page.products) body += `<ul>${page.products.map(p => `<li><a href="${escape(productPath(p))}">${escape(p.name)}</a> — ${(priceInKopiykas(p) / 100).toFixed(2)} ₴</li>`).join('')}</ul>`;
   if (page.pages > 1) {
     body += '<nav aria-label="Сторінки каталогу">';
     for (const number of new Set([1, page.page - 1, page.page, page.page + 1, page.pages].filter(n => n > 0 && n <= page.pages))) {
@@ -139,6 +168,6 @@ ${page.structuredData.map(data => `<script data-seo="structured" type="applicati
   }
   body += '</main><footer>БудЕксперт · вул. Білозіра, 8, Івано-Франківськ · <a href="tel:+380980095577">+380980095577</a></footer>';
   return template.replace(/<title>[\s\S]*?<\/title>/i, '').replace(/<meta\s+(?:name="(?:description|robots|twitter:(?:title|description|image))"|property="og:(?:title|description|image|type|url)")[^>]*>/gi, '')
-    .replace('</head>', head + '</head>').replace('<div id="root"></div>', `<div id="root">${body}</div>`)
+    .replace('</head>', head + '</head>').replace('<div id="root"></div>', `<div id="root"><div class="app-loading" role="status" aria-label="Завантаження сторінки"><img src="/logo.png" alt="БудЕксперт" width="120" height="120"><span>Завантаження…</span></div><div data-server-page>${body}</div></div>`)
     .replace(/<script\b/g, `<script nonce="${nonce}"`);
 }

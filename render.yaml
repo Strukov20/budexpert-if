@@ -4,7 +4,7 @@ services:
     name: budexpert-fullstack
     runtime: node
     autoDeploy: false
-    buildCommand: npm ci && npm ci --prefix server && npm ci --prefix client && npm run client:build
+    buildCommand: npm ci --include=dev && npm ci --prefix server && npm ci --prefix client --include=dev && npm run client:build
     startCommand: npm run server:start
     healthCheckPath: /api/products?page=1&limit=1
     envVars:
