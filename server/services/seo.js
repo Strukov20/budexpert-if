@@ -1,4 +1,5 @@
 import Product from '../models/Product.js';
+import { catalogProducts } from './catalog.js';
 import Category from '../models/Category.js';
 import { publicBaseUrl } from '../config.js';
 import { categoryPaths, categorySlug, legacyCategorySlug } from '../../shared/catalog.mjs';
@@ -93,7 +94,7 @@ export async function resolvePage(pathname, query = new URLSearchParams()) {
     if (query.get('q')) filter.name = { $regex: query.get('q').slice(0, 100).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), $options: 'i' };
     const limit = 12;
     const [products, total] = await Promise.all([
-      Product.find(filter).sort({ createdAt: -1, _id: -1 }).skip((pageNumber - 1) * limit).limit(limit).lean(),
+      catalogProducts(filter, { skip: (pageNumber - 1) * limit, limit }),
       Product.countDocuments(filter),
     ]);
     if (pageNumber > 1 && !products.length) return missing();
@@ -123,7 +124,32 @@ export function renderPage(template, page, nonce) {
 <meta property="og:title" content="${escape(page.title)}"><meta property="og:description" content="${escape(page.description)}">
 <meta property="og:url" content="${escape(url)}"><meta property="og:image" content="${escape(page.image || absoluteUrl('/logo.png'))}">
 <meta name="twitter:title" content="${escape(page.title)}"><meta name="twitter:description" content="${escape(page.description)}"><meta name="twitter:image" content="${escape(page.image || absoluteUrl('/logo.png'))}">
-${page.structuredData.map(data => `<script data-seo="structured" type="application/ld+json">${JSON.stringify(data).replace(/</g, '\\u003c')}</script>`).join('')}`;
+${page.structuredData.map(data => `<script data-seo="structured" type="application/ld+json">${JSON.stringify(data).replace(/</g, '\\u003c')}</script>`).join('')}
+<style>
+.app-loading { display: none; }
+html.app-booting #root > [data-server-page] { display: none; }
+html.app-booting #root > .app-loading { display: flex; min-height: 65vh; align-items: center; justify-content: center; flex-direction: column; gap: 20px; color: #6b7280; background: #fff; font: 16px system-ui, sans-serif; }
+.app-loading img { width: 120px; height: 120px; object-fit: contain; }
+</style>
+<script>
+(() => {
+  const html = document.documentElement;
+  html.classList.add('app-booting');
+  const reveal = () => html.classList.remove('app-booting');
+  // A failed or very slow bundle must not leave a working server page hidden.
+  const timeout = setTimeout(reveal, 8000);
+  window.addEventListener('budexpert:mounted', () => {
+    clearTimeout(timeout);
+    reveal();
+  }, { once: true });
+  window.addEventListener('error', event => {
+    if (event.target?.tagName === 'SCRIPT' && event.target.type === 'module') {
+      clearTimeout(timeout);
+      reveal();
+    }
+  }, true);
+})();
+</script>`;
   let body = `<header><a href="/">БудЕксперт</a><nav><a href="/products">Товари</a> · <a href="/services">Доставка</a> · <a href="/contacts">Контакти</a></nav></header><main><h1>${escape(page.heading)}</h1><p>${escape(page.description)}</p>`;
   if (page.product) {
     const p = page.product;
@@ -142,6 +168,6 @@ ${page.structuredData.map(data => `<script data-seo="structured" type="applicati
   }
   body += '</main><footer>БудЕксперт · вул. Білозіра, 8, Івано-Франківськ · <a href="tel:+380980095577">+380980095577</a></footer>';
   return template.replace(/<title>[\s\S]*?<\/title>/i, '').replace(/<meta\s+(?:name="(?:description|robots|twitter:(?:title|description|image))"|property="og:(?:title|description|image|type|url)")[^>]*>/gi, '')
-    .replace('</head>', head + '</head>').replace('<div id="root"></div>', `<div id="root">${body}</div>`)
+    .replace('</head>', head + '</head>').replace('<div id="root"></div>', `<div id="root"><div class="app-loading" role="status" aria-label="Завантаження сторінки"><img src="/logo.png" alt="БудЕксперт" width="120" height="120"><span>Завантаження…</span></div><div data-server-page>${body}</div></div>`)
     .replace(/<script\b/g, `<script nonce="${nonce}"`);
 }

@@ -4,9 +4,7 @@ import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 're
 import { useNavigate, Link } from 'react-router-dom'
 import { FiShoppingCart, FiChevronLeft, FiChevronRight } from 'react-icons/fi'
 import { capFirst } from '../utils'
-import ReactMarkdown from 'react-markdown'
-import remarkGfm from 'remark-gfm'
-import rehypeSanitize from 'rehype-sanitize'
+import ProductDescription from './ProductDescription'
 
 export default function ProductCard({p, onAdd, categories, hideBadges}){
   const navigate = useNavigate()
@@ -282,7 +280,6 @@ export default function ProductCard({p, onAdd, categories, hideBadges}){
           ref={descRef}
           className="text-xs md:text-sm text-gray-600 mt-1 cursor-pointer leading-[1.35] pb-[2px] relative pr-8"
           style={{ overflow: 'hidden', lineHeight: 1.35, maxHeight: 'calc(1.35em * 3)', minHeight: 'calc(1.35em * 3)', wordBreak: 'break-word' }}
-          title="Натисни, щоб побачити повний опис"
           onClick={goToProduct}
         >
           <span>{descriptionPreviewText}</span>
@@ -296,7 +293,8 @@ export default function ProductCard({p, onAdd, categories, hideBadges}){
           )}
         </div>
         <div className="flex-1" />
-        <div className="mt-1 text-[11px] md:text-xs text-gray-500 opacity-0 group-hover:opacity-100 group-hover:text-black group-hover:underline decoration-dotted transition duration-200 select-none">
+        <div className="product-description-hint mt-1 text-[11px] md:text-xs text-gray-500 opacity-0 group-hover:opacity-100 group-hover:text-black group-hover:underline decoration-dotted transition duration-200 select-none"
+          data-testid={`product-card-${p?._id || ''}-description-hint`}>
           Натисни, щоб побачити повний опис
         </div>
         <button
@@ -307,7 +305,7 @@ export default function ProductCard({p, onAdd, categories, hideBadges}){
         >
           Швидкий перегляд
         </button>
-        <div className="pt-2 md:pt-3 flex items-center justify-between">
+        <div className="pt-2 md:pt-3 flex flex-wrap gap-2 items-center justify-between">
           <div className="flex flex-col items-start">
             {hasAnyDiscount && (
               <div className="text-xs md:text-sm text-gray-400 line-through">
@@ -318,15 +316,21 @@ export default function ProductCard({p, onAdd, categories, hideBadges}){
               {fmt.format(finalPrice)} ₴
             </div>
           </div>
-          {/* Мобільні: кнопка "+", яка стає галочкою, якщо товар вже в кошику */}
-          <button
-            onClick={()=>onAdd(p)}
-            className="btn transition active:scale-95 sm:hidden w-9 h-9 flex items-center justify-center p-0 text-xl font-bold"
-            aria-label="Додати в кошик"
-            data-testid={`product-card-${p?._id || ''}-add-mobile`}
-          >
-            {inCart ? '✓' : '+'}
-          </button>
+          <div className="sm:hidden ml-auto flex shrink-0 items-center gap-2">
+            {inCart && (
+              <span className="min-w-5 text-center text-sm font-semibold" aria-live="polite"
+                aria-label={`У кошику: ${qty}`}
+                data-testid={`product-card-${p?._id || ''}-qty-mobile`}>{qty}</span>
+            )}
+            <button
+              onClick={()=>onAdd(p)}
+              className="btn transition active:scale-95 w-9 h-9 flex items-center justify-center p-0 text-xl font-bold"
+              aria-label="Додати в кошик"
+              data-testid={`product-card-${p?._id || ''}-add-mobile`}
+            >
+              +
+            </button>
+          </div>
           {/* Планшет/десктоп: лічильник, якщо товар вже в кошику; інакше кнопка "+" */}
           <div className="hidden sm:block">
             {qty > 0 ? (
@@ -487,9 +491,9 @@ export default function ProductCard({p, onAdd, categories, hideBadges}){
                   <div className="mt-3">
                     {hasDescription ? (
                       <div className="prose prose-sm md:prose-base max-w-none text-left">
-                        <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeSanitize]}>
+                        <ProductDescription>
                           {p.description}
-                        </ReactMarkdown>
+                        </ProductDescription>
                       </div>
                     ) : (
                       <div className="rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-base text-gray-700 text-center">

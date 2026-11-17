@@ -1,6 +1,7 @@
 import { createRouter } from '../middleware/router.js';
 import mongoose from 'mongoose';
 import Product from "../models/Product.js";
+import { catalogProducts } from '../services/catalog.js';
 import requireAdmin from "../middleware/auth.js";
 import Category from "../models/Category.js";
 import { productInput } from '../services/productInput.js';
@@ -106,12 +107,12 @@ router.get("/", async (req, res) => {
   if (req.query.page !== undefined || req.query.limit !== undefined) {
     const skip = Math.max(0, (page - 1)) * limit;
     const [items, total] = await Promise.all([
-      Product.find(filter).sort({ createdAt: -1, _id: -1 }).skip(skip).limit(limit),
+      catalogProducts(filter, { skip, limit }),
       Product.countDocuments(filter)
     ]);
     return res.json({ items, total, page, limit, pages: Math.ceil(total / limit) });
   }
-  const products = await Product.find(filter).sort({ createdAt: -1, _id: -1 }).limit(100);
+  const products = await catalogProducts(filter);
   res.json(products);
 });
 

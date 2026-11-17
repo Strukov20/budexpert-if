@@ -1,3 +1,5 @@
+import SpecificationRows from '../components/SpecificationRows'
+import DescriptionEditor from '../components/DescriptionEditor'
 import AdminButton, { AdminUploadButton, adminButtonStyles } from '../components/AdminButton'
 import AdminOrderItems from '../components/AdminOrderItems'
 import AdminActions from '../components/AdminActions'
@@ -1977,7 +1979,7 @@ export default function AdminPanel(){
 
                   <div className='grid grid-cols-1 gap-2 md:grid-cols-[220px_minmax(0,1fr)]'>
                     <div className='text-sm text-gray-700 md:pt-2'>Опис:</div>
-                    <textarea className='border p-2 rounded min-h-32 w-full' value={prodForm.description} onChange={e=>setProdForm({...prodForm, description:e.target.value})} />
+                    <DescriptionEditor value={prodForm.description} onChange={description => setProdForm(previous => ({...previous, description}))} />
                   </div>
 
                   <div className='grid grid-cols-1 gap-2 md:grid-cols-[220px_minmax(0,1fr)]'>
@@ -1989,63 +1991,10 @@ export default function AdminPanel(){
 
                   <div className='grid grid-cols-1 gap-2 md:grid-cols-[220px_minmax(0,1fr)]'>
                     <div className='text-sm text-gray-700 md:pt-2'>Характеристики (ключ: значення):</div>
-                    <div className='space-y-2'>
-                      {(prodForm.specsPairs || []).map((row) => (
-                        <div key={row.id} className='grid grid-cols-[1fr_1fr_auto] gap-2 items-center'>
-                          <input
-                            className='border p-2 rounded w-full'
-                            placeholder='Ключ'
-                            value={row.key}
-                            onChange={(e)=>{
-                              const key = e.target.value
-                              setProdForm(prev=> {
-                                const nextPairs = (prev.specsPairs || []).map(r=> r.id===row.id ? { ...r, key } : r)
-                                return { ...prev, specsPairs: nextPairs, specsText: specsPairsToText(nextPairs) }
-                              })
-                            }}
-                          />
-                          <input
-                            className='border p-2 rounded w-full'
-                            placeholder='Значення'
-                            value={row.value}
-                            onChange={(e)=>{
-                              const value = e.target.value
-                              setProdForm(prev=> {
-                                const nextPairs = (prev.specsPairs || []).map(r=> r.id===row.id ? { ...r, value } : r)
-                                return { ...prev, specsPairs: nextPairs, specsText: specsPairsToText(nextPairs) }
-                              })
-                            }}
-                          />
-                          <button
-                            type='button'
-                            className='w-10 h-10 inline-flex items-center justify-center border rounded hover:bg-red-600 hover:text-white transition'
-                            onClick={()=>{
-                              setProdForm(prev=>{
-                                const next = (prev.specsPairs||[]).filter(r=> r.id!==row.id)
-                                const ensured = ensureAtLeastOneSpecRow(next)
-                                return { ...prev, specsPairs: ensured, specsText: specsPairsToText(ensured) }
-                              })
-                            }}
-                            aria-label='Видалити характеристику'
-                            title='Видалити'
-                          >
-                            ✕
-                          </button>
-                        </div>
-                      ))}
-                      <div>
-                        <button
-                          type='button'
-                          className='px-3 py-2 border rounded hover:bg-black hover:text-white transition'
-                          onClick={()=> setProdForm(prev=> {
-                            const nextPairs = [...(prev.specsPairs||[]), newSpecRow()]
-                            return { ...prev, specsPairs: nextPairs, specsText: specsPairsToText(nextPairs) }
-                          })}
-                        >
-                          Додати характеристику
-                        </button>
-                      </div>
-                    </div>
+                    <SpecificationRows rows={prodForm.specsPairs || []} newRow={newSpecRow}
+                      onChange={pairs => setProdForm(previous => ({
+                        ...previous, specsPairs: pairs, specsText: specsPairsToText(pairs)
+                      }))} />
                   </div>
 
                   <div className='grid grid-cols-1 gap-2 md:grid-cols-[220px_minmax(0,1fr)]'>
@@ -2324,7 +2273,7 @@ export default function AdminPanel(){
                       </div>
                     )}
                   </div>
-                  <textarea className='md:col-span-2 border p-2 rounded' placeholder='Опис' value={prodForm.description} onChange={e=>setProdForm({...prodForm, description:e.target.value})} />
+                  <DescriptionEditor className='md:col-span-2' value={prodForm.description} onChange={description => setProdForm(previous => ({...previous, description}))} />
 
                   <div className='md:col-span-2 pt-3 border-t'>
                     <div className='font-semibold'>Характеристики</div>
@@ -2332,63 +2281,10 @@ export default function AdminPanel(){
 
                   <div className='md:col-span-2'>
                     <div className='text-sm text-gray-600 mb-1'>Характеристики</div>
-                    <div className='space-y-2'>
-                      {(prodForm.specsPairs || []).map((row) => (
-                        <div key={row.id} className='grid grid-cols-[1fr_1fr_auto] gap-2 items-center'>
-                          <input
-                            className='border p-2 rounded w-full'
-                            placeholder='Ключ'
-                            value={row.key}
-                            onChange={(e)=>{
-                              const key = e.target.value
-                              setProdForm(prev=> {
-                                const nextPairs = (prev.specsPairs || []).map(r=> r.id===row.id ? { ...r, key } : r)
-                                return { ...prev, specsPairs: nextPairs, specsText: specsPairsToText(nextPairs) }
-                              })
-                            }}
-                          />
-                          <input
-                            className='border p-2 rounded w-full'
-                            placeholder='Значення'
-                            value={row.value}
-                            onChange={(e)=>{
-                              const value = e.target.value
-                              setProdForm(prev=> {
-                                const nextPairs = (prev.specsPairs || []).map(r=> r.id===row.id ? { ...r, value } : r)
-                                return { ...prev, specsPairs: nextPairs, specsText: specsPairsToText(nextPairs) }
-                              })
-                            }}
-                          />
-                          <button
-                            type='button'
-                            className='w-10 h-10 inline-flex items-center justify-center border rounded hover:bg-red-600 hover:text-white transition'
-                            onClick={() => {
-                              setProdForm(prev => {
-                                const next = (prev.specsPairs || []).filter(r => r.id !== row.id)
-                                const ensured = ensureAtLeastOneSpecRow(next)
-                                return { ...prev, specsPairs: ensured, specsText: specsPairsToText(ensured) }
-                              })
-                            }}
-                            aria-label='Видалити характеристику'
-                            title='Видалити'
-                          >
-                            ✕
-                          </button>
-                        </div>
-                      ))}
-                      <div>
-                        <button
-                          type='button'
-                          className='px-3 py-2 border rounded hover:bg-black hover:text-white transition'
-                          onClick={()=> setProdForm(prev=> {
-                            const nextPairs = [...(prev.specsPairs||[]), newSpecRow()]
-                            return { ...prev, specsPairs: nextPairs, specsText: specsPairsToText(nextPairs) }
-                          })}
-                        >
-                          Додати характеристику
-                        </button>
-                      </div>
-                    </div>
+                    <SpecificationRows rows={prodForm.specsPairs || []} newRow={newSpecRow}
+                      onChange={pairs => setProdForm(previous => ({
+                        ...previous, specsPairs: pairs, specsText: specsPairsToText(pairs)
+                      }))} />
                   </div>
 
                   <div className='md:col-span-2'>

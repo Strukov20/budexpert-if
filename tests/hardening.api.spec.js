@@ -64,7 +64,7 @@ test('product HTML contains escaped content, metadata, structured data and a mat
   expect(html).toContain('"price":"80.04"');
   expect(html).toContain('https://schema.org/OutOfStock');
   expect(html).not.toContain('<script>alert(1)</script>');
-  expect(html).toContain('<div id="root"><header>');
+  expect(html).toContain('<div data-server-page><header>');
   const nonce = /<script nonce="([^"]+)"/.exec(html)[1];
   expect(response.headers()['content-security-policy']).toContain(`'nonce-${nonce}'`);
   expect(response.headers()['x-powered-by']).toBeUndefined();

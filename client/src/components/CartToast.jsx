@@ -37,7 +37,8 @@ export default function CartToast() {
 
   return (
     <div
-      className="fixed top-6 right-4 z-[9999] pointer-events-none"
+      className="fixed bottom-[calc(1rem+env(safe-area-inset-bottom))] left-4 right-4 sm:bottom-auto sm:left-auto sm:top-6 z-[9999] pointer-events-none"
+      data-testid="cart-toast"
       style={{
         transform: visible ? 'translateX(0)' : 'translateX(calc(100% + 1rem))',
         opacity: visible ? 1 : 0,
@@ -46,7 +47,7 @@ export default function CartToast() {
       aria-live="polite"
       aria-atomic="true"
     >
-      <div className="bg-white rounded-2xl shadow-xl border border-gray-100 flex items-center gap-3 pl-3 pr-5 py-3 min-w-[220px] max-w-[300px]">
+      <div className="bg-white rounded-2xl shadow-xl border border-gray-100 flex items-center gap-3 pl-3 pr-5 py-3 w-full max-w-[300px] mx-auto sm:min-w-[220px]">
         <div
           className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 transition-colors"
           style={{ background: isAdd ? 'var(--primary)' : '#6b7280' }}
