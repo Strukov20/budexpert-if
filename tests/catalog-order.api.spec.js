@@ -48,3 +48,45 @@ test('catalog puts available products first across pages, filters and server HTM
     await request.delete(`categories/${category._id}`, { headers });
   }
 });
+
+test('photo priority applies before pagination and preserves availability', async ({ request }) => {
+  const headers = authHeaders(await getAdminToken(request));
+  const prefix = `Photos-${uniqueSuffix()}`;
+  const products = [];
+  const fixtures = [
+    { stock: 1, image: '/photo.webp' },
+    { stock: 0, image: '/absent.webp' },
+    { stock: 1, images: [{ url: '/gallery.webp' }] },
+    { stock: 1 },
+    { stock: 0 },
+    { stock: 1, image: 'null' },
+    { stock: 1, image: '  ' },
+  ];
+  try {
+    for (const fixture of fixtures) {
+      const response = await request.post('products', { headers, data: {
+        ...fixture, name: `${prefix}-${products.length}`, price: 10,
+      } });
+      expect(response.status()).toBe(201);
+      products.push(await response.json());
+    }
+    const expected = [2, 0, 6, 5, 3, 1, 4].map(index => products[index]._id);
+    const loaded = [];
+    for (let page = 1; page <= 4; page++) {
+      const response = await request.get('products', { params: { q: prefix, photosFirst: true, page, limit: 2 } });
+      expect(response.status()).toBe(200);
+      const result = await response.json();
+      expect(result.total).toBe(7);
+      expect(result.items.every(product => !('_catalogHasPhoto' in product))).toBe(true);
+      loaded.push(...result.items.map(product => product._id));
+    }
+    expect(loaded).toEqual(expected);
+    const legacy = await (await request.get('products', { params: { q: prefix, photosFirst: true } })).json();
+    expect(legacy.map(product => product._id)).toEqual(expected);
+    const normal = await (await request.get('products', { params: { q: prefix } })).json();
+    expect(normal.map(product => product._id)).toEqual([6, 5, 3, 2, 0, 4, 1].map(index => products[index]._id));
+    expect((await request.get('products?photosFirst[bad]=true')).status()).toBe(400);
+  } finally {
+    for (const product of products) await request.delete(`products/${product._id}`, { headers });
+  }
+});

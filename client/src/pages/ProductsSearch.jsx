@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import { getCategories, getProducts } from '../api'
 import { capFirst } from '../utils'
 import ProductCard from '../components/ProductCard'
+import { randomCatalogProducts } from '../../../shared/catalogPresentation.mjs'
 
 export default function ProductsSearch(){
   const navigate = useNavigate()
@@ -55,17 +56,6 @@ export default function ProductsSearch(){
     else params.delete('q')
     const qs = params.toString()
     navigate('/products' + (qs ? `?${qs}` : ''))
-  }
-
-  const shuffle = (arr)=>{
-    const a = Array.isArray(arr) ? arr.slice() : []
-    for (let i = a.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1))
-      const tmp = a[i]
-      a[i] = a[j]
-      a[j] = tmp
-    }
-    return a
   }
 
   const mergeUniqueById = (prev, next)=>{
@@ -159,12 +149,13 @@ export default function ProductsSearch(){
       subcategory: subcategory || undefined,
       page,
       limit: perPage,
+      photosFirst: hasFilters ? undefined : true,
     }, { signal: controller.signal })
       .then((d)=>{
         if (controller.signal.aborted) return
         if (reqIdRef.current !== reqId) return
         const rawArr = Array.isArray(d?.items) ? d.items : (Array.isArray(d) ? d : [])
-        const arr = hasFilters ? rawArr : shuffle(rawArr)
+        const arr = hasFilters ? rawArr : randomCatalogProducts(rawArr)
         setItems(prev => (page === 1 ? mergeUniqueById([], arr) : mergeUniqueById(prev, arr)))
 
         const totalPages = Number(d?.pages ?? 0) || 0
@@ -408,7 +399,7 @@ export default function ProductsSearch(){
           <div className='py-10 text-gray-600'>Нічого не знайдено.</div>
         ) : (
           <>
-            <div className='grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4'>
+            <div className='grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4' data-testid='products-search-grid'>
               {items.map((p)=>(
                 <ProductCard key={p._id} p={p} onAdd={addToCart} categories={categories} />
               ))}
