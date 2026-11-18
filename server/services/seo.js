@@ -94,7 +94,7 @@ export async function resolvePage(pathname, query = new URLSearchParams()) {
     if (query.get('q')) filter.name = { $regex: query.get('q').slice(0, 100).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), $options: 'i' };
     const limit = 12;
     const [products, total] = await Promise.all([
-      catalogProducts(filter, { skip: (pageNumber - 1) * limit, limit, photosFirst: path === '/products' && !query.get('q') }),
+      catalogProducts(filter, { skip: (pageNumber - 1) * limit, limit, photosFirst: ['/', '/products'].includes(path) && !query.get('q') }),
       Product.countDocuments(filter),
     ]);
     if (pageNumber > 1 && !products.length) return missing();

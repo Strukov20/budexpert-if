@@ -81,6 +81,15 @@ test('photo priority applies before pagination and preserves availability', asyn
       loaded.push(...result.items.map(product => product._id));
     }
     expect(loaded).toEqual(expected);
+    // Initial HTML must match the interactive catalog on both entry pages.
+    const firstPage = await (await request.get('products', { params: { photosFirst: true, page: 1, limit: 12 } })).json();
+    for (const path of ['/', '/products']) {
+      const html = await (await request.get(path)).text();
+      const names = firstPage.items.map(product => product.name.replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char])));
+      const positions = names.map(name => html.indexOf(name));
+      expect(positions.every(position => position >= 0)).toBe(true);
+      expect(positions).toEqual([...positions].sort((a, b) => a - b));
+    }
     const legacy = await (await request.get('products', { params: { q: prefix, photosFirst: true } })).json();
     expect(legacy.map(product => product._id)).toEqual(expected);
     const normal = await (await request.get('products', { params: { q: prefix } })).json();
