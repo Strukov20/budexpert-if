@@ -36,3 +36,29 @@ for (const width of [390, 1280]) {
     expect(await cards.first().getAttribute('data-testid')).toBe('product-card-photo-a');
   });
 }
+
+for (const width of [390, 1280]) {
+  test(`home and weekly products request photo priority at ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 900 });
+    const queries = [];
+    await page.route('**/api/**', route => {
+      const url = new URL(route.request().url());
+      let json = [];
+      if (url.pathname === '/api/products') {
+        queries.push(Object.fromEntries(url.searchParams));
+        json = { items: products, total: products.length, pages: 1 };
+      } else if (url.pathname === '/api/seo') json = { title: 'Каталог', structuredData: [] };
+      else if (url.pathname === '/api/products/counts') json = {};
+      else if (url.pathname.includes('banner')) json = { images: [] };
+      return route.fulfill({ json });
+    });
+    await page.goto('/');
+    await expect(page.getByTestId('product-grid').getByTestId('product-card-photo-a')).toBeVisible();
+    await expect(page.getByTestId('week-products-row').getByTestId('product-card-photo-a')).toBeVisible();
+    expect(queries.find(query => query.productOfWeek === 'true')?.photosFirst).toBe('true');
+    expect(queries.filter(query => !query.productOfWeek).every(query => query.photosFirst === 'true')).toBe(true);
+    await page.goto('/?q=фото');
+    await expect.poll(() => queries.find(query => query.q === 'фото')).toBeTruthy();
+    expect(queries.find(query => query.q === 'фото').photosFirst).toBeUndefined();
+  });
+}

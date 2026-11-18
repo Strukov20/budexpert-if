@@ -57,7 +57,7 @@ export default function Home(){
     let alive = true
     setLoadingWeekProducts(true)
     setWeekStart(0)
-    getProducts({ productOfWeek: true, page: 1, limit: 12 })
+    getProducts({ productOfWeek: true, page: 1, limit: 12, photosFirst: true })
       .then((d)=>{
         if (!alive) return
         const items = Array.isArray(d?.items) ? d.items : (Array.isArray(d) ? d : [])
@@ -178,7 +178,9 @@ export default function Home(){
     productsAbortRef.current = controller
 
     setLoadingProducts(true)
-    getProducts({ category: cat, subcategory: subcat, type, q: debouncedSearch, page, limit: perPage }, { signal: controller.signal })
+    getProducts({ category: cat, subcategory: subcat, type, q: debouncedSearch, page, limit: perPage,
+      photosFirst: !cat && !subcat && !type && !debouncedSearch ? true : undefined,
+    }, { signal: controller.signal })
       .then(d=>{
         if (controller.signal.aborted) return
         if (productsReqIdRef.current !== reqId) return
