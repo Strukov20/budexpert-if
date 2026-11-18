@@ -72,6 +72,8 @@ const pickFirstImage = (imagesArr) => {
 
 // GET /api/products
 router.get("/", async (req, res) => {
+  const photosFirst = req.query.photosFirst === 'true' || req.query.photosFirst === '1';
+  if (req.query.photosFirst !== undefined && !['true', 'false', '1', '0'].includes(req.query.photosFirst)) return res.status(400).json({ message: 'Invalid photo sorting' });
   const { q, category, subcategory, type, productOfWeek } = req.query;
   const filter = {};
   for (const key of ['q', 'category', 'subcategory', 'type']) {
@@ -107,12 +109,12 @@ router.get("/", async (req, res) => {
   if (req.query.page !== undefined || req.query.limit !== undefined) {
     const skip = Math.max(0, (page - 1)) * limit;
     const [items, total] = await Promise.all([
-      catalogProducts(filter, { skip, limit }),
+      catalogProducts(filter, { skip, limit, photosFirst }),
       Product.countDocuments(filter)
     ]);
     return res.json({ items, total, page, limit, pages: Math.ceil(total / limit) });
   }
-  const products = await catalogProducts(filter);
+  const products = await catalogProducts(filter, { photosFirst });
   res.json(products);
 });
 
